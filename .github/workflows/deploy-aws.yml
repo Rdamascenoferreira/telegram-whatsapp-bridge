@@ -1,0 +1,83 @@
+name: Deploy AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
+          AWS_DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH }}
+          AWS_DEPLOY_SSH_KEY: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_DEPLOY_HOST" || (echo "Missing secret AWS_DEPLOY_HOST" && exit 1)
+          test -n "$AWS_DEPLOY_USER" || (echo "Missing secret AWS_DEPLOY_USER" && exit 1)
+          test -n "$AWS_DEPLOY_PATH" || (echo "Missing secret AWS_DEPLOY_PATH" && exit 1)
+          test -n "$AWS_DEPLOY_SSH_KEY" || (echo "Missing secret AWS_DEPLOY_SSH_KEY" && exit 1)
+
+      - name: Build release archive
+        run: |
+          set -euo pipefail
+          tar \
+            --exclude-vcs \
+            --exclude='./node_modules' \
+            --exclude='./.env' \
+            --exclude='./data' \
+            --exclude='./.wwebjs_auth' \
+            --exclude='./.wwebjs_cache' \
+            -czf release.tgz .
+
+      - name: Configure SSH
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_PORT: ${{ secrets.AWS_DEPLOY_PORT }}
+          AWS_DEPLOY_SSH_KEY: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$AWS_DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          ssh-keyscan -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: Upload release archive
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_PORT: ${{ secrets.AWS_DEPLOY_PORT }}
+          AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -P "${AWS_DEPLOY_PORT:-22}" release.tgz "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
+
+      - name: Run deploy script
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_PORT: ${{ secrets.AWS_DEPLOY_PORT }}
+          AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
+          AWS_DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH }}
+          AWS_DEPLOY_PM2_APP_NAME: ${{ secrets.AWS_DEPLOY_PM2_APP_NAME }}
+        run: |
+          set -euo pipefail
+          PM2_NAME="${AWS_DEPLOY_PM2_APP_NAME:-telegram-whatsapp-bridge}"
+          ssh -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' bash -s" \
+            < scripts/deploy-release.sh
+
+      - name: Healthcheck
+        if: ${{ secrets.AWS_DEPLOY_HEALTHCHECK_URL != '' }}
+        env:
+          AWS_DEPLOY_HEALTHCHECK_URL: ${{ secrets.AWS_DEPLOY_HEALTHCHECK_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 5 --retry-delay 5 "$AWS_DEPLOY_HEALTHCHECK_URL"

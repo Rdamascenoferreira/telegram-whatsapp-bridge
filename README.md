@@ -61,6 +61,9 @@ SESSION_SECRET=troque-por-um-segredo-forte
 GOOGLE_CLIENT_ID=seu-client-id
 GOOGLE_CLIENT_SECRET=seu-client-secret
 GOOGLE_CALLBACK_URL=http://localhost:3100/auth/google/callback
+APP_BASE_URL=http://localhost:3100
+PORT=3100
+NODE_ENV=production
 WHATSAPP_HEADLESS=true
 WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
@@ -84,6 +87,78 @@ WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
 
 O valor e em milissegundos. Nesta versao, o padrao ja foi elevado para `600000` (10 minutos), o que costuma ajudar em instancias Linux mais lentas.
+
+## Deploy na AWS
+
+Esta versao agora ja vem com:
+
+- healthcheck em `/api/health`
+- configuracao do PM2 em `ecosystem.config.cjs`
+- script de bootstrap do Ubuntu em `scripts/install-ubuntu.sh`
+- script de release em `scripts/deploy-release.sh`
+- workflow do GitHub Actions em `.github/workflows/deploy-aws.yml`
+
+### Preparacao inicial do servidor
+
+Copie o script para a EC2 a partir da sua maquina local:
+
+```bash
+scp scripts/install-ubuntu.sh ubuntu@SEU_HOST:/tmp/install-ubuntu.sh
+```
+
+Depois, no servidor Ubuntu, rode uma vez:
+
+```bash
+chmod +x install-ubuntu.sh
+APP_DIR=/var/www/telegram-whatsapp-bridge ./install-ubuntu.sh
+```
+
+Depois:
+
+```bash
+mkdir -p /var/www/telegram-whatsapp-bridge
+cd /var/www/telegram-whatsapp-bridge
+cp .env.example .env
+```
+
+Preencha o `.env` com as credenciais reais do servidor.
+
+### Segredos no GitHub
+
+No repositório do GitHub, crie estes `Repository secrets`:
+
+- `AWS_DEPLOY_HOST`: IP ou dominio da EC2
+- `AWS_DEPLOY_USER`: usuario SSH, por exemplo `ubuntu`
+- `AWS_DEPLOY_PORT`: porta SSH, normalmente `22`
+- `AWS_DEPLOY_PATH`: pasta do app no servidor, por exemplo `/var/www/telegram-whatsapp-bridge`
+- `AWS_DEPLOY_SSH_KEY`: chave privada SSH usada para entrar na EC2
+- `AWS_DEPLOY_PM2_APP_NAME`: opcional, nome do processo no PM2
+- `AWS_DEPLOY_HEALTHCHECK_URL`: opcional, URL publica do healthcheck, por exemplo `https://seu-dominio.com/api/health`
+
+### Como o deploy automatico funciona
+
+Cada `push` na branch `main`:
+
+1. monta um pacote da versao nova
+2. envia esse pacote por SSH para a EC2
+3. aplica a release no servidor sem sobrescrever `.env`, `data/`, `.wwebjs_auth/` e `.wwebjs_cache`
+4. roda `npm ci --omit=dev`
+5. reinicia a app com `pm2 startOrReload ecosystem.config.cjs --update-env`
+6. opcionalmente testa `/api/health`
+
+### Primeira subida no servidor
+
+Voce nao precisa fazer `git clone` na EC2 para o deploy automatico funcionar. Depois de:
+
+- instalar as dependencias com `install-ubuntu.sh`
+- criar o `.env`
+- cadastrar os segredos no GitHub
+
+voce pode disparar o primeiro deploy em:
+
+- `GitHub > Actions > Deploy AWS > Run workflow`
+
+Depois disso, cada `push` na `main` atualiza o servidor automaticamente.
 
 ## Dados locais
 
