@@ -24,6 +24,10 @@ const modernChromeUserAgent =
 const defaultWhatsAppHeadless = !['0', 'false', 'no', 'off'].includes(
   String(process.env.WHATSAPP_HEADLESS ?? 'true').trim().toLowerCase()
 );
+const defaultWhatsAppProtocolTimeoutMs = parseProtocolTimeout(
+  process.env.WHATSAPP_PROTOCOL_TIMEOUT_MS,
+  10 * 60 * 1000
+);
 const backgroundBrowserArgs = defaultWhatsAppHeadless
   ? ['--disable-gpu', '--mute-audio', '--hide-scrollbars', '--window-size=1280,900']
   : process.platform === 'win32'
@@ -209,7 +213,7 @@ export class UserBridgeRuntime {
       userAgent: modernChromeUserAgent,
       puppeteer: {
         headless: defaultWhatsAppHeadless,
-        protocolTimeout: 180000,
+        protocolTimeout: defaultWhatsAppProtocolTimeoutMs,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -897,6 +901,23 @@ export class UserBridgeRuntime {
         return;
       }
 
+      if (isProtocolTimeoutError(error)) {
+        this.log(
+          `A leitura dos grupos do WhatsApp excedeu o tempo limite de ${Math.round(
+            defaultWhatsAppProtocolTimeoutMs / 1000
+          )}s. Tente novamente ou aumente WHATSAPP_PROTOCOL_TIMEOUT_MS no servidor.`,
+          {
+            level: 'error',
+            type: 'groups_refresh_timeout',
+            increments: { errors: 1 },
+            metadata: {
+              protocolTimeoutMs: defaultWhatsAppProtocolTimeoutMs
+            }
+          }
+        );
+        return;
+      }
+
       this.log(`Falha ao listar grupos do WhatsApp: ${error.message}`, {
         level: 'error',
         type: 'groups_refresh_error',
@@ -1272,6 +1293,16 @@ function wait(delayMs) {
   });
 }
 
+function parseProtocolTimeout(value, fallbackMs) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isFinite(parsed) || parsed < 60_000) {
+    return fallbackMs;
+  }
+
+  return Math.min(parsed, 30 * 60 * 1000);
+}
+
 function isRecoverableWhatsAppTargetError(error) {
   const message = String(error?.message ?? error ?? '').toLowerCase();
   return (
@@ -1280,4 +1311,9 @@ function isRecoverableWhatsAppTargetError(error) {
     message.includes('execution context was destroyed') ||
     message.includes('most likely because of a navigation')
   );
+}
+
+function isProtocolTimeoutError(error) {
+  const message = String(error?.message ?? error ?? '').toLowerCase();
+  return message.includes('runtime.callfunctionon timed out');
 }

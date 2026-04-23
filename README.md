@@ -61,6 +61,8 @@ SESSION_SECRET=troque-por-um-segredo-forte
 GOOGLE_CLIENT_ID=seu-client-id
 GOOGLE_CLIENT_SECRET=seu-client-secret
 GOOGLE_CALLBACK_URL=http://localhost:3100/auth/google/callback
+WHATSAPP_HEADLESS=true
+WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
 
 No PowerShell, voce pode fazer assim:
@@ -72,6 +74,16 @@ npm.cmd start
 ```
 
 Se nao definir essas variaveis, o painel continua funcionando com cadastro por email e senha.
+
+## Ajuste para servidor AWS/Linux
+
+Se a conta tiver muitos chats e a leitura dos grupos do WhatsApp demorar no servidor, aumente o tempo do protocolo do Chromium:
+
+```env
+WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
+```
+
+O valor e em milissegundos. Nesta versao, o padrao ja foi elevado para `600000` (10 minutos), o que costuma ajudar em instancias Linux mais lentas.
 
 ## Dados locais
 
