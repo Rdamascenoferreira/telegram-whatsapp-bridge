@@ -30,6 +30,9 @@ jobs:
       - name: Build release archive
         run: |
           set -euo pipefail
+          ARCHIVE_PATH="/tmp/telegram-whatsapp-bridge-release.tgz"
+          rm -f "$ARCHIVE_PATH"
+
           tar \
             --exclude-vcs \
             --exclude='./node_modules' \
@@ -38,7 +41,7 @@ jobs:
             --exclude='./.wwebjs_auth' \
             --exclude='./.wwebjs_cache' \
             --exclude='./release.tgz' \
-            -czf release.tgz .
+            -czf "$ARCHIVE_PATH" .
 
       - name: Configure SSH
         env:
@@ -59,7 +62,7 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
-          scp -P "${AWS_DEPLOY_PORT:-22}" release.tgz "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
+          scp -P "${AWS_DEPLOY_PORT:-22}" /tmp/telegram-whatsapp-bridge-release.tgz "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
 
       - name: Run deploy script
         env:
