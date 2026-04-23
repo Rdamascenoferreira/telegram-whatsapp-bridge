@@ -75,9 +75,14 @@ jobs:
             < scripts/deploy-release.sh
 
       - name: Healthcheck
-        if: ${{ secrets.AWS_DEPLOY_HEALTHCHECK_URL != '' }}
         env:
           AWS_DEPLOY_HEALTHCHECK_URL: ${{ secrets.AWS_DEPLOY_HEALTHCHECK_URL }}
         run: |
           set -euo pipefail
+
+          if [ -z "${AWS_DEPLOY_HEALTHCHECK_URL:-}" ]; then
+            echo "Healthcheck skipped: AWS_DEPLOY_HEALTHCHECK_URL not set"
+            exit 0
+          fi
+
           curl --fail --show-error --silent --retry 5 --retry-delay 5 "$AWS_DEPLOY_HEALTHCHECK_URL"
