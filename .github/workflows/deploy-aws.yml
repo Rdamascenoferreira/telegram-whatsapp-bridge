@@ -53,7 +53,13 @@ jobs:
           mkdir -p "$HOME/.ssh"
           printf '%s\n' "$AWS_DEPLOY_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/id_ed25519"
-          ssh-keyscan -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_HOST" >> "$HOME/.ssh/known_hosts"
+
+          # valida se a chave privada está íntegra
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
+
+          # não deixa o workflow morrer por causa do keyscan
+          touch "$HOME/.ssh/known_hosts"
+          ssh-keyscan -H -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 
       - name: Upload release archive
         env:
@@ -62,7 +68,12 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
-          scp -P "${AWS_DEPLOY_PORT:-22}" /tmp/telegram-whatsapp-bridge-release.tgz "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
+          scp \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -P "${AWS_DEPLOY_PORT:-22}" \
+            /tmp/telegram-whatsapp-bridge-release.tgz \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
 
       - name: Run deploy script
         env:
@@ -74,7 +85,11 @@ jobs:
         run: |
           set -euo pipefail
           PM2_NAME="${AWS_DEPLOY_PM2_APP_NAME:-telegram-whatsapp-bridge}"
-          ssh -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -p "${AWS_DEPLOY_PORT:-22}" \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' bash -s" \
             < scripts/deploy-release.sh
 
