@@ -2,7 +2,17 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import TelegramBot from 'node-telegram-bot-api';
 import pkg from 'whatsapp-web.js';
+import { loadActivityForUser } from './activityStore.js';
+import {
+  listUsersForAdmin,
+  updateUserAdminSettings,
+  userAccountStatusOptions,
+  userBillingStatusOptions,
+  userPlanOptions,
+  userRoleOptions
+} from './authStore.js';
 import { BridgeManager } from './bridgeManager.js';
+import { loadConfigForUser } from './configStore.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
@@ -35,15 +45,20 @@ export class BridgeApp {
 
   attachRoutes(app) {
     const requireAuth = this.auth?.requireAuth() ?? ((_request, _response, next) => next());
+    const requireAdmin = this.auth?.requireAdmin() ?? ((_request, _response, next) => next());
     const respondWithState = async (request, response) => {
       const auth = this.auth
         ? this.auth.getClientSession(request.user)
         : { authenticated: true, googleEnabled: false, user: null };
       const runtime = request.user ? await this.manager.getRuntimeForUser(request.user) : null;
+      const admin = this.auth?.isAdminUser(request.user)
+        ? await this.buildAdminState()
+        : null;
 
       response.json({
         auth,
-        ...(runtime ? await runtime.getState() : {})
+        ...(runtime ? await runtime.getState() : {}),
+        ...(admin ? { admin } : {})
       });
     };
 
@@ -112,6 +127,69 @@ export class BridgeApp {
       await runtime.reconnectWhatsApp();
       await respondWithState(request, response);
     });
+
+    app.get('/api/admin/users', requireAdmin, async (_request, response) => {
+      response.json(await this.buildAdminState());
+    });
+
+    app.post('/api/admin/users/:userId', requireAdmin, async (request, response) => {
+      const updatedUser = await updateUserAdminSettings(String(request.params.userId ?? '').trim(), {
+        role: request.body?.role,
+        plan: request.body?.plan,
+        accountStatus: request.body?.accountStatus,
+        billingStatus: request.body?.billingStatus,
+        internalNote: request.body?.internalNote
+      });
+
+      if (request.user?.id === updatedUser.id) {
+        Object.assign(request.user, updatedUser);
+      }
+
+      await respondWithState(request, response);
+    });
+  }
+
+  async buildAdminState() {
+    const users = await listUsersForAdmin();
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
+      const [config, activity] = await Promise.all([
+        loadConfigForUser(user.id),
+        loadActivityForUser(user.id)
+      ]);
+      const runtime = this.manager.runtimes.get(user.id);
+
+      return {
+        ...user,
+        workspace: {
+          bridgeEnabled: Boolean(config.bridgeEnabled),
+          telegramConfigured: Boolean(config.telegramBotToken && config.telegramChannel),
+          telegramChannel: config.telegramChannel || '',
+          selectedGroupCount: Array.isArray(config.selectedGroupIds) ? config.selectedGroupIds.length : 0,
+          whatsAppStatus: runtime?.whatsAppStatus || 'offline',
+          telegramStatus: runtime?.telegramStatus || 'offline',
+          whatsAppPhone: runtime?.whatsAppPhone || null
+        },
+        metrics: {
+          totalTelegramReceived: activity.metrics.totalTelegramReceived || 0,
+          totalForwardedMessages: activity.metrics.totalForwardedMessages || 0,
+          totalWhatsAppDeliveries: activity.metrics.totalWhatsAppDeliveries || 0,
+          totalErrors: activity.metrics.totalErrors || 0,
+          lastActivityAt: activity.metrics.lastActivityAt || null,
+          lastForwardedAt: activity.metrics.lastForwardedAt || null
+        }
+      };
+    }));
+
+    return {
+      summary: buildAdminSummary(enrichedUsers),
+      options: {
+        roles: userRoleOptions,
+        plans: userPlanOptions,
+        accountStatuses: userAccountStatusOptions,
+        billingStatuses: userBillingStatusOptions
+      },
+      users: enrichedUsers
+    };
   }
 
   async getState() {
@@ -587,6 +665,15 @@ function fallbackText(message) {
   return 'Mensagem encaminhada do Telegram.';
 }
 
+function buildAdminSummary(users) {
+  return {
+    totalUsers: users.length,
+    activeBridges: users.filter((user) => user.workspace?.bridgeEnabled).length,
+    readySessions: users.filter((user) => user.workspace?.whatsAppStatus === 'ready').length,
+    paidPlans: users.filter((user) => ['starter', 'pro', 'enterprise'].includes(user.plan)).length
+  };
+}
+
 function renderPage() {
   return `<!doctype html>
 <html lang="pt-BR">
@@ -975,7 +1062,10 @@ function renderPage() {
         color: var(--ink);
       }
 
-      input[type="text"], input[type="password"] {
+      input[type="text"],
+      input[type="password"],
+      select,
+      textarea {
         width: 100%;
         padding: 15px 16px;
         border-radius: 16px;
@@ -989,12 +1079,24 @@ function renderPage() {
           0 1px 0 rgba(255, 255, 255, 0.06);
       }
 
-      input::placeholder {
+      textarea {
+        min-height: 132px;
+        resize: vertical;
+      }
+
+      select {
+        appearance: none;
+      }
+
+      input::placeholder,
+      textarea::placeholder {
         color: color-mix(in srgb, var(--muted) 76%, transparent);
       }
 
       input[type="text"]:focus,
-      input[type="password"]:focus {
+      input[type="password"]:focus,
+      select:focus,
+      textarea:focus {
         outline: none;
         border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
         box-shadow: 0 0 0 4px var(--ring);
@@ -1329,6 +1431,369 @@ function renderPage() {
         line-height: 1.65;
       }
 
+      .app-shell {
+        display: grid;
+        gap: 18px;
+      }
+
+      .dashboard-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        gap: 18px;
+        align-items: stretch;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .dashboard-hero::after {
+        content: '';
+        position: absolute;
+        inset: auto -80px -110px auto;
+        width: 280px;
+        height: 280px;
+        border-radius: 999px;
+        background: radial-gradient(circle, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%);
+        pointer-events: none;
+      }
+
+      .dashboard-hero-copy {
+        position: relative;
+        z-index: 1;
+      }
+
+      .dashboard-title {
+        margin: 0 0 10px;
+        font-family: "Sora", "Manrope", sans-serif;
+        font-size: clamp(26px, 3vw, 38px);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+      }
+
+      .dashboard-copy,
+      .section-copy {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.68;
+      }
+
+      .dashboard-badges {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+
+      .soft-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: var(--soft);
+        border: 1px solid var(--border);
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .dashboard-hero-stats {
+        display: grid;
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-stat {
+        padding: 18px;
+        border-radius: 22px;
+        border: 1px solid var(--page-stroke);
+        background: color-mix(in srgb, var(--panel-strong) 90%, transparent);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+
+      .hero-stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .hero-stat strong {
+        display: block;
+        font-size: clamp(20px, 2.2vw, 30px);
+        line-height: 1.25;
+        letter-spacing: -0.03em;
+      }
+
+      .workspace-grid,
+      .admin-layout {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .workspace-grid-bottom {
+        align-items: start;
+      }
+
+      .section-card {
+        display: grid;
+        gap: 18px;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+      }
+
+      .section-head h2,
+      .section-head h3,
+      .meta-panel h4 {
+        margin: 0 0 6px;
+        font-family: "Sora", "Manrope", sans-serif;
+      }
+
+      .section-kicker {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .section-head-inline {
+        align-items: center;
+      }
+
+      .connection-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+        gap: 18px;
+        align-items: center;
+      }
+
+      .connection-label {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .connection-value,
+      .connection-issue {
+        margin: 0 0 14px;
+      }
+
+      .qr-shell {
+        display: grid;
+        place-items: center;
+        min-height: 220px;
+        border-radius: 24px;
+        border: 1px dashed var(--border);
+        background: color-mix(in srgb, var(--soft) 92%, transparent);
+      }
+
+      .activity-feed,
+      .admin-user-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .activity-feed {
+        max-height: 420px;
+        overflow: auto;
+      }
+
+      .activity-item {
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: var(--group-bg);
+      }
+
+      .activity-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+
+      .activity-item p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .activity-item[data-level="error"] {
+        border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+        background: color-mix(in srgb, var(--danger) 10%, var(--group-bg));
+      }
+
+      .technical-log-shell {
+        border-top: 1px solid var(--page-stroke);
+        padding-top: 4px;
+      }
+
+      .technical-log-shell summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 700;
+        padding: 6px 0;
+      }
+
+      .admin-shell {
+        display: grid;
+        gap: 18px;
+      }
+
+      .admin-head {
+        margin-top: 6px;
+      }
+
+      .admin-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .admin-search {
+        margin: 0;
+      }
+
+      .admin-user-list {
+        max-height: 620px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .admin-user-card {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--group-bg);
+        cursor: pointer;
+        width: 100%;
+        color: var(--ink);
+        text-align: left;
+        justify-content: flex-start;
+        box-shadow: none;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+      }
+
+      .admin-user-card:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+        box-shadow: none;
+      }
+
+      .admin-user-card.active {
+        border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+        background: color-mix(in srgb, var(--accent) 10%, var(--group-bg));
+        box-shadow: 0 18px 34px color-mix(in srgb, var(--accent) 12%, transparent);
+      }
+
+      .admin-user-card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .admin-user-card-title {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .admin-user-card-email {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        word-break: break-word;
+      }
+
+      .admin-user-pills,
+      .admin-user-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .mini-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .admin-user-meta span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .admin-detail-card {
+        align-content: start;
+      }
+
+      .admin-user-form {
+        display: grid;
+        gap: 16px;
+      }
+
+      .form-grid,
+      .admin-detail-meta,
+      .admin-insights-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .admin-detail-meta {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .meta-card,
+      .meta-panel {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+      }
+
+      .meta-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .meta-card strong {
+        display: block;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .meta-panel p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
       [hidden] {
         display: none !important;
       }
@@ -1358,7 +1823,15 @@ function renderPage() {
 
         .auth-shell,
         .grid,
-        .metrics-grid {
+        .metrics-grid,
+        .workspace-grid,
+        .admin-layout,
+        .admin-summary-grid,
+        .dashboard-hero,
+        .connection-layout,
+        .form-grid,
+        .admin-detail-meta,
+        .admin-insights-grid {
           grid-template-columns: 1fr;
         }
 
@@ -1386,6 +1859,16 @@ function renderPage() {
         .auth-actions button[type="submit"] {
           width: 100%;
         }
+
+        .section-head,
+        .section-head-inline {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .admin-search {
+          width: 100%;
+        }
       }
 
       @media (max-width: 640px) {
@@ -1400,6 +1883,15 @@ function renderPage() {
 
         .auth-title,
         .auth-panel-title {
+          font-size: 26px;
+        }
+
+        .dashboard-title {
+          font-size: 28px;
+        }
+
+        .hero-stat strong,
+        .metric-value {
           font-size: 26px;
         }
       }
@@ -1538,42 +2030,33 @@ function renderPage() {
         </div>
       </section>
 
-      <div id="app-shell" hidden>
-        <section class="grid">
-          <div class="card">
-            <h2>Origem no Telegram</h2>
-            <form id="settings-form">
-              <label for="telegramBotToken">Token do bot</label>
-              <input id="telegramBotToken" name="telegramBotToken" type="password" placeholder="123456:ABC..." />
-
-              <label for="telegramChannel">Canal ou grupo</label>
-              <input id="telegramChannel" name="telegramChannel" type="text" placeholder="@seucanal ou -1001234567890" />
-
-              <div class="row">
-                <button type="submit">Salvar configuração</button>
-              </div>
-            </form>
-            <p class="hint">
-              Defina a origem que será monitorada. Em canais, deixe o bot como administrador.
-              Em grupos, mantenha o bot dentro da conversa para receber novas mensagens.
+      <div id="app-shell" class="app-shell" hidden>
+        <section class="card dashboard-hero">
+          <div class="dashboard-hero-copy">
+            <p class="section-kicker">Painel operacional</p>
+            <h2 class="dashboard-title">Central de controle da sua automação</h2>
+            <p class="dashboard-copy">
+              Acompanhe a saúde da ponte, ajuste a origem no Telegram, gerencie os grupos de destino
+              e mantenha a operação organizada em uma interface única.
             </p>
+            <div class="dashboard-badges">
+              <span id="workspace-plan-badge" class="soft-pill">Plano Beta</span>
+              <span id="workspace-account-badge" class="soft-pill">Conta ativa</span>
+            </div>
           </div>
-
-          <div class="card">
-            <h2>Status</h2>
-            <div class="status">
-              <div class="pill" id="system-status">Sistema: carregando...</div>
-              <div class="pill" id="wa-status">WhatsApp: carregando...</div>
-              <div class="pill" id="tg-status">Telegram: carregando...</div>
-            </div>
-            <img id="qr" class="qr" alt="QR Code do WhatsApp" />
-            <p class="hint" id="wa-phone"></p>
-            <p class="hint" id="wa-issue" hidden></p>
-            <div class="row">
-              <button id="system-toggle" type="button">Carregando...</button>
-              <button class="secondary" id="refresh-groups" type="button">Atualizar grupos</button>
-              <button class="secondary" id="whatsapp-action" type="button">WhatsApp</button>
-            </div>
+          <div class="dashboard-hero-stats">
+            <article class="hero-stat">
+              <span>Grupos selecionados</span>
+              <strong id="hero-group-count">0</strong>
+            </article>
+            <article class="hero-stat">
+              <span>Mensagens encaminhadas</span>
+              <strong id="hero-forward-count">0</strong>
+            </article>
+            <article class="hero-stat">
+              <span>Última atividade</span>
+              <strong id="hero-last-activity">Sem atividade</strong>
+            </article>
           </div>
         </section>
 
@@ -1585,7 +2068,7 @@ function renderPage() {
           </article>
 
           <article class="metric-card">
-            <span class="metric-label">Encaminhamentos</span>
+            <span class="metric-label">Lotes encaminhados</span>
             <strong id="metric-forward-batches" class="metric-value">0</strong>
             <p id="metric-forward-meta" class="metric-meta">Nenhum envio realizado ainda.</p>
           </article>
@@ -1603,23 +2086,248 @@ function renderPage() {
           </article>
         </section>
 
-        <section class="card" style="margin-top: 18px;">
-          <h2>Grupos do WhatsApp com permissão de admin</h2>
-          <input
-            id="group-search"
-            class="search-input"
-            type="text"
-            placeholder="Busque um grupo pelo nome"
-          />
-          <div id="groups" class="groups"></div>
-          <div class="row">
-            <button id="save-groups" type="button">Salvar grupos selecionados</button>
-          </div>
+        <section class="workspace-grid">
+          <article class="card section-card">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">Origem</p>
+                <h3>Configuração do Telegram</h3>
+                <p class="section-copy">
+                  Defina a conta bot e a origem monitorada para iniciar a ponte.
+                </p>
+              </div>
+            </div>
+
+            <form id="settings-form">
+              <label for="telegramBotToken">Token do bot</label>
+              <input id="telegramBotToken" name="telegramBotToken" type="password" placeholder="123456:ABC..." />
+
+              <label for="telegramChannel">Canal ou grupo</label>
+              <input id="telegramChannel" name="telegramChannel" type="text" placeholder="@seucanal ou -1001234567890" />
+
+              <div class="row">
+                <button type="submit">Salvar configuração</button>
+              </div>
+            </form>
+
+            <p class="hint">
+              Em canais, deixe o bot como administrador. Em grupos, mantenha o bot dentro da conversa
+              para receber as novas mensagens.
+            </p>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">Conexões</p>
+                <h3>Saúde da operação</h3>
+                <p class="section-copy">
+                  Veja o status da ponte, gere um novo QR quando necessário e controle a operação em tempo real.
+                </p>
+              </div>
+            </div>
+
+            <div class="status">
+              <div class="pill" id="system-status">Sistema: carregando...</div>
+              <div class="pill" id="wa-status">WhatsApp: carregando...</div>
+              <div class="pill" id="tg-status">Telegram: carregando...</div>
+            </div>
+
+            <div class="connection-layout">
+              <div class="connection-copy">
+                <p class="connection-label">Sessão atual</p>
+                <p class="hint connection-value" id="wa-phone"></p>
+                <p class="hint connection-issue" id="wa-issue" hidden></p>
+                <div class="row">
+                  <button id="system-toggle" type="button">Carregando...</button>
+                  <button class="secondary" id="refresh-groups" type="button">Atualizar grupos</button>
+                  <button class="secondary" id="whatsapp-action" type="button">WhatsApp</button>
+                </div>
+              </div>
+
+              <div class="qr-shell">
+                <img id="qr" class="qr" alt="QR Code do WhatsApp" />
+              </div>
+            </div>
+          </article>
         </section>
 
-        <section class="card" style="margin-top: 18px;">
-          <h2>Atividade recente</h2>
-          <pre id="logs">Carregando atividade...</pre>
+        <section class="workspace-grid workspace-grid-bottom">
+          <article class="card section-card">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">Destinos</p>
+                <h3>Grupos do WhatsApp</h3>
+                <p class="section-copy">
+                  Escolha os grupos que podem receber os posts da sua ponte e filtre rapidamente por nome.
+                </p>
+              </div>
+            </div>
+
+            <input
+              id="group-search"
+              class="search-input"
+              type="text"
+              placeholder="Busque um grupo pelo nome"
+            />
+            <div id="groups" class="groups"></div>
+            <div class="row">
+              <button id="save-groups" type="button">Salvar grupos selecionados</button>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">Atividade</p>
+                <h3>Histórico recente</h3>
+                <p class="section-copy">
+                  Acompanhe os eventos mais recentes da sua operação para validar entregas e identificar falhas.
+                </p>
+              </div>
+            </div>
+
+            <div id="activity-feed" class="activity-feed"></div>
+            <details class="technical-log-shell">
+              <summary>Ver log técnico</summary>
+              <pre id="logs">Carregando atividade...</pre>
+            </details>
+          </article>
+        </section>
+
+        <section id="admin-shell" class="admin-shell" hidden>
+          <div class="section-head admin-head">
+            <div>
+              <p class="section-kicker">Administração</p>
+              <h2>Controle de contas e acesso</h2>
+              <p class="section-copy">
+                Gerencie usuários cadastrados, acompanhe a saúde das contas e organize a base para planos e cobrança.
+              </p>
+            </div>
+          </div>
+
+          <section class="admin-summary-grid">
+            <article class="metric-card">
+              <span class="metric-label">Usuários cadastrados</span>
+              <strong id="admin-total-users" class="metric-value">0</strong>
+              <p class="metric-meta">Base total de contas com acesso ao painel.</p>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Pontes ativas</span>
+              <strong id="admin-active-bridges" class="metric-value">0</strong>
+              <p class="metric-meta">Contas com automação ligada neste momento.</p>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Sessões prontas</span>
+              <strong id="admin-ready-sessions" class="metric-value">0</strong>
+              <p class="metric-meta">Contas com WhatsApp conectado e pronto para operar.</p>
+            </article>
+
+            <article class="metric-card">
+              <span class="metric-label">Planos pagos</span>
+              <strong id="admin-paid-plans" class="metric-value">0</strong>
+              <p class="metric-meta">Contas marcadas como pagas ou em operação comercial.</p>
+            </article>
+          </section>
+
+          <section class="admin-layout">
+            <article class="card section-card">
+              <div class="section-head section-head-inline">
+                <div>
+                  <p class="section-kicker">Clientes</p>
+                  <h3>Usuários cadastrados</h3>
+                </div>
+                <input
+                  id="admin-user-search"
+                  class="search-input admin-search"
+                  type="text"
+                  placeholder="Busque por nome ou e-mail"
+                />
+              </div>
+
+              <div id="admin-user-list" class="admin-user-list"></div>
+            </article>
+
+            <article class="card section-card admin-detail-card">
+              <div class="section-head">
+                <div>
+                  <p class="section-kicker">Conta selecionada</p>
+                  <h3 id="admin-user-name">Selecione um usuário</h3>
+                  <p id="admin-user-email" class="section-copy">
+                    Escolha um usuário na lista para gerenciar plano, acesso e observações internas.
+                  </p>
+                </div>
+              </div>
+
+              <form id="admin-user-form" class="admin-user-form">
+                <input id="admin-user-id" type="hidden" />
+
+                <div class="form-grid">
+                  <div>
+                    <label for="admin-user-role">Permissão</label>
+                    <select id="admin-user-role"></select>
+                  </div>
+
+                  <div>
+                    <label for="admin-user-plan">Plano</label>
+                    <select id="admin-user-plan"></select>
+                  </div>
+
+                  <div>
+                    <label for="admin-user-account-status">Status da conta</label>
+                    <select id="admin-user-account-status"></select>
+                  </div>
+
+                  <div>
+                    <label for="admin-user-billing-status">Status de cobrança</label>
+                    <select id="admin-user-billing-status"></select>
+                  </div>
+                </div>
+
+                <label for="admin-user-note">Observação interna</label>
+                <textarea
+                  id="admin-user-note"
+                  rows="5"
+                  placeholder="Anotações internas sobre onboarding, cobrança, suporte ou próximos passos."
+                ></textarea>
+
+                <div class="row">
+                  <button id="admin-save-button" type="submit">Salvar alterações da conta</button>
+                </div>
+              </form>
+
+              <div class="admin-detail-meta">
+                <article class="meta-card">
+                  <span class="meta-label">Criada em</span>
+                  <strong id="admin-user-created">-</strong>
+                </article>
+
+                <article class="meta-card">
+                  <span class="meta-label">Último login</span>
+                  <strong id="admin-user-last-login">-</strong>
+                </article>
+
+                <article class="meta-card">
+                  <span class="meta-label">Última atividade</span>
+                  <strong id="admin-user-last-activity">-</strong>
+                </article>
+              </div>
+
+              <div class="admin-insights-grid">
+                <article class="meta-panel">
+                  <h4>Workspace</h4>
+                  <p id="admin-user-workspace">Selecione um usuário para ver o resumo operacional.</p>
+                </article>
+
+                <article class="meta-panel">
+                  <h4>Desempenho</h4>
+                  <p id="admin-user-performance">Selecione um usuário para ver métricas resumidas da operação.</p>
+                </article>
+              </div>
+            </article>
+          </section>
         </section>
       </div>
     </main>
@@ -1654,6 +2362,12 @@ function renderPage() {
       const metricDeliveriesMeta = document.getElementById('metric-deliveries-meta');
       const metricErrors = document.getElementById('metric-errors');
       const metricErrorsMeta = document.getElementById('metric-errors-meta');
+      const workspacePlanBadge = document.getElementById('workspace-plan-badge');
+      const workspaceAccountBadge = document.getElementById('workspace-account-badge');
+      const heroGroupCount = document.getElementById('hero-group-count');
+      const heroForwardCount = document.getElementById('hero-forward-count');
+      const heroLastActivity = document.getElementById('hero-last-activity');
+      const activityFeed = document.getElementById('activity-feed');
       const waPhone = document.getElementById('wa-phone');
       const waIssue = document.getElementById('wa-issue');
       const qr = document.getElementById('qr');
@@ -1663,10 +2377,33 @@ function renderPage() {
       const refreshGroupsButton = document.getElementById('refresh-groups');
       const whatsAppActionButton = document.getElementById('whatsapp-action');
       const groupSearchInput = document.getElementById('group-search');
+      const adminShell = document.getElementById('admin-shell');
+      const adminTotalUsers = document.getElementById('admin-total-users');
+      const adminActiveBridges = document.getElementById('admin-active-bridges');
+      const adminReadySessions = document.getElementById('admin-ready-sessions');
+      const adminPaidPlans = document.getElementById('admin-paid-plans');
+      const adminUserSearchInput = document.getElementById('admin-user-search');
+      const adminUserList = document.getElementById('admin-user-list');
+      const adminUserForm = document.getElementById('admin-user-form');
+      const adminSaveButton = document.getElementById('admin-save-button');
+      const adminUserIdInput = document.getElementById('admin-user-id');
+      const adminUserName = document.getElementById('admin-user-name');
+      const adminUserEmail = document.getElementById('admin-user-email');
+      const adminUserRole = document.getElementById('admin-user-role');
+      const adminUserPlan = document.getElementById('admin-user-plan');
+      const adminUserAccountStatus = document.getElementById('admin-user-account-status');
+      const adminUserBillingStatus = document.getElementById('admin-user-billing-status');
+      const adminUserNote = document.getElementById('admin-user-note');
+      const adminUserCreated = document.getElementById('admin-user-created');
+      const adminUserLastLogin = document.getElementById('admin-user-last-login');
+      const adminUserLastActivity = document.getElementById('admin-user-last-activity');
+      const adminUserWorkspace = document.getElementById('admin-user-workspace');
+      const adminUserPerformance = document.getElementById('admin-user-performance');
       let currentState = null;
       let authMode = 'login';
       let selectedGroupIds = new Set();
       let selectedGroupIdsDirty = false;
+      let selectedAdminUserId = '';
 
       async function fetchState() {
         const response = await fetch('/api/state');
@@ -1686,8 +2423,10 @@ function renderPage() {
         if (!auth.authenticated) {
           authShell.hidden = false;
           appShell.hidden = true;
+          adminShell.hidden = true;
           selectedGroupIdsDirty = false;
           selectedGroupIds = new Set();
+          selectedAdminUserId = '';
           return;
         }
 
@@ -1727,7 +2466,10 @@ function renderPage() {
         whatsAppActionButton.disabled = !whatsAppAction || Boolean(whatsAppAction.disabled);
         whatsAppActionButton.textContent = whatsAppAction?.label || 'WhatsApp';
         whatsAppActionButton.dataset.action = whatsAppAction?.type || '';
+        renderWorkspaceHero(auth, state);
         renderMetrics(state.metrics || {}, state.activity || []);
+        renderActivityFeed(state.activity || []);
+        renderAdminArea(auth, state.admin || null);
 
         if (state.qrDataUrl) {
           qr.src = state.qrDataUrl;
@@ -1760,6 +2502,292 @@ function renderPage() {
 
         metricErrors.textContent = formatNumber(metrics.totalErrors || 0);
         metricErrorsMeta.textContent = buildErrorMeta(metrics, activity);
+      }
+
+      function renderWorkspaceHero(auth, state) {
+        const user = auth.user || {};
+        const metrics = state.metrics || {};
+
+        workspacePlanBadge.textContent = 'Plano ' + humanizePlan(user.plan);
+        workspaceAccountBadge.textContent = 'Conta ' + humanizeAccountStatus(user.accountStatus);
+        heroGroupCount.textContent = formatNumber(metrics.selectedGroupCount || 0);
+        heroForwardCount.textContent = formatNumber(metrics.totalForwardedMessages || 0);
+        heroLastActivity.textContent = metrics.lastActivityAt
+          ? formatDateTime(metrics.lastActivityAt)
+          : 'Sem atividade';
+      }
+
+      function renderActivityFeed(activity) {
+        activityFeed.innerHTML = '';
+
+        if (!Array.isArray(activity) || !activity.length) {
+          activityFeed.innerHTML = '<div class="activity-item"><strong>Nenhuma atividade recente</strong><p>Assim que sua ponte começar a operar, os eventos aparecerão aqui.</p></div>';
+          return;
+        }
+
+        activity.slice(0, 12).forEach((event) => {
+          const item = document.createElement('article');
+          item.className = 'activity-item';
+          item.dataset.level = event.level || 'info';
+          item.innerHTML = \`
+            <strong>\${escapeHtml(humanizeMessage(event.message || 'Evento registrado'))}</strong>
+            <p>\${escapeHtml(humanizeActivityMeta(event))}</p>
+          \`;
+          activityFeed.appendChild(item);
+        });
+      }
+
+      function renderAdminArea(auth, admin) {
+        const isAdmin = auth.user?.role === 'admin';
+
+        adminShell.hidden = !isAdmin;
+
+        if (!isAdmin || !admin) {
+          return;
+        }
+
+        renderAdminSummary(admin.summary || {});
+        populateAdminOptions(admin.options || {});
+        renderAdminUsers(admin.users || []);
+      }
+
+      function renderAdminSummary(summary) {
+        adminTotalUsers.textContent = formatNumber(summary.totalUsers || 0);
+        adminActiveBridges.textContent = formatNumber(summary.activeBridges || 0);
+        adminReadySessions.textContent = formatNumber(summary.readySessions || 0);
+        adminPaidPlans.textContent = formatNumber(summary.paidPlans || 0);
+      }
+
+      function populateAdminOptions(options) {
+        populateSelect(adminUserRole, options.roles || []);
+        populateSelect(adminUserPlan, options.plans || []);
+        populateSelect(adminUserAccountStatus, options.accountStatuses || []);
+        populateSelect(adminUserBillingStatus, options.billingStatuses || []);
+      }
+
+      function populateSelect(selectElement, values) {
+        const currentValue = selectElement.value;
+        selectElement.innerHTML = '';
+
+        values.forEach((value) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = humanizeAdminOption(selectElement.id, value);
+          selectElement.appendChild(option);
+        });
+
+        if (values.includes(currentValue)) {
+          selectElement.value = currentValue;
+        }
+      }
+
+      function renderAdminUsers(users) {
+        const query = normalize(adminUserSearchInput.value);
+        const filteredUsers = query
+          ? users.filter((user) => normalize(user.name).includes(query) || normalize(user.email).includes(query))
+          : users;
+
+        if (!selectedAdminUserId || !filteredUsers.some((user) => user.id === selectedAdminUserId)) {
+          selectedAdminUserId = filteredUsers[0]?.id || '';
+        }
+
+        adminUserList.innerHTML = '';
+
+        if (!filteredUsers.length) {
+          adminUserList.innerHTML = '<div class="activity-item"><strong>Nenhum usuário encontrado</strong><p>Tente outro termo de busca para localizar a conta desejada.</p></div>';
+          renderAdminUserDetail(null);
+          return;
+        }
+
+        filteredUsers.forEach((user) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'admin-user-card' + (user.id === selectedAdminUserId ? ' active' : '');
+          item.innerHTML = \`
+            <div class="admin-user-card-header">
+              <div>
+                <p class="admin-user-card-title">\${escapeHtml(user.name || user.email)}</p>
+                <p class="admin-user-card-email">\${escapeHtml(user.email)}</p>
+              </div>
+              <span class="mini-pill">\${escapeHtml(humanizeRole(user.role))}</span>
+            </div>
+            <div class="admin-user-pills">
+              <span class="mini-pill">\${escapeHtml(humanizePlan(user.plan))}</span>
+              <span class="mini-pill">\${escapeHtml(humanizeAccountStatus(user.accountStatus))}</span>
+              <span class="mini-pill">\${escapeHtml(humanizeBillingStatus(user.billingStatus))}</span>
+            </div>
+            <div class="admin-user-meta">
+              <span>Último login: \${escapeHtml(user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'Nunca')}</span>
+              <span>WhatsApp: \${escapeHtml(humanizeStatusToken(user.workspace?.whatsAppStatus))}</span>
+            </div>
+          \`;
+          item.addEventListener('click', () => {
+            selectedAdminUserId = user.id;
+            renderAdminUsers(users);
+          });
+          adminUserList.appendChild(item);
+        });
+
+        renderAdminUserDetail(filteredUsers.find((user) => user.id === selectedAdminUserId) || null);
+      }
+
+      function renderAdminUserDetail(user) {
+        const hasUser = Boolean(user);
+
+        adminUserIdInput.value = user?.id || '';
+        adminUserName.textContent = user?.name || 'Selecione um usuário';
+        adminUserEmail.textContent = user
+          ? user.email
+          : 'Escolha um usuário na lista para gerenciar plano, acesso e observações internas.';
+
+        adminUserForm.querySelectorAll('select, textarea, button').forEach((element) => {
+          element.disabled = !hasUser;
+        });
+
+        if (!hasUser) {
+          adminUserRole.value = '';
+          adminUserPlan.value = '';
+          adminUserAccountStatus.value = '';
+          adminUserBillingStatus.value = '';
+          adminUserNote.value = '';
+          adminUserCreated.textContent = '-';
+          adminUserLastLogin.textContent = '-';
+          adminUserLastActivity.textContent = '-';
+          adminUserWorkspace.textContent = 'Selecione um usuário para ver o resumo operacional.';
+          adminUserPerformance.textContent = 'Selecione um usuário para ver métricas resumidas da operação.';
+          return;
+        }
+
+        adminUserRole.value = user.role || 'member';
+        adminUserPlan.value = user.plan || 'beta';
+        adminUserAccountStatus.value = user.accountStatus || 'active';
+        adminUserBillingStatus.value = user.billingStatus || 'beta';
+        adminUserNote.value = user.internalNote || '';
+        adminUserCreated.textContent = user.createdAt ? formatDateTime(user.createdAt) : '-';
+        adminUserLastLogin.textContent = user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'Nunca';
+        adminUserLastActivity.textContent = user.metrics?.lastActivityAt
+          ? formatDateTime(user.metrics.lastActivityAt)
+          : 'Sem atividade';
+        adminUserWorkspace.textContent = buildAdminWorkspaceCopy(user);
+        adminUserPerformance.textContent = buildAdminPerformanceCopy(user);
+      }
+
+      function humanizePlan(plan) {
+        return ({
+          beta: 'Beta',
+          starter: 'Starter',
+          pro: 'Pro',
+          enterprise: 'Enterprise'
+        })[String(plan || '').toLowerCase()] || 'Beta';
+      }
+
+      function humanizeAccountStatus(status) {
+        return ({
+          active: 'Ativa',
+          trial: 'Trial',
+          suspended: 'Suspensa'
+        })[String(status || '').toLowerCase()] || 'Ativa';
+      }
+
+      function humanizeBillingStatus(status) {
+        return ({
+          beta: 'Beta',
+          pending: 'Pendente',
+          paid: 'Em dia',
+          overdue: 'Atrasada'
+        })[String(status || '').toLowerCase()] || 'Beta';
+      }
+
+      function humanizeRole(role) {
+        return ({
+          admin: 'Administrador',
+          member: 'Cliente'
+        })[String(role || '').toLowerCase()] || 'Cliente';
+      }
+
+      function humanizeStatusToken(status) {
+        const map = {
+          ready: 'pronto',
+          authenticated: 'autenticado',
+          connecting: 'conectando',
+          qr_required: 'QR pendente',
+          reconnecting: 'reconectando',
+          disconnected: 'desconectado',
+          not_configured: 'não configurado',
+          listening: 'escutando',
+          offline: 'offline',
+          browser_closed: 'navegador fechado',
+          error: 'com erro'
+        };
+
+        return map[String(status || '').toLowerCase()] || humanizeMessage(String(status || '').replaceAll('_', ' '));
+      }
+
+      function humanizeAdminOption(selectId, value) {
+        if (selectId === 'admin-user-role') {
+          return humanizeRole(value);
+        }
+
+        if (selectId === 'admin-user-plan') {
+          return humanizePlan(value);
+        }
+
+        if (selectId === 'admin-user-account-status') {
+          return humanizeAccountStatus(value);
+        }
+
+        if (selectId === 'admin-user-billing-status') {
+          return humanizeBillingStatus(value);
+        }
+
+        return humanizeMessage(value);
+      }
+
+      function humanizeActivityMeta(event) {
+        const parts = [];
+
+        if (event?.type) {
+          parts.push('Tipo: ' + humanizeMessage(String(event.type).replaceAll('_', ' ')));
+        }
+
+        if (event?.at) {
+          parts.push('Horário: ' + formatDateTime(event.at));
+        }
+
+        return parts.join(' | ');
+      }
+
+      function buildAdminWorkspaceCopy(user) {
+        const workspace = user?.workspace || {};
+        const parts = [
+          'Plano ' + humanizePlan(user?.plan),
+          'Conta ' + humanizeAccountStatus(user?.accountStatus),
+          'Ponte ' + (workspace.bridgeEnabled ? 'ligada' : 'desligada'),
+          'WhatsApp ' + humanizeStatusToken(workspace.whatsAppStatus),
+          'Telegram ' + humanizeStatusToken(workspace.telegramStatus)
+        ];
+
+        if (workspace.telegramChannel) {
+          parts.push('Origem ' + workspace.telegramChannel);
+        }
+
+        parts.push(
+          (workspace.selectedGroupCount || 0) +
+            ' grupo(s) selecionado(s)'
+        );
+
+        return parts.join(' • ');
+      }
+
+      function buildAdminPerformanceCopy(user) {
+        const metrics = user?.metrics || {};
+
+        return [
+          formatNumber(metrics.totalTelegramReceived || 0) + ' mensagens recebidas no Telegram',
+          formatNumber(metrics.totalForwardedMessages || 0) + ' mensagens encaminhadas',
+          formatNumber(metrics.totalWhatsAppDeliveries || 0) + ' entregas no WhatsApp',
+          formatNumber(metrics.totalErrors || 0) + ' erro(s) acumulado(s)'
+        ].join(' • ');
       }
 
       function renderAuth(auth) {
@@ -2041,6 +3069,45 @@ function renderPage() {
         }
 
         renderGroups(currentState.groups, groupSearchInput.value);
+      });
+
+      adminUserSearchInput.addEventListener('input', () => {
+        if (!currentState?.admin) {
+          return;
+        }
+
+        renderAdminUsers(currentState.admin.users || []);
+      });
+
+      adminUserForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        if (!adminUserIdInput.value) {
+          return;
+        }
+
+        setButtonLoading(adminSaveButton, true, 'Salvar alterações da conta', 'Salvando...');
+
+        try {
+          currentState = await requestJson('/api/admin/users/' + encodeURIComponent(adminUserIdInput.value), {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              role: adminUserRole.value,
+              plan: adminUserPlan.value,
+              accountStatus: adminUserAccountStatus.value,
+              billingStatus: adminUserBillingStatus.value,
+              internalNote: adminUserNote.value
+            })
+          });
+
+          setFeedback('Conta atualizada com sucesso.', 'success');
+          render(currentState);
+        } catch (error) {
+          setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(adminSaveButton, false, 'Salvar alterações da conta', 'Salvando...');
+        }
       });
 
       loginForm.addEventListener('submit', async (event) => {

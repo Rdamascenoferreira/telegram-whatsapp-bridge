@@ -86,7 +86,7 @@ export class AuthService {
         response.status(400).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
-          error: error.message || 'Nao foi possivel criar sua conta.'
+          error: error.message || 'Não foi possível criar sua conta.'
         });
       }
     });
@@ -102,7 +102,7 @@ export class AuthService {
           response.status(401).json({
             authenticated: false,
             googleEnabled: this.googleEnabled,
-            error: 'Email ou senha invalidos.'
+            error: 'E-mail ou senha inválidos.'
           });
           return;
         }
@@ -113,7 +113,7 @@ export class AuthService {
         response.status(500).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
-          error: error.message || 'Nao foi possivel entrar agora.'
+          error: error.message || 'Não foi possível entrar agora.'
         });
       }
     });
@@ -124,7 +124,7 @@ export class AuthService {
           response.status(500).json({
             authenticated: true,
             googleEnabled: this.googleEnabled,
-            error: 'Nao foi possivel sair agora.'
+            error: 'Não foi possível sair agora.'
           });
           return;
         }
@@ -170,6 +170,34 @@ export class AuthService {
 
       next();
     };
+  }
+
+  requireAdmin() {
+    return (request, response, next) => {
+      if (!request.user) {
+        response.status(401).json({
+          authenticated: false,
+          googleEnabled: this.googleEnabled,
+          error: 'Faça login para continuar.'
+        });
+        return;
+      }
+
+      if (!this.isAdminUser(request.user)) {
+        response.status(403).json({
+          authenticated: true,
+          googleEnabled: this.googleEnabled,
+          error: 'Acesso restrito ao administrador.'
+        });
+        return;
+      }
+
+      next();
+    };
+  }
+
+  isAdminUser(user) {
+    return Boolean(user?.role === 'admin');
   }
 
   getClientSession(user) {

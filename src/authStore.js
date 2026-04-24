@@ -5,6 +5,17 @@ import bcrypt from 'bcryptjs';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
+const adminEmails = new Set(
+  String(process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((entry) => normalizeEmail(entry))
+    .filter(Boolean)
+);
+
+export const userRoleOptions = ['admin', 'member'];
+export const userPlanOptions = ['beta', 'starter', 'pro', 'enterprise'];
+export const userAccountStatusOptions = ['active', 'trial', 'suspended'];
+export const userBillingStatusOptions = ['beta', 'pending', 'paid', 'overdue'];
 
 async function loadUsers() {
   await fs.mkdir(dataDir, { recursive: true });
@@ -12,8 +23,14 @@ async function loadUsers() {
   try {
     const raw = await fs.readFile(usersPath, 'utf8');
     const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
+    const inputUsers = Array.isArray(parsed.users) ? parsed.users : [];
+    const users = inputUsers.map((user, index) => normalizeStoredUser(user, index, inputUsers));
 
-    return Array.isArray(parsed.users) ? parsed.users : [];
+    if (JSON.stringify(inputUsers) !== JSON.stringify(users)) {
+      await saveUsers(users);
+    }
+
+    return users;
   } catch (error) {
     if (error.code === 'ENOENT') {
       await saveUsers([]);
@@ -47,6 +64,53 @@ function buildProviders(user) {
   return providers;
 }
 
+function normalizeStoredUser(user, index, users) {
+  const normalizedEmail = normalizeEmail(user?.email);
+  const normalizedRole = resolveUserRole(user?.role, normalizedEmail, index, users);
+
+  return {
+    id: String(user?.id ?? crypto.randomUUID()),
+    name: String(user?.name ?? '').trim() || normalizedEmail || 'Usuário sem nome',
+    email: normalizedEmail,
+    passwordHash: String(user?.passwordHash ?? ''),
+    googleId: String(user?.googleId ?? '').trim(),
+    avatarUrl: String(user?.avatarUrl ?? '').trim(),
+    role: normalizedRole,
+    plan: normalizeOption(user?.plan, userPlanOptions, 'beta'),
+    accountStatus: normalizeOption(user?.accountStatus, userAccountStatusOptions, 'active'),
+    billingStatus: normalizeOption(user?.billingStatus, userBillingStatusOptions, 'beta'),
+    internalNote: String(user?.internalNote ?? '').trim(),
+    createdAt: String(user?.createdAt ?? new Date().toISOString()),
+    updatedAt: String(user?.updatedAt ?? user?.createdAt ?? new Date().toISOString()),
+    lastLoginAt: user?.lastLoginAt ? String(user.lastLoginAt) : null
+  };
+}
+
+function normalizeOption(value, validOptions, fallback) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return validOptions.includes(normalized) ? normalized : fallback;
+}
+
+function resolveUserRole(role, email, index, users) {
+  const normalizedRole = String(role ?? '').trim().toLowerCase();
+
+  if (adminEmails.has(email)) {
+    return 'admin';
+  }
+
+  if (userRoleOptions.includes(normalizedRole)) {
+    return normalizedRole;
+  }
+
+  const hasAdmin = users.some((entry) => userRoleOptions.includes(String(entry?.role ?? '').trim().toLowerCase()));
+
+  if (!hasAdmin && index === 0) {
+    return 'admin';
+  }
+
+  return 'member';
+}
+
 export function sanitizeUser(user) {
   if (!user) {
     return null;
@@ -58,9 +122,59 @@ export function sanitizeUser(user) {
     email: user.email,
     avatarUrl: user.avatarUrl || '',
     providers: buildProviders(user),
+    role: user.role || 'member',
+    plan: user.plan || 'beta',
+    accountStatus: user.accountStatus || 'active',
+    billingStatus: user.billingStatus || 'beta',
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt || null
   };
+}
+
+export async function listUsersForAdmin() {
+  const users = await loadUsers();
+
+  return users
+    .slice()
+    .sort((left, right) => Date.parse(right.createdAt || 0) - Date.parse(left.createdAt || 0))
+    .map((user) => ({
+      ...sanitizeUser(user),
+      updatedAt: user.updatedAt || null,
+      internalNote: user.internalNote || ''
+    }));
+}
+
+export async function updateUserAdminSettings(userId, updates = {}) {
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  const nextRole = updates.role ? normalizeOption(updates.role, userRoleOptions, user.role) : user.role;
+
+  if (user.role === 'admin' && nextRole !== 'admin') {
+    const adminCount = users.filter((entry) => entry.role === 'admin').length;
+
+    if (adminCount <= 1) {
+      throw new Error('Mantenha pelo menos um administrador ativo no sistema.');
+    }
+  }
+
+  user.role = nextRole;
+  user.plan = updates.plan ? normalizeOption(updates.plan, userPlanOptions, user.plan) : user.plan;
+  user.accountStatus = updates.accountStatus
+    ? normalizeOption(updates.accountStatus, userAccountStatusOptions, user.accountStatus)
+    : user.accountStatus;
+  user.billingStatus = updates.billingStatus
+    ? normalizeOption(updates.billingStatus, userBillingStatusOptions, user.billingStatus)
+    : user.billingStatus;
+  user.internalNote = String(updates.internalNote ?? user.internalNote ?? '').trim().slice(0, 1200);
+  user.updatedAt = new Date().toISOString();
+
+  await saveUsers(users);
+  return user;
 }
 
 export async function findUserById(userId) {
@@ -78,7 +192,7 @@ export async function createPasswordUser({ name, email, password }) {
   }
 
   if (!normalizedEmail || !normalizedEmail.includes('@')) {
-    throw new Error('Informe um email valido.');
+    throw new Error('Informe um e-mail válido.');
   }
 
   if (normalizedPassword.length < 8) {
@@ -89,7 +203,7 @@ export async function createPasswordUser({ name, email, password }) {
   const existingUser = users.find((user) => user.email === normalizedEmail);
 
   if (existingUser) {
-    throw new Error('Ja existe uma conta com esse email.');
+    throw new Error('Já existe uma conta com esse e-mail.');
   }
 
   const now = new Date().toISOString();
@@ -100,6 +214,11 @@ export async function createPasswordUser({ name, email, password }) {
     passwordHash: await bcrypt.hash(normalizedPassword, 10),
     googleId: '',
     avatarUrl: '',
+    role: resolveUserRole('', normalizedEmail, users.length, users),
+    plan: 'beta',
+    accountStatus: 'active',
+    billingStatus: 'beta',
+    internalNote: '',
     createdAt: now,
     updatedAt: now,
     lastLoginAt: now
@@ -139,11 +258,11 @@ export async function upsertGoogleUser(profile) {
     email;
 
   if (!googleId) {
-    throw new Error('Nao foi possivel identificar a conta Google.');
+    throw new Error('Não foi possível identificar a conta Google.');
   }
 
   if (!email) {
-    throw new Error('Sua conta Google nao retornou um email valido.');
+    throw new Error('Sua conta Google não retornou um e-mail válido.');
   }
 
   const users = await loadUsers();
@@ -179,6 +298,11 @@ export async function upsertGoogleUser(profile) {
     passwordHash: '',
     googleId,
     avatarUrl,
+    role: resolveUserRole('', email, users.length, users),
+    plan: 'beta',
+    accountStatus: 'active',
+    billingStatus: 'beta',
+    internalNote: '',
     createdAt: now,
     updatedAt: now,
     lastLoginAt: now
