@@ -593,88 +593,117 @@ function renderPage() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ponte Telegram -> WhatsApp</title>
+    <title>Ponte Telegram → WhatsApp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg-top: #f7f5ef;
-        --bg: #eef1e7;
-        --panel: rgba(255, 253, 248, 0.9);
-        --panel-strong: rgba(255, 255, 255, 0.98);
-        --ink: #172117;
-        --muted: #5f6d61;
-        --accent: #1f9254;
-        --accent-2: #17698d;
-        --border: #d8ddd0;
-        --soft: #eef3ea;
-        --group-bg: #fcfcf8;
-        --input-bg: rgba(255, 255, 255, 0.96);
-        --log-bg: #121714;
-        --log-ink: #e8f4ea;
-        --shadow: rgba(23, 33, 23, 0.08);
-        --hero-a: rgba(23, 105, 141, 0.16);
-        --hero-b: rgba(31, 146, 84, 0.13);
-        --spotlight-bg: linear-gradient(145deg, #17332f 0%, #1e5d57 48%, #0f7a62 100%);
-        --spotlight-ink: #f7fff9;
-        --spotlight-muted: rgba(242, 250, 246, 0.78);
-        --spotlight-border: rgba(255, 255, 255, 0.14);
-        --accent-soft: rgba(31, 146, 84, 0.14);
-        --page-stroke: rgba(255, 255, 255, 0.72);
+        --bg-top: #eef4f0;
+        --bg: #e6ece7;
+        --panel: rgba(255, 255, 252, 0.8);
+        --panel-strong: rgba(255, 255, 255, 0.96);
+        --panel-elevated: rgba(255, 255, 255, 0.98);
+        --ink: #142019;
+        --muted: #607165;
+        --accent: #1ea86a;
+        --accent-strong: #157a4e;
+        --accent-2: #155e75;
+        --border: rgba(31, 51, 41, 0.12);
+        --soft: rgba(239, 245, 241, 0.92);
+        --group-bg: rgba(255, 255, 255, 0.78);
+        --input-bg: rgba(255, 255, 255, 0.98);
+        --log-bg: #111814;
+        --log-ink: #e6f4e9;
+        --shadow: rgba(13, 21, 17, 0.09);
+        --hero-a: rgba(21, 94, 117, 0.16);
+        --hero-b: rgba(30, 168, 106, 0.12);
+        --hero-c: rgba(94, 114, 106, 0.12);
+        --spotlight-bg:
+          radial-gradient(circle at top right, rgba(99, 214, 158, 0.18), transparent 34%),
+          linear-gradient(150deg, #10231c 0%, #12372c 42%, #145642 100%);
+        --spotlight-ink: #f6fffa;
+        --spotlight-muted: rgba(228, 243, 235, 0.78);
+        --spotlight-border: rgba(255, 255, 255, 0.1);
+        --accent-soft: rgba(30, 168, 106, 0.16);
+        --page-stroke: rgba(255, 255, 255, 0.74);
+        --ring: rgba(30, 168, 106, 0.18);
+        --danger: #c65b31;
       }
 
       :root[data-theme="dark"] {
-        --bg-top: #151d19;
-        --bg: #0c120f;
-        --panel: rgba(17, 24, 21, 0.92);
-        --panel-strong: rgba(21, 29, 25, 0.98);
+        --bg-top: #09110e;
+        --bg: #070c09;
+        --panel: rgba(13, 19, 16, 0.84);
+        --panel-strong: rgba(14, 21, 17, 0.94);
+        --panel-elevated: rgba(18, 25, 22, 0.98);
         --ink: #f4fbf6;
-        --muted: #c3d2c8;
+        --muted: #a7bbb0;
         --accent: #2fc57b;
-        --accent-2: #2e8ab8;
-        --border: #34453b;
-        --soft: #1a241f;
-        --group-bg: #131a16;
-        --input-bg: #0f1512;
-        --log-bg: #090d0b;
-        --log-ink: #def0e1;
-        --shadow: rgba(0, 0, 0, 0.38);
-        --hero-a: rgba(46, 138, 184, 0.22);
-        --hero-b: rgba(47, 197, 123, 0.18);
-        --spotlight-bg: linear-gradient(150deg, #112926 0%, #17433f 54%, #125942 100%);
+        --accent-strong: #1f8f58;
+        --accent-2: #2590b9;
+        --border: rgba(145, 166, 153, 0.18);
+        --soft: rgba(19, 28, 23, 0.92);
+        --group-bg: rgba(13, 19, 16, 0.92);
+        --input-bg: rgba(9, 14, 11, 0.96);
+        --log-bg: #050907;
+        --log-ink: #ddf3e2;
+        --shadow: rgba(0, 0, 0, 0.44);
+        --hero-a: rgba(37, 144, 185, 0.2);
+        --hero-b: rgba(47, 197, 123, 0.14);
+        --hero-c: rgba(111, 135, 122, 0.08);
+        --spotlight-bg:
+          radial-gradient(circle at top right, rgba(84, 221, 156, 0.15), transparent 34%),
+          linear-gradient(150deg, #0e1914 0%, #10271f 40%, #124131 100%);
         --spotlight-ink: #f6fff8;
         --spotlight-muted: rgba(232, 244, 236, 0.82);
-        --spotlight-border: rgba(255, 255, 255, 0.1);
-        --accent-soft: rgba(47, 197, 123, 0.16);
-        --page-stroke: rgba(255, 255, 255, 0.03);
+        --spotlight-border: rgba(255, 255, 255, 0.08);
+        --accent-soft: rgba(47, 197, 123, 0.14);
+        --page-stroke: rgba(255, 255, 255, 0.04);
+        --ring: rgba(47, 197, 123, 0.16);
+        --danger: #db6f43;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        color-scheme: light;
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+      }
+
       body {
         margin: 0;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, var(--hero-a), transparent 24%),
-          radial-gradient(circle at 85% 15%, var(--hero-b), transparent 30%),
-          radial-gradient(circle at 20% 80%, var(--accent-soft), transparent 24%),
+          radial-gradient(circle at top left, var(--hero-a), transparent 25%),
+          radial-gradient(circle at 84% 12%, var(--hero-b), transparent 28%),
+          radial-gradient(circle at 18% 78%, var(--hero-c), transparent 26%),
+          radial-gradient(circle at 70% 78%, var(--accent-soft), transparent 24%),
           linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 100%);
-        font-family: "Trebuchet MS", "Lucida Sans Unicode", "Segoe UI", sans-serif;
+        font-family: "Manrope", "Segoe UI", sans-serif;
         transition: background 180ms ease, color 180ms ease;
       }
 
       main {
-        max-width: 1160px;
+        max-width: 1220px;
         margin: 0 auto;
-        padding: 28px 18px 54px;
+        padding: 32px 20px 64px;
       }
 
       .topbar {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 28px;
+        gap: 24px;
+        margin-bottom: 30px;
       }
 
       .topbar-actions {
@@ -682,58 +711,90 @@ function renderPage() {
         gap: 10px;
         flex-wrap: wrap;
         align-items: center;
+        justify-content: flex-end;
+      }
+
+      .brand-block {
+        max-width: 760px;
+      }
+
+      .brand-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 9px 13px;
+        margin-bottom: 16px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
+        box-shadow: 0 10px 28px var(--shadow);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: clamp(36px, 5vw, 68px);
-        line-height: 0.92;
+        margin: 0 0 12px;
+        font-family: "Sora", "Manrope", sans-serif;
+        font-size: clamp(34px, 4.5vw, 52px);
+        line-height: 1.04;
         letter-spacing: -0.05em;
         color: var(--ink);
-        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+      }
+
+      .lead-strong {
+        margin: 0 0 10px;
+        color: var(--ink);
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.55;
       }
 
       .lead {
-        max-width: 680px;
-        margin: 0 0 24px;
+        max-width: 740px;
+        margin: 0;
         color: var(--muted);
-        line-height: 1.65;
-        font-size: 18px;
+        line-height: 1.72;
+        font-size: 17px;
       }
 
       .feedback {
         margin: 0 0 18px;
-        padding: 14px 16px;
-        border-radius: 16px;
+        padding: 15px 18px;
+        border-radius: 18px;
         border: 1px solid var(--border);
-        background: var(--panel);
+        background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
         color: var(--ink);
+        box-shadow: 0 18px 34px var(--shadow);
       }
 
       .feedback.error {
-        border-color: rgba(178, 71, 29, 0.42);
-        background: rgba(178, 71, 29, 0.12);
+        border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+        background: color-mix(in srgb, var(--danger) 12%, var(--panel-strong));
       }
 
       .feedback.success {
-        border-color: rgba(29, 143, 87, 0.34);
-        background: rgba(29, 143, 87, 0.12);
+        border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--panel-strong));
       }
 
       .user-chip {
-        padding: 11px 15px;
+        padding: 10px 14px;
         border-radius: 999px;
         border: 1px solid var(--border);
-        background: var(--panel-strong);
+        background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
         color: var(--ink);
-        font-size: 14px;
-        box-shadow: 0 12px 28px var(--shadow);
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 14px 30px var(--shadow);
       }
 
       .auth-shell {
         display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 22px;
+        grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+        gap: 24px;
+        align-items: stretch;
       }
 
       .auth-spotlight {
@@ -742,27 +803,27 @@ function renderPage() {
         background: var(--spotlight-bg);
         color: var(--spotlight-ink);
         border: 1px solid var(--spotlight-border);
-        min-height: 520px;
+        min-height: 560px;
       }
 
       .auth-spotlight::after {
         content: '';
         position: absolute;
-        inset: auto -34px -46px auto;
-        width: 220px;
-        height: 220px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 68%);
+        inset: auto -52px -60px auto;
+        width: 250px;
+        height: 250px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.11), transparent 68%);
         pointer-events: none;
       }
 
       .auth-spotlight::before {
         content: '';
         position: absolute;
-        inset: -60px auto auto -60px;
-        width: 220px;
-        height: 220px;
+        inset: -80px auto auto -64px;
+        width: 250px;
+        height: 250px;
         border-radius: 999px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%);
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
         pointer-events: none;
       }
 
@@ -774,47 +835,80 @@ function renderPage() {
         border: 1px solid rgba(255, 255, 255, 0.14);
         color: var(--spotlight-muted);
         font-size: 12px;
-        letter-spacing: 0.05em;
+        font-weight: 700;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         margin-bottom: 18px;
       }
 
       .auth-title {
         margin: 0 0 14px;
-        font-size: clamp(32px, 4vw, 48px);
-        line-height: 0.98;
-        max-width: 11ch;
+        font-family: "Sora", "Manrope", sans-serif;
+        font-size: clamp(30px, 3.7vw, 42px);
+        line-height: 1.06;
+        max-width: 13ch;
       }
 
       .auth-list {
         list-style: none;
-        margin: 26px 0 0;
+        margin: 28px 0 0;
         padding: 0;
         display: grid;
         gap: 12px;
       }
 
       .auth-list li {
-        padding: 15px 16px;
-        border-radius: 18px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 16px;
+        border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.14);
         background: rgba(255, 255, 255, 0.08);
         color: var(--spotlight-ink);
         backdrop-filter: blur(8px);
       }
 
-      .auth-copy {
-        max-width: 34ch;
+      .benefit-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: inline-grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: var(--spotlight-ink);
+      }
+
+      .benefit-copy strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+      }
+
+      .benefit-copy span {
+        display: block;
         color: var(--spotlight-muted);
-        line-height: 1.7;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .auth-copy {
+        max-width: 39ch;
+        color: var(--spotlight-muted);
+        line-height: 1.72;
         font-size: 16px;
       }
 
       .spotlight-meta {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin: 22px 0 4px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 24px 0 4px;
       }
 
       .spotlight-stat {
@@ -835,6 +929,7 @@ function renderPage() {
       .spotlight-stat span {
         color: var(--spotlight-muted);
         font-size: 13px;
+        line-height: 1.5;
       }
 
       .grid {
@@ -847,75 +942,110 @@ function renderPage() {
         background: var(--panel);
         border: 1px solid var(--page-stroke);
         border-radius: 28px;
-        padding: 24px;
-        box-shadow: 0 18px 40px var(--shadow);
+        padding: 28px;
+        box-shadow: 0 24px 48px var(--shadow);
         backdrop-filter: blur(18px);
       }
 
       .card h2 {
         margin: 0 0 14px;
+        font-family: "Sora", "Manrope", sans-serif;
         font-size: 22px;
+        line-height: 1.2;
+      }
+
+      .auth-card {
+        background: color-mix(in srgb, var(--panel-elevated) 96%, transparent);
+      }
+
+      .auth-kicker {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       label {
         display: block;
         margin-bottom: 9px;
         font-size: 14px;
-        color: var(--muted);
+        font-weight: 600;
+        color: var(--ink);
       }
 
       input[type="text"], input[type="password"] {
         width: 100%;
         padding: 15px 16px;
-        border-radius: 18px;
+        border-radius: 16px;
         border: 1px solid var(--border);
         background: var(--input-bg);
         color: var(--ink);
         font: inherit;
-        margin-bottom: 14px;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        margin-bottom: 16px;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.28),
+          0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+
+      input::placeholder {
+        color: color-mix(in srgb, var(--muted) 76%, transparent);
       }
 
       input[type="text"]:focus,
       input[type="password"]:focus {
         outline: none;
         border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+        box-shadow: 0 0 0 4px var(--ring);
       }
 
       button,
       .button-link {
         border: 0;
         border-radius: 999px;
-        background: var(--accent);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
         color: white;
         font: inherit;
-        padding: 13px 20px;
+        padding: 14px 22px;
         cursor: pointer;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 10px;
-        font-weight: 600;
-        box-shadow: 0 14px 28px color-mix(in srgb, var(--accent) 20%, transparent);
+        font-weight: 700;
+        box-shadow: 0 16px 32px color-mix(in srgb, var(--accent) 26%, transparent);
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          color 160ms ease,
+          opacity 160ms ease;
+      }
+
+      button:hover,
+      .button-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 18px 38px color-mix(in srgb, var(--accent) 24%, transparent);
       }
 
       button.secondary,
       .button-link.secondary {
-        background: var(--accent-2);
+        background: linear-gradient(135deg, var(--accent-2) 0%, #1f77a4 100%);
       }
 
       button.ghost,
       .button-link.ghost {
-        background: var(--panel);
+        background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
         color: var(--ink);
         border: 1px solid var(--border);
         box-shadow: none;
       }
 
       button.warn {
-        background: #b2471d;
+        background: linear-gradient(135deg, #c65b31 0%, #a3441f 100%);
       }
 
       button:disabled,
@@ -923,6 +1053,8 @@ function renderPage() {
         cursor: not-allowed;
         opacity: 0.58;
         pointer-events: none;
+        transform: none;
+        box-shadow: none;
       }
 
       .button-link {
@@ -931,10 +1063,11 @@ function renderPage() {
       }
 
       .google-button {
-        background: var(--panel-strong);
+        min-height: 56px;
+        background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
         color: var(--ink);
         border: 1px solid var(--border);
-        box-shadow: none;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
 
       .google-mark {
@@ -948,6 +1081,13 @@ function renderPage() {
         color: white;
         font-weight: 700;
         font-size: 14px;
+      }
+
+      .theme-toggle {
+        min-width: 0;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 700;
       }
 
       .tabs {
@@ -968,7 +1108,7 @@ function renderPage() {
       }
 
       .tab.active {
-        background: var(--panel-strong);
+        background: var(--panel-elevated);
         color: var(--ink);
         border: 1px solid var(--border);
       }
@@ -979,12 +1119,13 @@ function renderPage() {
 
       .auth-panel-title {
         margin: 0 0 8px;
+        font-family: "Sora", "Manrope", sans-serif;
         font-size: 28px;
-        line-height: 1;
+        line-height: 1.1;
       }
 
       .auth-panel-copy {
-        margin: 0 0 22px;
+        margin: 0 0 24px;
         color: var(--muted);
         line-height: 1.65;
       }
@@ -994,7 +1135,14 @@ function renderPage() {
         align-items: center;
         gap: 10px;
         color: var(--muted);
-        margin: 4px 0 12px;
+        margin: 18px 0 14px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .auth-separator span {
+        white-space: nowrap;
       }
 
       .auth-separator::before,
@@ -1003,6 +1151,37 @@ function renderPage() {
         flex: 1;
         height: 1px;
         background: var(--border);
+      }
+
+      .auth-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+
+      .auth-actions button[type="submit"] {
+        min-width: 190px;
+      }
+
+      .text-link {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        width: auto;
+        background: transparent;
+        box-shadow: none;
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .text-link:hover {
+        transform: none;
+        box-shadow: none;
+        color: color-mix(in srgb, var(--accent) 82%, white 18%);
       }
 
       .status {
@@ -1024,7 +1203,7 @@ function renderPage() {
         border-radius: 22px;
         border: 1px solid var(--page-stroke);
         background: var(--panel);
-        box-shadow: 0 14px 30px var(--shadow);
+        box-shadow: 0 20px 36px var(--shadow);
         backdrop-filter: blur(14px);
       }
 
@@ -1088,6 +1267,12 @@ function renderPage() {
         border-radius: 14px;
         border: 1px solid var(--border);
         background: var(--group-bg);
+        transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+      }
+
+      .group:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
       }
 
       .group-name {
@@ -1134,6 +1319,16 @@ function renderPage() {
         margin-top: 12px;
       }
 
+      .auth-note {
+        margin: 16px 0 0;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--soft);
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
       [hidden] {
         display: none !important;
       }
@@ -1144,12 +1339,21 @@ function renderPage() {
           align-items: stretch;
         }
 
+        .topbar-actions {
+          justify-content: flex-start;
+        }
+
         h1 {
-          font-size: clamp(34px, 9vw, 54px);
+          font-size: clamp(30px, 10vw, 42px);
+        }
+
+        .lead,
+        .lead-strong {
+          font-size: 15px;
         }
 
         .lead {
-          font-size: 16px;
+          max-width: none;
         }
 
         .auth-shell,
@@ -1161,23 +1365,63 @@ function renderPage() {
         .auth-spotlight {
           min-height: auto;
         }
+
+        .spotlight-meta {
+          grid-template-columns: 1fr;
+        }
+
+        .tabs {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .tab {
+          flex: 1;
+        }
+
+        .auth-actions {
+          align-items: stretch;
+        }
+
+        .auth-actions button[type="submit"] {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 640px) {
+        main {
+          padding: 24px 16px 40px;
+        }
+
+        .card {
+          padding: 22px 18px;
+          border-radius: 24px;
+        }
+
+        .auth-title,
+        .auth-panel-title {
+          font-size: 26px;
+        }
       }
     </style>
   </head>
   <body>
     <main>
       <section class="topbar">
-        <div>
-          <h1>Ponte Telegram -> WhatsApp</h1>
+        <div class="brand-block">
+          <div class="brand-tag">Ponte Telegram &rarr; WhatsApp</div>
+          <h1>Automatize sua operação Telegram &rarr; WhatsApp em um painel centralizado.</h1>
+          <p class="lead-strong">
+            Configure sua ponte, gerencie sessões e controle o envio de posts para seus grupos com mais segurança e organização.
+          </p>
           <p class="lead">
-            Transforme sua ponte em produto: login, operacao centralizada e uma experiencia
-            mais profissional para preparar a proxima fase do seu SaaS.
+            Uma experiência mais profissional para acompanhar sua automação, ativar ou pausar fluxos e manter sua operação organizada desde o primeiro acesso.
           </p>
         </div>
         <div class="topbar-actions">
           <div id="user-chip" class="user-chip" hidden></div>
           <button id="logout-button" class="ghost" type="button" hidden>Sair</button>
-          <button id="theme-toggle" class="ghost" type="button">Dark mode</button>
+          <button id="theme-toggle" class="ghost theme-toggle" type="button">Tema escuro</button>
         </div>
       </section>
 
@@ -1185,37 +1429,69 @@ function renderPage() {
 
       <section id="auth-shell" class="auth-shell">
         <div class="card auth-spotlight">
-          <div class="eyebrow">Etapa 1 · Identidade do usuario</div>
-          <h2 class="auth-title">Seu painel agora com cara de produto.</h2>
+          <div class="eyebrow">Painel centralizado</div>
+          <h2 class="auth-title">Controle completo da sua ponte</h2>
           <p class="auth-copy">
-            Email, senha, sessao persistente e entrada via Google na mesma base.
-            Isso prepara o terreno para planos, faturamento e workspaces separados por cliente.
+            Conecte posts do Telegram aos seus grupos de WhatsApp, acompanhe sessões e gerencie sua automação em um só lugar.
           </p>
           <div class="spotlight-meta">
             <div class="spotlight-stat">
-              <strong>Login</strong>
-              <span>Email e senha</span>
+              <strong>Ativação</strong>
+              <span>Ative ou pause a operação quando quiser</span>
             </div>
             <div class="spotlight-stat">
-              <strong>Google</strong>
-              <span>OAuth configuravel</span>
+              <strong>Sessões</strong>
+              <span>WhatsApp persistente por usuário</span>
             </div>
             <div class="spotlight-stat">
-              <strong>Base</strong>
-              <span>Pronta para SaaS</span>
+              <strong>Escala</strong>
+              <span>Base preparada para clientes e workspaces</span>
             </div>
           </div>
           <ul class="auth-list">
-            <li>Autenticacao pronta para onboarding mais profissional.</li>
-            <li>Entrada social preparada para aumentar conversao.</li>
-            <li>Fundacao pronta para separar contas, workspaces e cobranca.</li>
+            <li>
+              <span class="benefit-icon">01</span>
+              <div class="benefit-copy">
+                <strong>Ative ou pause a automação quando quiser</strong>
+                <span>Tenha controle imediato do fluxo sem precisar reconfigurar toda a ponte.</span>
+              </div>
+            </li>
+            <li>
+              <span class="benefit-icon">02</span>
+              <div class="benefit-copy">
+                <strong>Sessões WhatsApp persistentes</strong>
+                <span>Mantenha a operação conectada com mais previsibilidade no dia a dia.</span>
+              </div>
+            </li>
+            <li>
+              <span class="benefit-icon">03</span>
+              <div class="benefit-copy">
+                <strong>Estrutura preparada para múltiplos clientes</strong>
+                <span>Organize contas, workspaces e operações de forma mais profissional.</span>
+              </div>
+            </li>
+            <li>
+              <span class="benefit-icon">04</span>
+              <div class="benefit-copy">
+                <strong>Base pronta para planos, cobrança e workspaces</strong>
+                <span>Evolua o produto com mais segurança conforme o SaaS crescer.</span>
+              </div>
+            </li>
+            <li>
+              <span class="benefit-icon">05</span>
+              <div class="benefit-copy">
+                <strong>Login seguro por usuário</strong>
+                <span>Cada acesso fica isolado para trazer mais clareza e confiança à operação.</span>
+              </div>
+            </li>
           </ul>
         </div>
 
-        <div class="card">
-          <h2 class="auth-panel-title">Acesse sua central</h2>
+        <div class="card auth-card">
+          <p class="auth-kicker">Acesso seguro</p>
+          <h2 class="auth-panel-title">Entre no seu painel</h2>
           <p class="auth-panel-copy">
-            Entre com sua conta ou crie um novo acesso para continuar configurando a ponte.
+            Faça login para configurar sua ponte, acompanhar sessões e gerenciar sua automação com mais clareza.
           </p>
           <div class="tabs">
             <button id="tab-login" class="tab active" type="button">Entrar</button>
@@ -1223,14 +1499,15 @@ function renderPage() {
           </div>
 
           <form id="login-form" class="auth-form">
-            <label for="login-email">Email</label>
-            <input id="login-email" name="email" type="text" autocomplete="email" placeholder="voce@empresa.com" />
+            <label for="login-email">E-mail</label>
+            <input id="login-email" name="email" type="text" autocomplete="email" placeholder="email@empresa.com" />
 
             <label for="login-password">Senha</label>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" />
+            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" />
 
-            <div class="row">
-              <button type="submit">Entrar no painel</button>
+            <div class="auth-actions">
+              <button id="login-submit" type="submit">Entrar no painel</button>
+              <button id="forgot-password" class="text-link" type="button">Esqueci minha senha</button>
             </div>
           </form>
 
@@ -1238,44 +1515,47 @@ function renderPage() {
             <label for="register-name">Nome</label>
             <input id="register-name" name="name" type="text" autocomplete="name" placeholder="Seu nome" />
 
-            <label for="register-email">Email</label>
-            <input id="register-email" name="email" type="text" autocomplete="email" placeholder="voce@empresa.com" />
+            <label for="register-email">E-mail</label>
+            <input id="register-email" name="email" type="text" autocomplete="email" placeholder="email@empresa.com" />
 
             <label for="register-password">Senha</label>
-            <input id="register-password" name="password" type="password" autocomplete="new-password" placeholder="Minimo de 8 caracteres" />
+            <input id="register-password" name="password" type="password" autocomplete="new-password" placeholder="Crie uma senha com pelo menos 8 caracteres" />
 
-            <div class="row">
-              <button type="submit">Criar conta</button>
+            <div class="auth-actions">
+              <button id="register-submit" type="submit">Criar conta</button>
             </div>
           </form>
 
-          <div class="auth-separator">ou</div>
+          <div id="auth-separator" class="auth-separator"><span>ou continue com</span></div>
           <a id="google-login" class="button-link google-button" href="/auth/google">
             <span class="google-mark">G</span>
             <span>Continuar com Google</span>
           </a>
           <p id="google-hint" class="hint auth-footnote" hidden></p>
+          <p class="auth-note">
+            Seu acesso fica protegido por autenticação individual e sessões isoladas por usuário.
+          </p>
         </div>
       </section>
 
       <div id="app-shell" hidden>
         <section class="grid">
           <div class="card">
-            <h2>Configuracao do Telegram</h2>
+            <h2>Origem no Telegram</h2>
             <form id="settings-form">
               <label for="telegramBotToken">Token do bot</label>
               <input id="telegramBotToken" name="telegramBotToken" type="password" placeholder="123456:ABC..." />
 
-              <label for="telegramChannel">Canal</label>
+              <label for="telegramChannel">Canal ou grupo</label>
               <input id="telegramChannel" name="telegramChannel" type="text" placeholder="@seucanal ou -1001234567890" />
 
               <div class="row">
-                <button type="submit">Salvar configuracao</button>
+                <button type="submit">Salvar configuração</button>
               </div>
             </form>
             <p class="hint">
-              Coloque o bot como administrador do canal no Telegram. Nesta primeira versao,
-              o programa escuta novos posts do canal e encaminha para os grupos marcados abaixo.
+              Defina a origem que será monitorada. Em canais, deixe o bot como administrador.
+              Em grupos, mantenha o bot dentro da conversa para receber novas mensagens.
             </p>
           </div>
 
@@ -1313,7 +1593,7 @@ function renderPage() {
           <article class="metric-card">
             <span class="metric-label">Entregas no WhatsApp</span>
             <strong id="metric-deliveries" class="metric-value">0</strong>
-            <p id="metric-deliveries-meta" class="metric-meta">Sem entregas registradas ate agora.</p>
+            <p id="metric-deliveries-meta" class="metric-meta">Sem entregas registradas até agora.</p>
           </article>
 
           <article class="metric-card">
@@ -1324,12 +1604,12 @@ function renderPage() {
         </section>
 
         <section class="card" style="margin-top: 18px;">
-          <h2>Grupos do WhatsApp onde voce e admin</h2>
+          <h2>Grupos do WhatsApp com permissão de admin</h2>
           <input
             id="group-search"
             class="search-input"
             type="text"
-            placeholder="Buscar grupo pelo nome"
+            placeholder="Busque um grupo pelo nome"
           />
           <div id="groups" class="groups"></div>
           <div class="row">
@@ -1338,8 +1618,8 @@ function renderPage() {
         </section>
 
         <section class="card" style="margin-top: 18px;">
-          <h2>Atividade e logs</h2>
-          <pre id="logs">Carregando...</pre>
+          <h2>Atividade recente</h2>
+          <pre id="logs">Carregando atividade...</pre>
         </section>
       </div>
     </main>
@@ -1352,8 +1632,12 @@ function renderPage() {
       const registerForm = document.getElementById('register-form');
       const loginTab = document.getElementById('tab-login');
       const registerTab = document.getElementById('tab-register');
+      const authSeparator = document.getElementById('auth-separator');
       const googleLoginLink = document.getElementById('google-login');
       const googleHint = document.getElementById('google-hint');
+      const loginSubmitButton = document.getElementById('login-submit');
+      const registerSubmitButton = document.getElementById('register-submit');
+      const forgotPasswordButton = document.getElementById('forgot-password');
       const userChip = document.getElementById('user-chip');
       const logoutButton = document.getElementById('logout-button');
       const form = document.getElementById('settings-form');
@@ -1421,7 +1705,7 @@ function renderPage() {
         tgStatus.textContent = 'Telegram: ' + state.telegramStatus;
         const statusDetails = [];
         if (state.whatsAppPhone) {
-          statusDetails.push('Sessao ativa: ' + state.whatsAppPhone);
+          statusDetails.push('Sessão ativa: ' + state.whatsAppPhone);
         }
         if ((state.metrics?.pendingTelegramCount || 0) > 0) {
           statusDetails.push(
@@ -1430,7 +1714,7 @@ function renderPage() {
         }
         waPhone.textContent = statusDetails.join(' | ');
         waIssue.hidden = !state.issue?.message;
-        waIssue.textContent = state.issue?.message || '';
+        waIssue.textContent = humanizeMessage(state.issue?.message || '');
         logs.textContent = state.logs.length ? state.logs.join('\\n') : 'Sem logs ainda.';
         systemToggleButton.textContent = state.config.bridgeEnabled ? 'Desligar sistema' : 'Ligar sistema';
         systemToggleButton.className = state.config.bridgeEnabled ? 'warn' : '';
@@ -1459,12 +1743,12 @@ function renderPage() {
       function renderMetrics(metrics, activity) {
         metricTelegramReceived.textContent = formatNumber(metrics.totalTelegramReceived || 0);
         metricTelegramMeta.textContent = metrics.lastTelegramMessageAt
-          ? 'Ultima entrada: ' + formatDateTime(metrics.lastTelegramMessageAt)
+          ? 'Última entrada: ' + formatDateTime(metrics.lastTelegramMessageAt)
           : 'Nenhuma mensagem recebida ainda.';
 
         metricForwardBatches.textContent = formatNumber(metrics.totalForwardBatches || 0);
         metricForwardMeta.textContent = metrics.lastForwardedAt
-          ? 'Ultimo envio: ' + formatDateTime(metrics.lastForwardedAt)
+          ? 'Último envio: ' + formatDateTime(metrics.lastForwardedAt)
           : 'Nenhum envio realizado ainda.';
 
         metricDeliveries.textContent = formatNumber(metrics.totalWhatsAppDeliveries || 0);
@@ -1485,13 +1769,14 @@ function renderPage() {
         logoutButton.hidden = !auth.authenticated;
         userChip.textContent = user ? (user.name || user.email) + ' | ' + user.email : '';
 
-        googleLoginLink.hidden = false;
+        googleLoginLink.hidden = !auth.googleEnabled;
+        authSeparator.hidden = !auth.googleEnabled;
         googleLoginLink.setAttribute('aria-disabled', auth.googleEnabled ? 'false' : 'true');
         googleLoginLink.href = auth.googleEnabled ? '/auth/google' : '#';
         googleHint.hidden = false;
         googleHint.textContent = auth.googleEnabled
-          ? 'Login com Google pronto para uso.'
-          : 'O botao do Google so ativa quando o servidor tiver GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_CALLBACK_URL configurados.';
+          ? 'Use sua conta Google para entrar com mais agilidade.'
+          : 'Login com Google estará disponível em breve.';
 
         loginTab.classList.toggle('active', authMode === 'login');
         registerTab.classList.toggle('active', authMode === 'register');
@@ -1548,7 +1833,7 @@ function renderPage() {
         }
 
         if (!response.ok) {
-          throw new Error(payload.error || 'Nao foi possivel concluir a solicitacao.');
+          throw new Error(humanizeMessage(payload.error || 'Não foi possível concluir a solicitação.'));
         }
 
         return payload;
@@ -1563,8 +1848,63 @@ function renderPage() {
         }
 
         feedbackBanner.hidden = false;
-        feedbackBanner.textContent = message;
+        feedbackBanner.textContent = humanizeMessage(message);
         feedbackBanner.className = 'feedback ' + tone;
+      }
+
+      function setButtonLoading(button, isLoading, idleLabel, loadingLabel) {
+        if (!button) {
+          return;
+        }
+
+        button.disabled = isLoading;
+        button.textContent = isLoading ? loadingLabel : idleLabel;
+      }
+
+      function humanizeMessage(message) {
+        return String(message || '')
+          .replaceAll('Nao foi possivel', 'Não foi possível')
+          .replaceAll('concluir a solicitacao', 'concluir a solicitação')
+          .replaceAll('Configuracao', 'Configuração')
+          .replaceAll('configuracao', 'configuração')
+          .replaceAll('Configuracao salva com sucesso.', 'Configuração salva com sucesso.')
+          .replaceAll('Email ou senha invalidos.', 'E-mail ou senha inválidos.')
+          .replaceAll('Email', 'E-mail')
+          .replaceAll('email ou senha invalidos.', 'e-mail ou senha inválidos.')
+          .replaceAll('Sessao', 'Sessão')
+          .replaceAll('sessao', 'sessão')
+          .replaceAll('operacao', 'operação')
+          .replaceAll('Operacao', 'Operação')
+          .replaceAll('usuario', 'usuário')
+          .replaceAll('Usuario', 'Usuário')
+          .replaceAll('experiencia', 'experiência')
+          .replaceAll('Experiencia', 'Experiência')
+          .replaceAll('proxima', 'próxima')
+          .replaceAll('Proxima', 'Próxima')
+          .replaceAll('Autenticacao', 'Autenticação')
+          .replaceAll('autenticacao', 'autenticação')
+          .replaceAll('conversao', 'conversão')
+          .replaceAll('Conversao', 'Conversão')
+          .replaceAll('botao', 'botão')
+          .replaceAll('Botao', 'Botão')
+          .replaceAll('Fundacao', 'Fundação')
+          .replaceAll('fundacao', 'fundação')
+          .replaceAll('cobranca', 'cobrança')
+          .replaceAll('Cobranca', 'Cobrança')
+          .replaceAll('atencao', 'atenção')
+          .replaceAll('Ate', 'Até')
+          .replaceAll('Ultima', 'Última')
+          .replaceAll('Ultimo', 'Último')
+          .replaceAll('versao', 'versão')
+          .replaceAll('Versao', 'Versão')
+          .replaceAll('voce', 'você')
+          .replaceAll('Voce', 'Você')
+          .replaceAll('sincronizacao', 'sincronização')
+          .replaceAll('Sincronizacao', 'Sincronização')
+          .replaceAll('recuperacao', 'recuperação')
+          .replaceAll('Recuperacao', 'Recuperação')
+          .replaceAll('disponivel', 'disponível')
+          .replaceAll('Disponivel', 'Disponível');
       }
 
       function setAuthMode(nextMode) {
@@ -1590,7 +1930,7 @@ function renderPage() {
             body: JSON.stringify(payload)
           });
 
-          setFeedback('Configuracao salva com sucesso.', 'success');
+          setFeedback('Configuração salva com sucesso.', 'success');
           render(currentState);
         } catch (error) {
           setFeedback(error.message, 'error');
@@ -1705,6 +2045,8 @@ function renderPage() {
 
       loginForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        setFeedback('');
+        setButtonLoading(loginSubmitButton, true, 'Entrar no painel', 'Entrando...');
 
         try {
           await requestJson('/api/auth/login', {
@@ -1721,11 +2063,15 @@ function renderPage() {
           await fetchState();
         } catch (error) {
           setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(loginSubmitButton, false, 'Entrar no painel', 'Entrando...');
         }
       });
 
       registerForm.addEventListener('submit', async (event) => {
         event.preventDefault();
+        setFeedback('');
+        setButtonLoading(registerSubmitButton, true, 'Criar conta', 'Criando conta...');
 
         try {
           await requestJson('/api/auth/register', {
@@ -1743,7 +2089,13 @@ function renderPage() {
           await fetchState();
         } catch (error) {
           setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(registerSubmitButton, false, 'Criar conta', 'Criando conta...');
         }
+      });
+
+      forgotPasswordButton.addEventListener('click', () => {
+        setFeedback('A recuperação de senha estará disponível em breve.', 'success');
       });
 
       logoutButton.addEventListener('click', async () => {
@@ -1752,7 +2104,7 @@ function renderPage() {
             method: 'POST'
           });
 
-          setFeedback('Sessao encerrada.', 'success');
+          setFeedback('Sessão encerrada.', 'success');
           await fetchState();
         } catch (error) {
           setFeedback(error.message, 'error');
@@ -1802,7 +2154,7 @@ function renderPage() {
 
       function buildErrorMeta(metrics, activity) {
         if (metrics.groupsRefreshing) {
-          return 'Buscando grupos do WhatsApp. Na primeira sincronizacao isso pode levar alguns minutos.';
+          return 'Buscando grupos do WhatsApp. Na primeira sincronização isso pode levar alguns minutos.';
         }
 
         if ((metrics.pendingTelegramCount || 0) > 0) {
@@ -1813,13 +2165,13 @@ function renderPage() {
         }
 
         if (metrics.lastErrorAt) {
-          return 'Ultimo erro: ' + formatDateTime(metrics.lastErrorAt);
+          return 'Último erro: ' + formatDateTime(metrics.lastErrorAt);
         }
 
         const lastEvent = Array.isArray(activity) && activity.length ? activity[0] : null;
 
         if (lastEvent?.at) {
-          return 'Ultima atividade: ' + formatDateTime(lastEvent.at);
+          return 'Última atividade: ' + formatDateTime(lastEvent.at);
         }
 
         return 'Tudo limpo por enquanto.';
@@ -1848,7 +2200,7 @@ function renderPage() {
       function applyTheme(theme) {
         document.documentElement.dataset.theme = theme;
         localStorage.setItem('bridge-theme', theme);
-        themeToggleButton.textContent = theme === 'dark' ? 'Tema claro' : 'Dark mode';
+        themeToggleButton.textContent = theme === 'dark' ? 'Tema claro' : 'Tema escuro';
       }
 
       themeToggleButton.addEventListener('click', () => {
@@ -1863,9 +2215,9 @@ function renderPage() {
       const authMessage = new URL(window.location.href).searchParams.get('auth');
 
       if (authMessage === 'google_failed') {
-        setFeedback('Nao foi possivel concluir o login com Google.', 'error');
+        setFeedback('Não foi possível concluir o login com Google.', 'error');
       } else if (authMessage === 'google_unavailable') {
-        setFeedback('O login com Google ainda nao foi configurado neste servidor.', 'error');
+        setFeedback('Login com Google estará disponível em breve.', 'error');
       }
 
       if (authMessage) {
