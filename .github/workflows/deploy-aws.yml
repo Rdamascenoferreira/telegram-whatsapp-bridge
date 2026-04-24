@@ -53,13 +53,20 @@ jobs:
           mkdir -p "$HOME/.ssh"
           printf '%s\n' "$AWS_DEPLOY_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/id_ed25519"
-
-          # valida se a chave privada está íntegra
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
-
-          # não deixa o workflow morrer por causa do keyscan
           touch "$HOME/.ssh/known_hosts"
           ssh-keyscan -H -p "${AWS_DEPLOY_PORT:-22}" "$AWS_DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+
+      - name: Test SSH TCP connectivity
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_PORT: ${{ secrets.AWS_DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          PORT="${AWS_DEPLOY_PORT:-22}"
+          echo "Testing TCP connection to ${AWS_DEPLOY_HOST}:${PORT}"
+          timeout 15 bash -c "cat < /dev/null > /dev/tcp/${AWS_DEPLOY_HOST}/${PORT}"
+          echo "TCP connection OK"
 
       - name: Upload release archive
         env:
@@ -69,6 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           scp \
+            -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -P "${AWS_DEPLOY_PORT:-22}" \
@@ -86,6 +94,7 @@ jobs:
           set -euo pipefail
           PM2_NAME="${AWS_DEPLOY_PM2_APP_NAME:-telegram-whatsapp-bridge}"
           ssh \
+            -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -p "${AWS_DEPLOY_PORT:-22}" \
