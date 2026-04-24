@@ -6,6 +6,17 @@ APP_DIR="${APP_DIR:?APP_DIR is required}"
 RELEASE_ARCHIVE="${RELEASE_ARCHIVE:?RELEASE_ARCHIVE is required}"
 PM2_APP_NAME="${PM2_APP_NAME:-telegram-whatsapp-bridge}"
 
+# Faz shell remoto enxergar Node/npm/pm2 instalados via nvm
+export NVM_DIR="${HOME}/.nvm"
+if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
+  # shellcheck disable=SC1090
+  . "${NVM_DIR}/nvm.sh" >/dev/null 2>&1 || true
+fi
+
+if command -v node >/dev/null 2>&1; then
+  export PATH="$(dirname "$(command -v node)"):${PATH}"
+fi
+
 if [[ ! -f "$RELEASE_ARCHIVE" ]]; then
   echo "Release archive not found: $RELEASE_ARCHIVE" >&2
   exit 1
@@ -13,6 +24,11 @@ fi
 
 if ! command -v rsync >/dev/null 2>&1; then
   echo "rsync is required on the server." >&2
+  exit 1
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm is required on the server." >&2
   exit 1
 fi
 
