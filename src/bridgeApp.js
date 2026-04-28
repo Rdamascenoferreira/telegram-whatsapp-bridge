@@ -2504,6 +2504,7 @@ function renderPage() {
       let selectedGroupIds = new Set();
       let selectedGroupIdsDirty = false;
       let selectedAdminUserId = '';
+      let settingsDraftDirty = false;
 
       async function fetchState() {
         const response = await fetch('/api/state');
@@ -2527,6 +2528,7 @@ function renderPage() {
           selectedGroupIdsDirty = false;
           selectedGroupIds = new Set();
           selectedAdminUserId = '';
+          settingsDraftDirty = false;
           return;
         }
 
@@ -2537,12 +2539,14 @@ function renderPage() {
           selectedGroupIds = new Set(state.config.selectedGroupIds || []);
         }
 
-        telegramModeInput.value = state.config.telegramMode || 'user';
-        telegramApiIdInput.value = state.config.telegramApiId || '';
-        telegramApiHashInput.value = state.config.telegramApiHash || '';
-        telegramPhoneInput.value = state.config.telegramPhone || '';
-        document.getElementById('telegramChannel').value = state.config.telegramChannel || '';
-        telegramBotTokenInput.value = '';
+        if (!settingsDraftDirty) {
+          telegramModeInput.value = state.config.telegramMode || 'user';
+          telegramApiIdInput.value = state.config.telegramApiId || '';
+          telegramApiHashInput.value = state.config.telegramApiHash || '';
+          telegramPhoneInput.value = state.config.telegramPhone || '';
+          document.getElementById('telegramChannel').value = state.config.telegramChannel || '';
+          telegramBotTokenInput.value = '';
+        }
         renderTelegramMode(state.config.telegramMode || 'user');
         renderTelegramChats(state.telegram || {}, state.config.telegramChannel || '');
         renderTelegramAuthPanel(state.telegram || {}, state.config || {});
@@ -2636,6 +2640,10 @@ function renderPage() {
           option.textContent = chat.name + ' (' + (chat.type === 'channel' ? 'canal' : 'grupo') + ')';
           telegramChatSelect.appendChild(option);
         });
+
+        if (settingsDraftDirty && telegramChatSelect.value) {
+          return;
+        }
 
         if (chats.some((chat) => String(chat.id) === currentValue)) {
           telegramChatSelect.value = currentValue;
@@ -3132,6 +3140,7 @@ function renderPage() {
             body: JSON.stringify(payload)
           });
 
+          settingsDraftDirty = false;
           setFeedback('Configuração salva com sucesso.', 'success');
           render(currentState);
         } catch (error) {
@@ -3238,13 +3247,27 @@ function renderPage() {
       });
 
       telegramModeInput.addEventListener('change', () => {
+        settingsDraftDirty = true;
         renderTelegramMode(telegramModeInput.value);
       });
 
       telegramChatSelect.addEventListener('change', () => {
+        settingsDraftDirty = true;
         if (telegramChatSelect.value) {
           document.getElementById('telegramChannel').value = telegramChatSelect.value;
         }
+      });
+
+      [
+        telegramApiIdInput,
+        telegramApiHashInput,
+        telegramPhoneInput,
+        telegramBotTokenInput,
+        document.getElementById('telegramChannel')
+      ].forEach((input) => {
+        input.addEventListener('input', () => {
+          settingsDraftDirty = true;
+        });
       });
 
       telegramRefreshChatsButton.addEventListener('click', async () => {
