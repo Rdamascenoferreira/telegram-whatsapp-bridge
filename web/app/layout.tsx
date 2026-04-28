@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Ponte Telegram -> WhatsApp',
+  title: 'Portal do Afiliado',
   description: 'Painel SaaS para gerenciar automacoes entre Telegram e WhatsApp.'
 };
 

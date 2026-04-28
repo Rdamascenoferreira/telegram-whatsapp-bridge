@@ -17,12 +17,11 @@ import {
   Shield,
   Smartphone,
   Users,
-  Zap
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 011';
+const panelVersion = 'Versao 012';
 
 type AuthUser = {
   id: string;
@@ -181,11 +180,11 @@ export default function Home() {
       <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
         <aside className="border-r border-[var(--border)] bg-black/15 px-4 py-5 max-lg:border-b max-lg:border-r-0">
           <div className="mb-7 flex items-center gap-3 px-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent)] text-black">
-              <Zap size={21} />
+            <div className="h-10 w-10 overflow-hidden rounded-lg border border-emerald-400/20 bg-black/25">
+              <img src="/brand/portal-icon.png" alt="" className="h-full w-full object-cover" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Ponte SaaS</p>
+              <p className="text-sm font-semibold">Portal do Afiliado</p>
               <p className="text-xs text-[var(--muted)]">{panelVersion}</p>
             </div>
           </div>
@@ -300,19 +299,27 @@ function AuthScreen({
   return (
     <main className="min-h-screen px-6 py-6 text-[var(--foreground)] max-sm:px-4">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Ponte Telegram - WhatsApp</p>
-          <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight max-sm:text-3xl">
-            Acesse sua central de automacao.
-          </h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--muted)]">
-            Gerencie conexoes, grupos, sessoes e entregas em uma interface preparada para operacao real.
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 overflow-hidden rounded-lg border border-emerald-400/20 bg-black/25">
+            <img src="/brand/portal-icon.png" alt="" className="h-full w-full object-cover" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Portal do Afiliado</p>
+            <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight max-sm:text-3xl">
+              Acesse sua central de automacao.
+            </h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--muted)]">
+              Gerencie conexoes, grupos, sessoes e entregas em uma interface preparada para operacao real.
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="mx-auto mt-8 grid max-w-5xl grid-cols-[1fr_420px] gap-5 max-lg:grid-cols-1">
         <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6">
+          <div className="mb-6 flex h-28 items-center overflow-hidden rounded-md border border-[var(--border)] bg-black/20 px-5">
+            <img src="/brand/portal-wordmark.png" alt="Portal do Afiliado" className="h-full w-full object-contain" />
+          </div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Produto beta</p>
           <h2 className="mt-3 text-2xl font-semibold">Uma ponte mais organizada para operar no dia a dia.</h2>
           <div className="mt-6 grid gap-3">
@@ -402,11 +409,26 @@ function Topbar({
   state: AppState;
   onLogout: () => Promise<void>;
 }) {
+  const hasTelegramSource = Boolean(state.config.telegramChannel);
+  const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
+  const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+
   return (
     <header className="mb-5 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
-      <div>
+      <div className="min-w-0">
         <p className="text-sm text-[var(--muted)]">Central operacional</p>
-        <h1 className="text-2xl font-semibold">Ponte Telegram - WhatsApp</h1>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="text-2xl font-semibold">Portal do Afiliado</h1>
+          <CompactSetupChecklist
+            steps={[
+              { label: 'Telegram', done: state.telegramStatus === 'listening' },
+              { label: 'WhatsApp', done: state.whatsAppStatus === 'ready' },
+              { label: 'Origem', done: hasTelegramSource },
+              { label: 'Destino', done: hasWhatsAppDestination },
+              { label: 'Ativo', done: state.config.bridgeEnabled, ready: !state.config.bridgeEnabled && canEnableAutomation }
+            ]}
+          />
+        </div>
       </div>
       <div className="flex items-center gap-2 max-sm:flex-wrap">
         <StatusBadge label="Telegram" value={state.telegramStatus} />
@@ -439,8 +461,6 @@ function Overview({
 }) {
   const progress = state.metrics.groupRefreshProgress;
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
-  const hasTelegramSource = Boolean(state.config.telegramChannel);
-  const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
   const automationLockReason =
     state.telegramStatus !== 'listening'
       ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
@@ -525,58 +545,6 @@ function Overview({
               Comecar do zero
             </button>
           </div>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-        <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Checklist</p>
-            <h2 className="mt-1 text-xl font-semibold">Preparacao da automacao</h2>
-          </div>
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-            {[state.telegramStatus === 'listening', state.whatsAppStatus === 'ready', hasTelegramSource, hasWhatsAppDestination, canEnableAutomation].filter(Boolean).length}/5 concluido
-          </span>
-        </div>
-
-        <div className="grid grid-cols-5 gap-3 max-2xl:grid-cols-3 max-md:grid-cols-1">
-          <SetupStepCard
-            step="1"
-            title="Telegram conectado"
-            description="Conecte sua conta e conclua o login por codigo."
-            done={state.telegramStatus === 'listening'}
-          />
-          <SetupStepCard
-            step="2"
-            title="WhatsApp conectado"
-            description="Escaneie o QR Code e aguarde o status ficar pronto."
-            done={state.whatsAppStatus === 'ready'}
-          />
-          <SetupStepCard
-            step="3"
-            title="Origem escolhida"
-            description="Selecione o grupo ou canal monitorado no Telegram."
-            done={hasTelegramSource}
-          />
-          <SetupStepCard
-            step="4"
-            title="Destino escolhido"
-            description="Selecione ao menos um grupo de destino no WhatsApp."
-            done={hasWhatsAppDestination}
-          />
-          <SetupStepCard
-            step="5"
-            title="Automacao liberada"
-            description={
-              state.config.bridgeEnabled
-                ? 'Sistema ligado e pronto para encaminhar mensagens.'
-                : canEnableAutomation
-                  ? 'Tudo pronto. Agora voce ja pode ligar o sistema.'
-                  : 'A automacao sera liberada quando as etapas anteriores forem concluidas.'
-            }
-            done={state.config.bridgeEnabled}
-            ready={!state.config.bridgeEnabled && canEnableAutomation}
-          />
         </div>
       </section>
 
@@ -1178,59 +1146,51 @@ function SystemPowerSwitch({
   );
 }
 
-function SetupStepCard({
-  step,
-  title,
-  description,
-  done,
-  ready = false
+function CompactSetupChecklist({
+  steps
 }: {
-  step: string;
-  title: string;
-  description: string;
-  done: boolean;
-  ready?: boolean;
+  steps: Array<{
+    label: string;
+    done: boolean;
+    ready?: boolean;
+  }>;
 }) {
+  const doneCount = steps.filter((step) => step.done).length;
+
   return (
-    <article
-      className={cn(
-        'rounded-lg border p-4 transition',
-        done
-          ? 'border-emerald-400/20 bg-emerald-400/8'
-          : ready
-            ? 'border-sky-400/20 bg-sky-400/8'
-            : 'border-[var(--border)] bg-black/10'
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-[var(--border)] bg-black/10 px-2 py-1.5">
+      {steps.map((step, index) => (
+        <span
+          key={step.label}
+          className={cn(
+            'inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-semibold transition',
+            step.done
+              ? 'bg-emerald-400/12 text-emerald-100'
+              : step.ready
+                ? 'bg-sky-400/12 text-sky-100'
+                : 'text-[var(--muted)]'
+          )}
+          title={step.done ? `${step.label}: concluido` : step.ready ? `${step.label}: pronto` : `${step.label}: pendente`}
+        >
+          <span
             className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-bold',
-              done
+              'flex h-4 w-4 items-center justify-center rounded-full border text-[10px]',
+              step.done
                 ? 'border-emerald-400/30 bg-emerald-400/15 text-emerald-100'
-                : ready
+                : step.ready
                   ? 'border-sky-400/30 bg-sky-400/15 text-sky-100'
-                  : 'border-[var(--border)] bg-white/5 text-[var(--muted)]'
+                  : 'border-white/15 bg-white/5 text-[var(--muted)]'
             )}
           >
-            {done ? <CheckCircle2 size={16} /> : step}
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold">{title}</h3>
-            <p
-              className={cn(
-                'mt-1 text-xs font-semibold uppercase tracking-[0.14em]',
-                done ? 'text-emerald-100' : ready ? 'text-sky-100' : 'text-[var(--muted)]'
-              )}
-            >
-              {done ? 'Concluido' : ready ? 'Pronto para ativar' : 'Pendente'}
-            </p>
-          </div>
-        </div>
-      </div>
-      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{description}</p>
-    </article>
+            {step.done ? <CheckCircle2 size={11} /> : index + 1}
+          </span>
+          <span className="max-sm:hidden">{step.label}</span>
+        </span>
+      ))}
+      <span className="ml-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-100">
+        {doneCount}/5
+      </span>
+    </div>
   );
 }
 

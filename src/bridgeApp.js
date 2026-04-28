@@ -716,13 +716,13 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versão 011';
+  const currentPanelVersion = 'Versão 012';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ponte Telegram → WhatsApp</title>
+    <title>Portal do Afiliado</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -1949,7 +1949,7 @@ function renderPage() {
     <main>
       <section class="topbar">
         <div class="brand-block">
-          <div class="brand-tag">Ponte Telegram &rarr; WhatsApp</div>
+          <div class="brand-tag">Portal do Afiliado</div>
           <h1>Automatize sua operação Telegram &rarr; WhatsApp em um painel centralizado.</h1>
           <p class="lead-strong">
             Configure sua ponte, gerencie sessões e controle o envio de posts para seus grupos com mais segurança e organização.
