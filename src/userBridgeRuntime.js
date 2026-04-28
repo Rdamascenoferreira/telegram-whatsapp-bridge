@@ -1651,8 +1651,12 @@ function normalizeTelegramChatRef(value) {
     return normalized;
   }
 
-  if (normalized.startsWith('-100')) {
+  if (/^-100\d+$/.test(normalized)) {
     return normalized.slice(4);
+  }
+
+  if (/^-\d+$/.test(normalized)) {
+    return normalized.slice(1);
   }
 
   return normalized;
@@ -1695,7 +1699,7 @@ function fallbackText(message) {
 }
 
 function normalizeTelegramUserChatId(value) {
-  return String(value ?? '').replace(/^-100/, '').trim();
+  return normalizeTelegramChatRef(value);
 }
 
 function describeTelegramEntity(chat, fallbackId = '') {

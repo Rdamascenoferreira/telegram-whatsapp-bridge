@@ -2624,7 +2624,7 @@ function renderPage() {
 
       function renderTelegramChats(telegramState, selectedChannel) {
         const chats = Array.isArray(telegramState.availableChats) ? telegramState.availableChats : [];
-        const currentValue = String(selectedChannel || '');
+        const currentValue = normalizeTelegramChannelValue(selectedChannel || '');
         telegramChatSelect.innerHTML = '';
 
         const placeholder = document.createElement('option');
@@ -2645,8 +2645,12 @@ function renderPage() {
           return;
         }
 
-        if (chats.some((chat) => String(chat.id) === currentValue)) {
-          telegramChatSelect.value = currentValue;
+        const selectedChat = chats.find(
+          (chat) => normalizeTelegramChannelValue(chat.id) === currentValue
+        );
+
+        if (selectedChat) {
+          telegramChatSelect.value = String(selectedChat.id);
         }
       }
 
@@ -3542,6 +3546,24 @@ function renderPage() {
         }
 
         return 'Buscando grupos...';
+      }
+
+      function normalizeTelegramChannelValue(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+
+        if (!normalized || normalized.startsWith('@')) {
+          return normalized;
+        }
+
+        if (/^-100\d+$/.test(normalized)) {
+          return normalized.slice(4);
+        }
+
+        if (/^-\d+$/.test(normalized)) {
+          return normalized.slice(1);
+        }
+
+        return normalized;
       }
 
       function buildErrorMetaWithProgress(metrics, activity) {
