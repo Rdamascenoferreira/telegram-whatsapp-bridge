@@ -655,7 +655,7 @@ export class UserBridgeRuntime {
       }
     };
 
-    client.addEventHandler(this.telegramMessageHandler, new NewMessage({ incoming: true }));
+    client.addEventHandler(this.telegramMessageHandler, new NewMessage({}));
     this.telegramStatus = 'listening';
     this.telegramAuthFlow = null;
     this.log('Telegram conectado pela sua conta. Agora a ponte pode ler mensagens do grupo sem bot.', {
