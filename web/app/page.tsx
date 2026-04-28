@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 006';
+const panelVersion = 'Versao 007';
 
 type AuthUser = {
   id: string;
@@ -857,6 +857,10 @@ function Groups({
   refresh: () => Promise<void>;
 }) {
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
+  const groupsProgress = state.metrics.groupRefreshProgress;
+  const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
+  const groupsProcessed = groupsProgress?.processed || 0;
+  const groupsTotal = groupsProgress?.total || 0;
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
     return state.groups.filter((group) => normalizeText(group.name).includes(normalized));
@@ -891,6 +895,36 @@ function Groups({
             : 'Atualizar grupos'}
         </button>
       </div>
+
+      {state.metrics.groupsRefreshing ? (
+        <div className="mb-4 rounded-lg border border-emerald-400/15 bg-emerald-500/8 p-4">
+          <div className="flex items-start justify-between gap-3 max-md:flex-col">
+            <div>
+              <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                {groupsTotal
+                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados ate agora.`
+                  : 'Preparando a leitura dos grupos. Na primeira sincronizacao isso pode levar alguns minutos.'}
+              </p>
+            </div>
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
+              {groupsTotal ? `${groupsPercent}%` : 'Preparando'}
+            </span>
+          </div>
+
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/6">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-300 transition-[width] duration-500 ease-out"
+              style={{ width: `${groupsTotal ? groupsPercent : 12}%` }}
+            />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
+            <span>{groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}</span>
+            <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/10 px-3 py-2">
         <Search size={17} className="text-[var(--muted)]" />
