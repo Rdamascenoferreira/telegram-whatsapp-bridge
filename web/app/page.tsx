@@ -17,11 +17,12 @@ import {
   Shield,
   Smartphone,
   Users,
+  X
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 012';
+const panelVersion = 'Versao 013';
 
 type AuthUser = {
   id: string;
@@ -45,6 +46,10 @@ type WhatsAppGroup = {
   id: string;
   name: string;
   selected?: boolean;
+  kind?: 'group' | 'announcement' | 'community_group';
+  isAnnouncement?: boolean;
+  isCommunityLinked?: boolean;
+  parentGroupId?: string | null;
 };
 
 type TelegramChat = {
@@ -898,10 +903,16 @@ function Groups({
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
   const groupsProcessed = groupsProgress?.processed || 0;
   const groupsTotal = groupsProgress?.total || 0;
+  const selectedGroups = useMemo(
+    () => state.groups.filter((group) => selected.has(group.id)),
+    [selected, state.groups]
+  );
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
-    return state.groups.filter((group) => normalizeText(group.name).includes(normalized));
-  }, [filter, state.groups]);
+    return state.groups
+      .filter((group) => normalizeText(group.name).includes(normalized))
+      .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
+  }, [filter, selected, state.groups]);
 
   useEffect(() => {
     setSelected(new Set(state.config.selectedGroupIds));
@@ -973,6 +984,44 @@ function Groups({
         />
       </div>
 
+      <div className="mb-4 rounded-md border border-[var(--border)] bg-black/10 p-3">
+        <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
+          <div>
+            <p className="text-sm font-semibold">Grupos selecionados</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {selectedGroups.length
+                ? `${selectedGroups.length} destino(s) pronto(s) para receber mensagens.`
+                : 'Nenhum destino selecionado ainda.'}
+            </p>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+            {selectedGroups.length}
+          </span>
+        </div>
+
+        {selectedGroups.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selectedGroups.map((group) => (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => {
+                  const next = new Set(selected);
+                  next.delete(group.id);
+                  setSelected(next);
+                }}
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-left text-xs font-semibold text-emerald-50 transition hover:bg-emerald-400/15"
+                title="Remover dos selecionados"
+              >
+                <span className="truncate">{group.name}</span>
+                <GroupKindBadge group={group} />
+                <X size={13} className="text-emerald-100/70" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <div className="max-h-[560px] overflow-auto rounded-md border border-[var(--border)]">
         {filteredGroups.length ? (
           filteredGroups.map((group) => (
@@ -990,7 +1039,8 @@ function Groups({
                   setSelected(next);
                 }}
               />
-              <span className="text-sm">{group.name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
+              <GroupKindBadge group={group} />
             </label>
           ))
         ) : (
@@ -1106,6 +1156,26 @@ function ConnectionSummary({
       </div>
     </section>
   );
+}
+
+function GroupKindBadge({ group }: { group: WhatsAppGroup }) {
+  if (group.isAnnouncement) {
+    return (
+      <span className="shrink-0 rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-100">
+        Avisos
+      </span>
+    );
+  }
+
+  if (group.isCommunityLinked) {
+    return (
+      <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+        Comunidade
+      </span>
+    );
+  }
+
+  return null;
 }
 
 function SystemPowerSwitch({

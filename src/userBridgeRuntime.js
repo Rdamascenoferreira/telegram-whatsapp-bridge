@@ -1322,9 +1322,14 @@ export class UserBridgeRuntime {
           processed % 5 === 0;
 
         if (adminParticipant) {
+          const groupKind = getWhatsAppGroupKind(chat);
           availableGroups.push({
             id: chat.id,
-            name: chat.name || 'Grupo sem nome'
+            name: chat.name || 'Grupo sem nome',
+            kind: groupKind.kind,
+            isAnnouncement: groupKind.isAnnouncement,
+            isCommunityLinked: groupKind.isCommunityLinked,
+            parentGroupId: groupKind.parentGroupId
           });
         }
 
@@ -1636,6 +1641,27 @@ function getGroupParticipants(chat) {
   }
 
   return [];
+}
+
+function getWhatsAppGroupKind(chat) {
+  const metadata = chat?.groupMetadata || {};
+  const parentGroupId = serializeWid(
+    metadata.parentGroupId ||
+      metadata.parentGroupWid ||
+      metadata.linkedParent ||
+      metadata.linkedParentId ||
+      metadata.communityId ||
+      metadata.communityParentId
+  );
+  const isAnnouncement = Boolean(metadata.announce || metadata.isAnnounceGrp || metadata.announcement);
+  const isCommunityLinked = Boolean(parentGroupId);
+
+  return {
+    kind: isAnnouncement ? 'announcement' : isCommunityLinked ? 'community_group' : 'group',
+    isAnnouncement,
+    isCommunityLinked,
+    parentGroupId
+  };
 }
 
 function buildCanonicalIds(wid) {

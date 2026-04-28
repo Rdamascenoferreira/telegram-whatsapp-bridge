@@ -716,7 +716,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versão 012';
+  const currentPanelVersion = 'Versão 013';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
