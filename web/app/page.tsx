@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.17';
+const panelVersion = 'Versão 0.18';
 
 type AuthUser = {
   id: string;
@@ -923,8 +923,19 @@ function Groups({
   useEffect(() => {
     const nextSelected = new Set(state.config.selectedGroupIds);
 
-    if (!hasPendingSelectionChanges || areSameSet(selected, nextSelected)) {
-      setSelected(nextSelected);
+    setSelected((currentSelected) => {
+      if (hasPendingSelectionChanges && !areSameSet(currentSelected, nextSelected)) {
+        return currentSelected;
+      }
+
+      if (areSameSet(currentSelected, nextSelected)) {
+        return currentSelected;
+      }
+
+      return nextSelected;
+    });
+
+    if (hasPendingSelectionChanges && areSameSet(selected, nextSelected)) {
       setHasPendingSelectionChanges(false);
     }
   }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
