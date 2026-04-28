@@ -1,0 +1,30 @@
+<svg width="1200" height="260" viewBox="0 0 1200 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iconBg" x1="30" y1="18" x2="182" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12211B"/>
+      <stop offset="1" stop-color="#09110D"/>
+    </linearGradient>
+    <linearGradient id="iconGlow" x1="106" y1="42" x2="106" y2="190" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4BFFB2"/>
+      <stop offset="1" stop-color="#18C37E"/>
+    </linearGradient>
+    <linearGradient id="accentText" x1="692" y1="74" x2="1075" y2="178" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DFFD1"/>
+      <stop offset="1" stop-color="#25D58D"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="18" y="18" width="176" height="176" rx="42" fill="url(#iconBg)"/>
+  <rect x="18" y="18" width="176" height="176" rx="42" stroke="#2EF0A1" stroke-opacity="0.16" stroke-width="2"/>
+  <path d="M61 156V88C61 63.1472 81.1472 43 106 43C130.853 43 151 63.1472 151 88V156" stroke="url(#iconGlow)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M80 122L106 74L132 122" stroke="#93FFD9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M80 122L92 144" stroke="#67F9C1" stroke-width="5" stroke-linecap="round"/>
+  <path d="M132 122L120 144" stroke="#67F9C1" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="106" cy="74" r="12" fill="#78FFD1"/>
+  <circle cx="80" cy="122" r="12" fill="#54F3B1"/>
+  <circle cx="132" cy="122" r="12" fill="#54F3B1"/>
+
+  <text x="238" y="118" fill="#F5FFF9" font-size="72" font-weight="700" font-family="Segoe UI, Inter, Arial, sans-serif">Portal do</text>
+  <text x="664" y="118" fill="url(#accentText)" font-size="72" font-weight="800" font-family="Segoe UI, Inter, Arial, sans-serif">Afiliado</text>
+  <text x="240" y="164" fill="#89A59A" font-size="24" font-weight="500" font-family="Segoe UI, Inter, Arial, sans-serif" letter-spacing="0.04em">AUTOMACAO TELEGRAM × WHATSAPP</text>
+</svg>

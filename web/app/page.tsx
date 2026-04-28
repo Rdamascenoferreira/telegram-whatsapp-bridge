@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.18';
+const panelVersion = 'Versão 0.19';
 
 type AuthUser = {
   id: string;
@@ -187,8 +187,8 @@ export default function Home() {
       <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
         <aside className="border-r border-[var(--border)] bg-black/15 px-4 py-5 max-lg:border-b max-lg:border-r-0">
           <div className="mb-7 flex items-center gap-3 px-2">
-            <div className="h-10 w-10 overflow-hidden rounded-lg border border-emerald-400/20 bg-black/25">
-              <img src="/brand/portal-icon.png" alt="" className="h-full w-full object-cover" />
+            <div className="h-10 w-10 overflow-hidden rounded-2xl border border-emerald-400/20 bg-black/25 shadow-[0_0_24px_rgba(43,214,140,0.15)]">
+              <img src="/brand/portal-icon.svg" alt="" className="h-full w-full object-cover" />
             </div>
             <div>
               <p className="text-sm font-semibold">Portal do Afiliado</p>
@@ -307,8 +307,8 @@ function AuthScreen({
     <main className="min-h-screen px-6 py-6 text-[var(--foreground)] max-sm:px-4">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 overflow-hidden rounded-lg border border-emerald-400/20 bg-black/25">
-            <img src="/brand/portal-icon.png" alt="" className="h-full w-full object-cover" />
+          <div className="h-14 w-14 overflow-hidden rounded-2xl border border-emerald-400/20 bg-black/25 shadow-[0_0_28px_rgba(43,214,140,0.18)]">
+            <img src="/brand/portal-icon.svg" alt="" className="h-full w-full object-cover" />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Portal do Afiliado</p>
@@ -324,8 +324,8 @@ function AuthScreen({
 
       <div className="mx-auto mt-8 grid max-w-5xl grid-cols-[1fr_420px] gap-5 max-lg:grid-cols-1">
         <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6">
-          <div className="mb-6 flex h-28 items-center overflow-hidden rounded-md border border-[var(--border)] bg-black/20 px-5">
-            <img src="/brand/portal-wordmark.png" alt="Portal do Afiliado" className="h-full w-full object-contain" />
+          <div className="mb-6 flex h-28 items-center overflow-hidden rounded-2xl border border-emerald-400/10 bg-[linear-gradient(135deg,rgba(26,56,42,0.65),rgba(8,17,13,0.92))] px-5 shadow-[inset_0_1px_0_rgba(108,255,196,0.08)]">
+            <img src="/brand/portal-wordmark.svg" alt="Portal do Afiliado" className="h-full w-full object-contain" />
           </div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Produto beta</p>
           <h2 className="mt-3 text-2xl font-semibold">Uma ponte mais organizada para operar no dia a dia.</h2>
