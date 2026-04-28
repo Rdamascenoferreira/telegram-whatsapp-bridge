@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 009';
+const panelVersion = 'Versao 010';
 
 type AuthUser = {
   id: string;
@@ -439,6 +439,8 @@ function Overview({
 }) {
   const progress = state.metrics.groupRefreshProgress;
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const hasTelegramSource = Boolean(state.config.telegramChannel);
+  const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
   const automationLockReason =
     state.telegramStatus !== 'listening'
       ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
@@ -523,6 +525,58 @@ function Overview({
               Comecar do zero
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+        <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Checklist</p>
+            <h2 className="mt-1 text-xl font-semibold">Preparacao da automacao</h2>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+            {[state.telegramStatus === 'listening', state.whatsAppStatus === 'ready', hasTelegramSource, hasWhatsAppDestination, canEnableAutomation].filter(Boolean).length}/5 concluido
+          </span>
+        </div>
+
+        <div className="grid grid-cols-5 gap-3 max-2xl:grid-cols-3 max-md:grid-cols-1">
+          <SetupStepCard
+            step="1"
+            title="Telegram conectado"
+            description="Conecte sua conta e conclua o login por codigo."
+            done={state.telegramStatus === 'listening'}
+          />
+          <SetupStepCard
+            step="2"
+            title="WhatsApp conectado"
+            description="Escaneie o QR Code e aguarde o status ficar pronto."
+            done={state.whatsAppStatus === 'ready'}
+          />
+          <SetupStepCard
+            step="3"
+            title="Origem escolhida"
+            description="Selecione o grupo ou canal monitorado no Telegram."
+            done={hasTelegramSource}
+          />
+          <SetupStepCard
+            step="4"
+            title="Destino escolhido"
+            description="Selecione ao menos um grupo de destino no WhatsApp."
+            done={hasWhatsAppDestination}
+          />
+          <SetupStepCard
+            step="5"
+            title="Automacao liberada"
+            description={
+              state.config.bridgeEnabled
+                ? 'Sistema ligado e pronto para encaminhar mensagens.'
+                : canEnableAutomation
+                  ? 'Tudo pronto. Agora voce ja pode ligar o sistema.'
+                  : 'A automacao sera liberada quando as etapas anteriores forem concluidas.'
+            }
+            done={state.config.bridgeEnabled}
+            ready={!state.config.bridgeEnabled && canEnableAutomation}
+          />
         </div>
       </section>
 
@@ -1121,6 +1175,62 @@ function SystemPowerSwitch({
         <span className={cn(checked ? 'opacity-30' : 'opacity-100')}>Off</span>
       </span>
     </button>
+  );
+}
+
+function SetupStepCard({
+  step,
+  title,
+  description,
+  done,
+  ready = false
+}: {
+  step: string;
+  title: string;
+  description: string;
+  done: boolean;
+  ready?: boolean;
+}) {
+  return (
+    <article
+      className={cn(
+        'rounded-lg border p-4 transition',
+        done
+          ? 'border-emerald-400/20 bg-emerald-400/8'
+          : ready
+            ? 'border-sky-400/20 bg-sky-400/8'
+            : 'border-[var(--border)] bg-black/10'
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-bold',
+              done
+                ? 'border-emerald-400/30 bg-emerald-400/15 text-emerald-100'
+                : ready
+                  ? 'border-sky-400/30 bg-sky-400/15 text-sky-100'
+                  : 'border-[var(--border)] bg-white/5 text-[var(--muted)]'
+            )}
+          >
+            {done ? <CheckCircle2 size={16} /> : step}
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">{title}</h3>
+            <p
+              className={cn(
+                'mt-1 text-xs font-semibold uppercase tracking-[0.14em]',
+                done ? 'text-emerald-100' : ready ? 'text-sky-100' : 'text-[var(--muted)]'
+              )}
+            >
+              {done ? 'Concluido' : ready ? 'Pronto para ativar' : 'Pendente'}
+            </p>
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{description}</p>
+    </article>
   );
 }
 
