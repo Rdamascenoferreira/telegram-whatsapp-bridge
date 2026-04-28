@@ -19,8 +19,8 @@ module.exports = {
     {
       name: process.env.PM2_FRONTEND_APP_NAME || 'portal-afiliado-web',
       cwd: `${__dirname}/web`,
-      script: './node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'npm',
+      args: 'start -- -p 3000',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
