@@ -214,6 +214,44 @@ export class UserBridgeRuntime {
     this.log(`Sistema ${bridgeEnabled ? 'ligado' : 'desligado'} pelo painel.`);
   }
 
+  async resetAllConnections() {
+    this.telegramAuthFlow = null;
+    this.pendingTelegramMessages = [];
+    this.isFlushingPendingTelegramMessages = false;
+
+    if (this.telegramClient) {
+      try {
+        await this.telegramClient.logOut();
+      } catch {}
+    }
+
+    await this.stopTelegramTransport();
+    this.telegramAvailableChats = [];
+    this.telegramUserProfile = null;
+    this.telegramStatus = 'not_configured';
+
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      telegramBotToken: '',
+      telegramApiId: '',
+      telegramApiHash: '',
+      telegramPhone: '',
+      telegramSession: '',
+      telegramChannel: '',
+      selectedGroupIds: [],
+      bridgeEnabled: false
+    });
+
+    this.log('Conexoes do Telegram removidas e configuracao da ponte reiniciada.', {
+      type: 'connections_reset'
+    });
+
+    await this.resetWhatsAppSession();
+    this.log('Reset completo concluido. O usuario pode conectar tudo novamente do zero.', {
+      type: 'connections_reset_complete'
+    });
+  }
+
   async reconnectWhatsApp() {
     if (this.whatsAppReconnectInProgress || this.whatsAppResetInProgress) {
       return;

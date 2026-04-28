@@ -163,6 +163,12 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
+    app.post('/api/connections/reset-all', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      await runtime.resetAllConnections();
+      await respondWithState(request, response);
+    });
+
     app.get('/api/admin/users', requireAdmin, async (_request, response) => {
       response.json(await this.buildAdminState());
     });
@@ -710,7 +716,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versão 002';
+  const currentPanelVersion = 'Versão 003';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

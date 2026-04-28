@@ -10,6 +10,7 @@ import {
   LogOut,
   MessageSquare,
   Moon,
+  Power,
   RefreshCcw,
   Search,
   Send,
@@ -23,7 +24,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 002';
+const panelVersion = 'Versao 003';
 
 type AuthUser = {
   id: string;
@@ -481,24 +482,53 @@ function Overview({
               Acompanhe a saude das conexoes, controle a automacao e valide se as mensagens estao fluindo.
             </p>
           </div>
-          <button
-            type="button"
-            disabled={busy === 'power'}
-            onClick={async () => {
-              setBusy('power');
-              await postJson('/api/system-power', { bridgeEnabled: !state.config.bridgeEnabled });
-              await refresh();
-              setNotice(state.config.bridgeEnabled ? 'Sistema desligado.' : 'Sistema ligado.');
-              setBusy('');
-            }}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-bold text-black',
-              state.config.bridgeEnabled ? 'bg-[var(--danger)]' : 'bg-[var(--accent)]'
-            )}
-          >
-            <Zap size={16} />
-            {state.config.bridgeEnabled ? 'Desligar sistema' : 'Ligar sistema'}
-          </button>
+          <div className="grid min-w-[280px] gap-3 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold">Automacao ativa</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {state.config.bridgeEnabled
+                    ? 'A ponte pode encaminhar mensagens normalmente.'
+                    : 'As mensagens recebidas ficam sem encaminhamento ate voce ligar de novo.'}
+                </p>
+              </div>
+              <SystemPowerSwitch
+                checked={state.config.bridgeEnabled}
+                disabled={busy === 'power'}
+                onChange={async (nextValue) => {
+                  setBusy('power');
+                  await postJson('/api/system-power', { bridgeEnabled: nextValue });
+                  await refresh();
+                  setNotice(nextValue ? 'Sistema ligado.' : 'Sistema desligado.');
+                  setBusy('');
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={busy === 'reset-all'}
+              onClick={async () => {
+                const confirmed = window.confirm(
+                  'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
+                );
+
+                if (!confirmed) {
+                  return;
+                }
+
+                setBusy('reset-all');
+                await postJson('/api/connections/reset-all');
+                await refresh();
+                setNotice('Conexoes resetadas. Agora voce pode configurar tudo de novo.');
+                setBusy('');
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+            >
+              <Power size={16} />
+              Comecar do zero
+            </button>
+          </div>
         </div>
       </section>
 
@@ -799,8 +829,69 @@ function ConnectionSummary({
         >
           Trocar conta
         </button>
+        <button
+          type="button"
+          disabled={busy === 'reset-all'}
+          onClick={async () => {
+            const confirmed = window.confirm(
+              'Isso vai esquecer Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
+            );
+
+            if (!confirmed) {
+              return;
+            }
+
+            setBusy('reset-all');
+            await postJson('/api/connections/reset-all');
+            await refresh();
+            setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexao.');
+            setBusy('');
+          }}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+        >
+          <Power size={16} />
+          Reset completo
+        </button>
       </div>
     </section>
+  );
+}
+
+function SystemPowerSwitch({
+  checked,
+  disabled,
+  onChange
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (nextValue: boolean) => Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => void onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border px-1 transition',
+        checked
+          ? 'border-emerald-400/20 bg-emerald-400/20'
+          : 'border-[var(--border)] bg-white/8',
+        disabled && 'opacity-60'
+      )}
+    >
+      <span
+        className={cn(
+          'absolute inset-y-1 w-6 rounded-full bg-white shadow transition',
+          checked ? 'left-[calc(100%-1.75rem)] bg-[var(--accent)]' : 'left-1 bg-white/90'
+        )}
+      />
+      <span className="relative z-10 flex w-full justify-between px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--foreground)]">
+        <span className={cn(checked ? 'opacity-100' : 'opacity-30')}>On</span>
+        <span className={cn(checked ? 'opacity-30' : 'opacity-100')}>Off</span>
+      </span>
+    </button>
   );
 }
 
