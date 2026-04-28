@@ -79,6 +79,13 @@ export class UserBridgeRuntime {
       groupsWithAdminMatch: 0,
       sample: []
     };
+    this.groupRefreshProgress = {
+      phase: 'idle',
+      total: 0,
+      processed: 0,
+      percent: 0,
+      foundAdmins: 0
+    };
     this.persistActivityPromise = Promise.resolve();
     this.initialized = false;
   }
@@ -130,6 +137,7 @@ export class UserBridgeRuntime {
         whatsAppStatus: this.whatsAppStatus,
         telegramStatus: this.telegramStatus,
         groupsRefreshing: this.isRefreshingGroups,
+        groupRefreshProgress: this.groupRefreshProgress,
         pendingTelegramCount: this.pendingTelegramMessages.length,
         canResetWhatsAppSession: Boolean(this.whatsAppIssue?.canResetSession),
         canReconnectWhatsApp: this.whatsAppStatus !== 'connecting' && !this.whatsAppReconnectInProgress
@@ -1209,18 +1217,33 @@ export class UserBridgeRuntime {
     }
 
     this.isRefreshingGroups = true;
+    this.groupRefreshProgress = {
+      phase: 'loading_groups',
+      total: 0,
+      processed: 0,
+      percent: 5,
+      foundAdmins: 0
+    };
 
     try {
       this.log('Atualizando grupos do WhatsApp... Na primeira sincronizacao isso pode levar 1 a 3 minutos.', {
         type: 'groups_refresh_started'
       });
       const groups = await this.fetchGroupSummaries();
+      this.groupRefreshProgress = {
+        phase: 'checking_admins',
+        total: groups.length,
+        processed: 0,
+        percent: groups.length ? 10 : 100,
+        foundAdmins: 0
+      };
       const myId = this.whatsAppClient.info?.wid;
       const myCanonicalIds = buildCanonicalIds(myId);
       const availableGroups = [];
       const diagnosticSample = [];
 
-      for (const chat of groups) {
+      for (let index = 0; index < groups.length; index += 1) {
+        const chat = groups[index];
         const participants = getGroupParticipants(chat);
         const adminParticipant = participants.find((participant) => {
           const participantIds = buildCanonicalIds(participant.id);
@@ -1245,19 +1268,42 @@ export class UserBridgeRuntime {
           });
         }
 
-        if (!adminParticipant) {
-          continue;
+        const processed = index + 1;
+        const shouldUpdateProgress =
+          processed === groups.length ||
+          processed === 1 ||
+          processed % 5 === 0;
+
+        if (adminParticipant) {
+          availableGroups.push({
+            id: chat.id,
+            name: chat.name || 'Grupo sem nome'
+          });
         }
 
-        availableGroups.push({
-          id: chat.id,
-          name: chat.name || 'Grupo sem nome'
-        });
+        if (shouldUpdateProgress) {
+          this.groupRefreshProgress = {
+            phase: 'checking_admins',
+            total: groups.length,
+            processed,
+            percent: groups.length
+              ? Math.max(10, Math.min(99, Math.round((processed / groups.length) * 100)))
+              : 100,
+            foundAdmins: availableGroups.length
+          };
+        }
       }
 
       this.availableGroups = availableGroups.sort((left, right) =>
         left.name.localeCompare(right.name, 'pt-BR')
       );
+      this.groupRefreshProgress = {
+        phase: 'done',
+        total: groups.length,
+        processed: groups.length,
+        percent: 100,
+        foundAdmins: this.availableGroups.length
+      };
       this.groupDiagnostics = {
         totalGroupsSeen: groups.length,
         groupsWithAdminMatch: this.availableGroups.length,
@@ -1277,6 +1323,10 @@ export class UserBridgeRuntime {
         }
       );
     } catch (error) {
+      this.groupRefreshProgress = {
+        ...this.groupRefreshProgress,
+        phase: 'error'
+      };
       if (isRecoverableWhatsAppTargetError(error)) {
         this.markWhatsAppBrowserClosed('listar grupos', error);
         return;

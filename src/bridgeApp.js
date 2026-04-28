@@ -2570,7 +2570,7 @@ function renderPage() {
         systemToggleButton.className = state.config.bridgeEnabled ? 'warn' : '';
         refreshGroupsButton.disabled = Boolean(state.metrics?.groupsRefreshing);
         refreshGroupsButton.textContent = state.metrics?.groupsRefreshing
-          ? 'Buscando grupos...'
+          ? getGroupsRefreshLabel(state.metrics?.groupRefreshProgress)
           : 'Atualizar grupos';
         const whatsAppAction = resolveWhatsAppAction(state);
         whatsAppActionButton.hidden = !whatsAppAction;
@@ -2612,7 +2612,7 @@ function renderPage() {
           formatNumber(metrics.selectedGroupCount || 0);
 
         metricErrors.textContent = formatNumber(metrics.totalErrors || 0);
-        metricErrorsMeta.textContent = buildErrorMeta(metrics, activity);
+        metricErrorsMeta.textContent = buildErrorMetaWithProgress(metrics, activity);
       }
 
       function renderTelegramMode(mode) {
@@ -3528,6 +3528,42 @@ function renderPage() {
         }
 
         return date.toLocaleString('pt-BR');
+      }
+
+      function getGroupsRefreshLabel(progress) {
+        const safeProgress = progress || {};
+
+        if ((safeProgress.total || 0) > 0) {
+          return 'Buscando grupos... ' + formatNumber(safeProgress.percent || 0) + '%';
+        }
+
+        if (safeProgress.phase === 'loading_groups') {
+          return 'Buscando grupos... preparando';
+        }
+
+        return 'Buscando grupos...';
+      }
+
+      function buildErrorMetaWithProgress(metrics, activity) {
+        if (metrics.groupsRefreshing) {
+          const progress = metrics.groupRefreshProgress || {};
+
+          if ((progress.total || 0) > 0) {
+            return (
+              'Sincronizando grupos do WhatsApp: ' +
+              formatNumber(progress.processed || 0) +
+              '/' +
+              formatNumber(progress.total || 0) +
+              ' verificados (' +
+              formatNumber(progress.percent || 0) +
+              '%).'
+            );
+          }
+
+          return 'Buscando grupos do WhatsApp. Aguarde enquanto a lista inicial é carregada.';
+        }
+
+        return buildErrorMeta(metrics, activity);
       }
 
       function buildErrorMeta(metrics, activity) {
