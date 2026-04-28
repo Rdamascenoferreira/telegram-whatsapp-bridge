@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.21';
+const panelVersion = 'Versão 0.22';
 
 type AuthUser = {
   id: string;
@@ -139,7 +139,7 @@ type ViewKey = 'overview' | 'connections' | 'groups' | 'activity' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Visao geral', icon: Gauge },
-  { key: 'connections', label: 'Conexoes', icon: Settings2 },
+  { key: 'connections', label: 'Telegram', icon: Settings2 },
   { key: 'groups', label: 'Grupos', icon: Users },
   { key: 'activity', label: 'Historico', icon: Activity },
   { key: 'admin', label: 'Admin', icon: Shield }
