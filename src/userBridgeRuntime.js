@@ -206,12 +206,20 @@ export class UserBridgeRuntime {
   }
 
   async updatePower(bridgeEnabled) {
+    if (bridgeEnabled && !this.canEnableBridge()) {
+      throw new Error('Conecte o Telegram e o WhatsApp antes de ligar o sistema.');
+    }
+
     this.config = await saveConfigForUser(this.userId, {
       ...this.config,
       bridgeEnabled
     });
 
     this.log(`Sistema ${bridgeEnabled ? 'ligado' : 'desligado'} pelo painel.`);
+  }
+
+  canEnableBridge() {
+    return this.telegramStatus === 'listening' && this.whatsAppStatus === 'ready';
   }
 
   async resetAllConnections() {

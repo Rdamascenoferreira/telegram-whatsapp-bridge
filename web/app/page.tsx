@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 008';
+const panelVersion = 'Versao 009';
 
 type AuthUser = {
   id: string;
@@ -438,6 +438,13 @@ function Overview({
   refresh: () => Promise<void>;
 }) {
   const progress = state.metrics.groupRefreshProgress;
+  const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const automationLockReason =
+    state.telegramStatus !== 'listening'
+      ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
+      : state.whatsAppStatus !== 'ready'
+        ? 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automacao.'
+        : '';
   const groupProgressText =
     state.metrics.groupsRefreshing && progress?.total
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
@@ -468,12 +475,14 @@ function Overview({
                 <p className="mt-1 text-xs text-[var(--muted)]">
                   {state.config.bridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
-                    : 'As mensagens recebidas ficam sem encaminhamento ate voce ligar de novo.'}
+                    : canEnableAutomation
+                      ? 'As mensagens recebidas ficam sem encaminhamento ate voce ligar de novo.'
+                      : automationLockReason}
                 </p>
               </div>
               <SystemPowerSwitch
                 checked={state.config.bridgeEnabled}
-                disabled={busy === 'power'}
+                disabled={busy === 'power' || (!canEnableAutomation && !state.config.bridgeEnabled)}
                 onChange={async (nextValue) => {
                   setBusy('power');
                   await postJson('/api/system-power', { bridgeEnabled: nextValue });
@@ -483,6 +492,12 @@ function Overview({
                 }}
               />
             </div>
+
+            {!canEnableAutomation && !state.config.bridgeEnabled ? (
+              <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                O interruptor sera liberado assim que Telegram e WhatsApp estiverem conectados.
+              </p>
+            ) : null}
 
             <button
               type="button"
