@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.24';
+const panelVersion = 'Versão 0.25';
 
 type AuthUser = {
   id: string;
@@ -304,121 +304,121 @@ function AuthScreen({
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,158,217,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(37,211,102,0.12),transparent_28%),#03130D] px-6 py-6 text-[var(--foreground)] max-sm:px-4">
+    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,158,217,0.1),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(37,211,102,0.1),transparent_28%),#03130D] px-6 py-8 text-[var(--foreground)] max-sm:px-4">
       <div className="mx-auto max-w-6xl">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_420px]">
-          <section className="relative overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.96),rgba(3,19,13,0.98))] p-7 shadow-[0_18px_50px_rgba(0,0,0,0.28)] max-sm:p-5">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_30%),radial-gradient(circle_at_top_left,rgba(37,211,102,0.12),transparent_32%)]" />
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_400px]">
+          <section className="relative overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.96),rgba(3,19,13,0.98))] p-6 shadow-[0_16px_42px_rgba(0,0,0,0.24)] max-sm:p-5">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,158,217,0.07),transparent_28%),radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%)]" />
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.26)] bg-[rgba(34,158,217,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#7ED4FF]">
                 <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
                 Automação SaaS
               </span>
 
-              <div className="mt-6 flex items-start gap-4">
-                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-3xl border border-[rgba(37,211,102,0.18)] bg-[linear-gradient(180deg,rgba(5,22,15,0.9),rgba(8,28,20,0.9))] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_14px_24px_rgba(0,0,0,0.2)]">
-                  <img src="/brand/portal-icon.svg" alt="" className="h-11 w-11 object-contain" />
+              <div className="mt-5 flex items-start gap-4 max-sm:flex-col">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[rgba(37,211,102,0.18)] bg-[linear-gradient(180deg,rgba(5,22,15,0.9),rgba(8,28,20,0.9))] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_20px_rgba(0,0,0,0.18)]">
+                  <img src="/brand/portal-icon.svg" alt="" className="h-10 w-10 object-contain" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Portal do Afiliado</p>
-                  <h1 className="mt-3 max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.04em] text-[#F8FAFC] max-xl:text-4xl max-sm:text-3xl">
+                  <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-[1.08] text-[#F8FAFC] max-xl:text-[2.45rem] max-sm:text-3xl">
                     Central inteligente para automação no WhatsApp e Telegram
                   </h1>
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-[#AAB8B0]">
+                  <p className="mt-3 max-w-2xl text-base leading-7 text-[#AAB8B0]">
                     Gerencie conexões, sessões, grupos e entregas em uma plataforma segura, rápida e pronta para escalar.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-8 rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(6,30,21,0.94),rgba(7,26,18,0.92))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(37,211,102,0.2)] bg-[rgba(3,19,13,0.75)]">
-                    <img src="/brand/portal-icon.svg" alt="" className="h-10 w-10 object-contain" />
+              <div className="mt-7 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(6,30,21,0.88),rgba(7,26,18,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(37,211,102,0.18)] bg-[rgba(3,19,13,0.72)]">
+                    <img src="/brand/portal-icon.svg" alt="" className="h-8 w-8 object-contain" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#AAB8B0]">Plataforma de automação</p>
-                    <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#F8FAFC] max-sm:text-2xl">Portal do</h2>
-                      <h2 className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-3xl font-semibold tracking-[-0.03em] text-transparent max-sm:text-2xl">
+                    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <h2 className="text-2xl font-semibold text-[#F8FAFC] max-sm:text-xl">Portal do</h2>
+                      <h2 className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-2xl font-semibold text-transparent max-sm:text-xl">
                         Afiliado
                       </h2>
                     </div>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-[#AAB8B0]">
+                    <p className="mt-1.5 max-w-xl text-sm leading-6 text-[#AAB8B0]">
                       Um ambiente profissional para operar integrações, conexões e fluxos com mais previsibilidade.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <AuthStatusMiniCard
                     icon={Smartphone}
                     iconClassName="text-[#25D366]"
-                    title="WhatsApp conectado"
-                    detail="Sessão pronta"
+                    title="WhatsApp"
+                    detail="Conectado"
                     badgeClassName="border-[rgba(37,211,102,0.22)] bg-[rgba(37,211,102,0.12)] text-[#A7F3C0]"
                   />
                   <AuthStatusMiniCard
                     icon={Send}
                     iconClassName="text-[#229ED9]"
-                    title="Telegram ativo"
-                    detail="Origem monitorada"
+                    title="Telegram"
+                    detail="Ativo"
                     badgeClassName="border-[rgba(34,158,217,0.24)] bg-[rgba(34,158,217,0.12)] text-[#A7E5FF]"
                   />
                   <AuthStatusMiniCard
                     icon={Shield}
                     iconClassName="text-[#25D366]"
-                    title="Sessões online"
-                    detail="Sincronização estável"
+                    title="Sessões"
+                    detail="Online"
                     badgeClassName="border-[rgba(37,211,102,0.18)] bg-[rgba(37,211,102,0.08)] text-[#C3F7D8]"
                   />
                   <AuthStatusMiniCard
                     icon={Activity}
                     iconClassName="text-[#229ED9]"
-                    title="Entregas automatizadas"
-                    detail="Fluxos em execução"
+                    title="Entregas"
+                    detail="Automáticas"
                     badgeClassName="border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] text-[#BEEBFF]"
                   />
                 </div>
               </div>
 
-              <div className="mt-7 grid gap-3 md:grid-cols-3">
+              <div className="mt-5 grid items-stretch gap-3 md:grid-cols-3">
                 <AuthBenefitCard
                   title="Operação centralizada"
-                  text="Controle tudo num só painel, com visão clara de conexões, grupos e estado das entregas."
+                  text="Controle conexões, grupos e entregas em uma única visão."
                 />
                 <AuthBenefitCard
                   title="Gestão por conta"
-                  text="Cada utilizador trabalha com as próprias sessões, regras e configurações sem misturar ambientes."
+                  text="Separe sessões, regras e configurações por utilizador."
                 />
                 <AuthBenefitCard
                   title="Estrutura escalável"
-                  text="Preparado para crescer com planos, clientes, workspaces e novas automações."
+                  text="Prepare a operação para planos, clientes e novas automações."
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.98),rgba(4,18,13,0.98))] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)] max-sm:p-5">
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.08)] p-5">
-              <div className="flex items-center justify-between gap-3">
+          <section className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.98),rgba(4,18,13,0.98))] p-5 shadow-[0_16px_42px_rgba(0,0,0,0.24)] max-sm:p-4">
+            <div>
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[#F8FAFC]">Entrar na plataforma</h2>
+                  <h2 className="text-2xl font-semibold text-[#F8FAFC]">Entrar na plataforma</h2>
                   <p className="mt-1 text-sm text-[#AAB8B0]">Acesse o seu painel de automação.</p>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.22)] bg-[rgba(34,158,217,0.1)]">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)]">
                   <Bot size={18} className="text-[#7ED4FF]" />
                 </div>
               </div>
 
-              <div className="mt-5 inline-grid w-full grid-cols-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(0,0,0,0.16)] p-1">
+              <div className="mt-5 inline-grid w-full grid-cols-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(0,0,0,0.16)] p-1">
                 <button
                   type="button"
                   onClick={() => setMode('login')}
                   className={cn(
-                    'rounded-xl px-4 py-2.5 text-sm font-semibold transition',
+                    'rounded-md px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.18)]',
                     mode === 'login'
                       ? 'bg-[linear-gradient(90deg,#25D366,#128C7E)] text-[#03130D] shadow-[0_8px_18px_rgba(37,211,102,0.18)]'
-                      : 'text-[#AAB8B0] hover:text-[#F8FAFC]'
+                      : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
                   )}
                 >
                   Entrar
@@ -427,17 +427,17 @@ function AuthScreen({
                   type="button"
                   onClick={() => setMode('register')}
                   className={cn(
-                    'rounded-xl px-4 py-2.5 text-sm font-semibold transition',
+                    'rounded-md px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.18)]',
                     mode === 'register'
                       ? 'bg-[linear-gradient(90deg,#25D366,#128C7E)] text-[#03130D] shadow-[0_8px_18px_rgba(37,211,102,0.18)]'
-                      : 'text-[#AAB8B0] hover:text-[#F8FAFC]'
+                      : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
                   )}
                 >
                   Criar conta
                 </button>
               </div>
 
-              <form onSubmit={submit} className="mt-5 grid gap-4">
+              <form onSubmit={submit} className="mt-5 grid gap-3.5">
                 {mode === 'register' ? (
                   <Field label="Nome" name="name" placeholder="Seu nome" autoComplete="name" />
                 ) : null}
@@ -450,11 +450,11 @@ function AuthScreen({
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
 
-                <div className="flex items-center justify-end">
+                <div className="-mt-1 flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => setNotice('Recuperação de senha estará disponível em breve.')}
-                    className="text-sm font-medium text-[#AAB8B0] transition hover:text-[#F8FAFC]"
+                    className="text-sm font-medium text-[#AAB8B0] transition hover:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.18)]"
                   >
                     Esqueci minha senha
                   </button>
@@ -463,13 +463,13 @@ function AuthScreen({
                 <button
                   type="submit"
                   disabled={busy}
-                  className="rounded-2xl bg-[linear-gradient(90deg,#25D366,#128C7E)] px-4 py-3.5 text-sm font-bold text-[#03130D] transition hover:translate-y-[-1px] hover:shadow-[0_14px_24px_rgba(37,211,102,0.18)] disabled:translate-y-0 disabled:opacity-60"
+                  className="rounded-lg bg-[linear-gradient(90deg,#25D366,#128C7E)] px-4 py-3 text-sm font-bold text-[#03130D] transition hover:translate-y-[-1px] hover:shadow-[0_12px_22px_rgba(37,211,102,0.16)] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.22)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-60"
                 >
                   {busy ? 'Aguarde...' : mode === 'login' ? 'Entrar no painel' : 'Criar conta'}
                 </button>
               </form>
 
-              <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-[#6F7E77]">
+              <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-[#6F7E77]">
                 <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
                 ou continue com
                 <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
@@ -478,24 +478,24 @@ function AuthScreen({
               {googleEnabled ? (
                 <a
                   href="/auth/google"
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm font-semibold transition hover:border-[rgba(34,158,217,0.22)] hover:bg-[rgba(34,158,217,0.06)]"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm font-semibold transition hover:border-[rgba(34,158,217,0.22)] hover:bg-[rgba(34,158,217,0.06)] focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.18)]"
                 >
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-black">G</span>
                   Continuar com Google
                 </a>
               ) : (
-                <p className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#AAB8B0]">
+                <p className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#AAB8B0]">
                   Login com Google estará disponível em breve.
                 </p>
               )}
 
               {notice ? (
-                <p className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-3 text-sm text-[#F8FAFC]">
+                <p className="mt-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-3 text-sm text-[#F8FAFC]">
                   {notice}
                 </p>
               ) : null}
 
-              <p className="mt-5 text-center text-xs text-[#6F7E77]">Ambiente seguro para gestão de automações.</p>
+              <p className="mt-4 text-center text-xs text-[#6F7E77]">Ambiente seguro para gestão de automações.</p>
             </div>
           </section>
         </div>
@@ -518,14 +518,14 @@ function AuthStatusMiniCard({
   badgeClassName: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
+    <div className="min-h-[72px] rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.025)] p-3 transition hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.04)]">
       <div className="flex items-center gap-3">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-black/15', badgeClassName)}>
-          <Icon size={16} className={iconClassName} />
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/5 bg-black/15', badgeClassName)}>
+          <Icon size={15} className={iconClassName} />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[#F8FAFC]">{title}</p>
-          <p className="truncate text-xs text-[#AAB8B0]">{detail}</p>
+          <p className="text-sm font-semibold leading-5 text-[#F8FAFC]">{title}</p>
+          <p className="text-xs leading-5 text-[#AAB8B0]">{detail}</p>
         </div>
       </div>
     </div>
@@ -534,8 +534,8 @@ function AuthStatusMiniCard({
 
 function AuthBenefitCard({ title, text }: { title: string; text: string }) {
   return (
-    <article className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-      <p className="text-base font-semibold text-[#F8FAFC]">{title}</p>
+    <article className="flex min-h-[132px] flex-col rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition hover:border-[rgba(37,211,102,0.18)] hover:bg-[rgba(255,255,255,0.04)]">
+      <p className="text-sm font-semibold text-[#F8FAFC]">{title}</p>
       <p className="mt-2 text-sm leading-6 text-[#AAB8B0]">{text}</p>
     </article>
   );
@@ -1652,7 +1652,7 @@ function ConnectionRow({
 }
 
 const inputClass =
-  'w-full rounded-md border border-[var(--border)] bg-black/15 px-3 py-2.5 text-sm outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(57,217,138,0.15)]';
+  'h-11 w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.045)] px-3.5 text-sm text-[#F8FAFC] outline-none transition placeholder:text-[#697A72] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.06)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
 
 const primaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
