@@ -24,7 +24,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 003';
+const panelVersion = 'Versao 004';
 
 type AuthUser = {
   id: string;
@@ -566,6 +566,40 @@ function Connections({
   const [telegramApiHash, setTelegramApiHash] = useState(state.config.telegramApiHash || '');
   const [telegramPhone, setTelegramPhone] = useState(state.config.telegramPhone || '');
   const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [telegramCode, setTelegramCode] = useState('');
+  const [telegramPassword, setTelegramPassword] = useState('');
+
+  useEffect(() => {
+    setTelegramMode(state.config.telegramMode || 'user');
+    setTelegramChannel(state.config.telegramChannel || '');
+    setTelegramApiId(state.config.telegramApiId || '');
+    setTelegramApiHash(state.config.telegramApiHash || '');
+    setTelegramPhone(state.config.telegramPhone || '');
+  }, [
+    state.config.telegramMode,
+    state.config.telegramChannel,
+    state.config.telegramApiId,
+    state.config.telegramApiHash,
+    state.config.telegramPhone
+  ]);
+
+  useEffect(() => {
+    if (state.telegram.authPhase !== 'password_required') {
+      setTelegramPassword('');
+    }
+
+    if (state.telegram.authPhase === 'idle' || state.telegram.authPhase === 'auth_required') {
+      setTelegramCode('');
+    }
+  }, [state.telegram.authPhase]);
+
+  const isUserMode = telegramMode === 'user';
+  const authPhase = state.telegram.authPhase || 'idle';
+  const telegramStatusLabel = humanize(state.telegramStatus || 'not_configured');
+  const telegramUserLabel = state.telegram.user?.name
+    ? state.telegram.user.name + (state.telegram.user.username ? ` (${state.telegram.user.username})` : '')
+    : '';
+  const showTelegramAuthPanel = isUserMode;
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
@@ -596,11 +630,11 @@ function Connections({
             setBusy('');
           }}
         >
-          <label className="grid gap-2 text-sm font-semibold">
-            Modo de conexao
-            <select value={telegramMode} onChange={(event) => setTelegramMode(event.target.value as 'user' | 'bot')} className={inputClass}>
-              <option value="user">Sessao de usuario</option>
-              <option value="bot">Bot do Telegram</option>
+            <label className="grid gap-2 text-sm font-semibold">
+              Modo de conexao
+              <select value={telegramMode} onChange={(event) => setTelegramMode(event.target.value as 'user' | 'bot')} className={inputClass}>
+                <option value="user">Sessao de usuario</option>
+                <option value="bot">Bot do Telegram</option>
             </select>
           </label>
 
@@ -652,6 +686,112 @@ function Connections({
             </button>
           </div>
         </form>
+
+        {showTelegramAuthPanel ? (
+          <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <div className="flex items-start justify-between gap-3 max-md:flex-col">
+              <div>
+                <p className="text-sm font-semibold">Conectar conta do Telegram</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  Envie um codigo para o Telegram, depois confirme o codigo recebido. Se sua conta tiver senha em duas etapas, informe a senha no segundo passo.
+                </p>
+              </div>
+              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+                {telegramStatusLabel}
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy === 'telegram-send-code' || busy === 'settings'}
+                onClick={async () => {
+                  setBusy('telegram-send-code');
+                  await postJson('/api/settings', {
+                    telegramMode,
+                    telegramChannel,
+                    telegramApiId,
+                    telegramApiHash,
+                    telegramPhone,
+                    telegramBotToken
+                  });
+                  await postJson('/api/telegram/send-code');
+                  await refresh();
+                  setNotice('Codigo enviado para o Telegram.');
+                  setBusy('');
+                }}
+                className={primaryButton}
+              >
+                Enviar codigo
+              </button>
+              <button
+                type="button"
+                disabled={busy === 'telegram-disconnect'}
+                onClick={async () => {
+                  setBusy('telegram-disconnect');
+                  await postJson('/api/telegram/disconnect');
+                  await refresh();
+                  setNotice('Conta do Telegram desconectada.');
+                  setBusy('');
+                }}
+                className={secondaryButton}
+              >
+                Desconectar Telegram
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
+              <Field
+                label="Codigo recebido"
+                value={telegramCode}
+                onChange={setTelegramCode}
+                placeholder="Digite o codigo do Telegram"
+              />
+              <Field
+                label="Senha em duas etapas"
+                value={telegramPassword}
+                onChange={setTelegramPassword}
+                placeholder="Preencha apenas se o Telegram pedir"
+              />
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
+                onClick={async () => {
+                  setBusy('telegram-complete-auth');
+                  await postJson('/api/telegram/complete-auth', {
+                    code: telegramCode,
+                    password: telegramPassword
+                  });
+                  await refresh();
+                  setNotice(
+                    authPhase === 'password_required'
+                      ? 'Senha enviada. Conta do Telegram conectada.'
+                      : 'Login do Telegram concluido.'
+                  );
+                  setBusy('');
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
+              >
+                {authPhase === 'password_required' ? 'Enviar senha em duas etapas' : 'Concluir login no Telegram'}
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              {telegramUserLabel
+                ? `Conta conectada: ${telegramUserLabel}.`
+                : authPhase === 'password_required'
+                  ? 'O Telegram pediu a senha em duas etapas para concluir a conexao.'
+                  : authPhase === 'code_required'
+                    ? 'Digite o codigo enviado para concluir a conexao.'
+                    : authPhase === 'auth_required'
+                      ? 'Envie um codigo para iniciar a conexao da sua conta.'
+                      : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
+            </p>
+          </section>
+        ) : null}
       </section>
 
       <ConnectionSummary state={state} refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
