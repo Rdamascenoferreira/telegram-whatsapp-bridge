@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import QRCode from 'qrcode';
+import { Api, TelegramClient } from 'telegram';
+import { NewMessage } from 'telegram/events/index.js';
+import { computeCheck } from 'telegram/Password.js';
+import { StringSession } from 'telegram/sessions/index.js';
 import TelegramBot from 'node-telegram-bot-api';
 import pkg from 'whatsapp-web.js';
 import {
@@ -54,6 +58,11 @@ export class UserBridgeRuntime {
     this.whatsAppPhone = null;
     this.availableGroups = [];
     this.telegramBot = null;
+    this.telegramClient = null;
+    this.telegramMessageHandler = null;
+    this.telegramAvailableChats = [];
+    this.telegramUserProfile = null;
+    this.telegramAuthFlow = null;
     this.telegramStatus = 'not_configured';
     this.albumBuffers = new Map();
     this.whatsAppIssue = null;
@@ -104,8 +113,13 @@ export class UserBridgeRuntime {
       qrDataUrl: this.qrDataUrl,
       telegramStatus: this.telegramStatus,
       config: {
+        telegramMode: this.getTelegramMode(),
         telegramChannel: this.config.telegramChannel,
+        telegramApiId: this.config.telegramApiId,
+        telegramApiHash: this.config.telegramApiHash,
+        telegramPhone: this.config.telegramPhone,
         hasTelegramBotToken: Boolean(this.config.telegramBotToken),
+        hasTelegramSession: Boolean(this.config.telegramSession),
         bridgeEnabled: this.config.bridgeEnabled,
         selectedGroupIds: this.config.selectedGroupIds
       },
@@ -120,6 +134,14 @@ export class UserBridgeRuntime {
         canResetWhatsAppSession: Boolean(this.whatsAppIssue?.canResetSession),
         canReconnectWhatsApp: this.whatsAppStatus !== 'connecting' && !this.whatsAppReconnectInProgress
       },
+      telegram: {
+        authPhase: this.telegramAuthFlow?.phase || 'idle',
+        phoneNumber: this.telegramAuthFlow?.phoneNumber || this.config.telegramPhone || '',
+        passwordRequired: Boolean(this.telegramAuthFlow?.passwordRequired),
+        codeSentViaApp: Boolean(this.telegramAuthFlow?.isCodeViaApp),
+        user: this.telegramUserProfile,
+        availableChats: this.telegramAvailableChats
+      },
       issue: this.whatsAppIssue,
       activity: this.activity.events.slice(0, 24),
       diagnostics: this.groupDiagnostics,
@@ -131,10 +153,35 @@ export class UserBridgeRuntime {
     };
   }
 
-  async updateSettings({ telegramBotToken, telegramChannel }) {
+  getTelegramMode() {
+    const explicitMode = String(this.config?.telegramMode ?? '').trim().toLowerCase();
+
+    if (explicitMode === 'bot' || explicitMode === 'user') {
+      return explicitMode;
+    }
+
+    if (this.config?.telegramSession || this.config?.telegramApiId || this.config?.telegramApiHash) {
+      return 'user';
+    }
+
+    return 'bot';
+  }
+
+  async updateSettings({
+    telegramMode,
+    telegramBotToken,
+    telegramApiId,
+    telegramApiHash,
+    telegramPhone,
+    telegramChannel
+  }) {
     this.config = await saveConfigForUser(this.userId, {
       ...this.config,
+      telegramMode: telegramMode || this.getTelegramMode(),
       telegramBotToken,
+      telegramApiId,
+      telegramApiHash,
+      telegramPhone,
       telegramChannel
     });
 
@@ -419,15 +466,18 @@ export class UserBridgeRuntime {
   }
 
   async startTelegram() {
-    if (this.telegramBot) {
-      this.telegramBot.removeAllListeners();
-      await this.telegramBot.stopPolling().catch(() => {});
-      this.telegramBot = null;
+    await this.stopTelegramTransport();
+    this.telegramAvailableChats = [];
+    this.telegramUserProfile = null;
+
+    if (this.getTelegramMode() === 'user') {
+      await this.startTelegramUser();
+      return;
     }
 
     if (!this.config.telegramBotToken) {
       this.telegramStatus = 'not_configured';
-      this.log('Telegram ainda nao configurado.', {
+      this.log('Telegram ainda não configurado.', {
         type: 'telegram_not_configured'
       });
       return;
@@ -473,11 +523,98 @@ export class UserBridgeRuntime {
 
     this.telegramStatus = 'listening';
     this.log(
-      'Telegram conectado. Se a origem for grupo, deixe o bot no grupo; se for canal, deixe como admin do canal.',
+      'Telegram conectado pelo bot. Se a origem for grupo, deixe o bot no grupo; se for canal, deixe como admin do canal.',
       {
         type: 'telegram_ready'
       }
     );
+  }
+
+  async stopTelegramTransport() {
+    if (this.telegramBot) {
+      this.telegramBot.removeAllListeners();
+      await this.telegramBot.stopPolling().catch(() => {});
+      this.telegramBot = null;
+    }
+
+    if (this.telegramClient) {
+      if (this.telegramMessageHandler) {
+        this.telegramClient.removeEventHandler(this.telegramMessageHandler);
+      }
+
+      await this.telegramClient.disconnect().catch(() => {});
+      this.telegramClient = null;
+      this.telegramMessageHandler = null;
+    }
+
+    if (this.telegramAuthFlow?.client) {
+      await this.telegramAuthFlow.client.disconnect().catch(() => {});
+    }
+  }
+
+  async startTelegramUser() {
+    if (!this.config.telegramApiId || !this.config.telegramApiHash || !this.config.telegramPhone) {
+      this.telegramStatus = 'not_configured';
+      this.log('Telegram ainda não configurado. Informe API ID, API Hash e telefone para usar a sessão de usuário.', {
+        type: 'telegram_not_configured'
+      });
+      return;
+    }
+
+    if (!this.config.telegramSession) {
+      this.telegramStatus = this.telegramAuthFlow?.phase === 'code_required' ? 'code_required' : 'auth_required';
+      this.log('Sessão do Telegram aguardando autenticação por código.', {
+        type: 'telegram_auth_required'
+      });
+      return;
+    }
+
+    this.telegramStatus = 'connecting';
+    const client = this.createTelegramUserClient();
+    await client.connect();
+
+    const isAuthorized = await client.checkAuthorization();
+
+    if (!isAuthorized) {
+      this.telegramStatus = 'auth_required';
+      this.telegramClient = null;
+      await client.disconnect().catch(() => {});
+      this.log('A sessão salva do Telegram expirou. Envie um novo código para autenticar novamente.', {
+        level: 'error',
+        type: 'telegram_auth_expired',
+        increments: { errors: 1 }
+      });
+      return;
+    }
+
+    this.telegramClient = client;
+    const me = await client.getMe();
+    this.telegramUserProfile = {
+      id: String(me?.id ?? ''),
+      name: [me?.firstName, me?.lastName].filter(Boolean).join(' ').trim() || me?.username || this.config.telegramPhone,
+      username: me?.username ? '@' + me.username : '',
+      phone: me?.phone ? '+' + me.phone : this.config.telegramPhone
+    };
+    await this.refreshTelegramAvailableChats();
+
+    this.telegramMessageHandler = async (event) => {
+      try {
+        await this.routeTelegramUserMessage(event);
+      } catch (error) {
+        this.log(`Falha ao encaminhar mensagem do Telegram: ${error.message}`, {
+          level: 'error',
+          type: 'telegram_forward_error',
+          increments: { errors: 1 }
+        });
+      }
+    };
+
+    client.addEventHandler(this.telegramMessageHandler, new NewMessage({ incoming: true }));
+    this.telegramStatus = 'listening';
+    this.telegramAuthFlow = null;
+    this.log('Telegram conectado pela sua conta. Agora a ponte pode ler mensagens do grupo sem bot.', {
+      type: 'telegram_ready'
+    });
   }
 
   async routeTelegramMessage(updateType, message) {
@@ -499,6 +636,181 @@ export class UserBridgeRuntime {
       }
     );
     await this.handleTelegramMessage(message);
+  }
+
+  createTelegramUserClient(session = this.config.telegramSession || '') {
+    return new TelegramClient(
+      new StringSession(session),
+      Number(this.config.telegramApiId),
+      String(this.config.telegramApiHash),
+      {
+        connectionRetries: 5,
+        autoReconnect: true,
+        useWSS: true
+      }
+    );
+  }
+
+  async sendTelegramUserCode() {
+    if (!this.config.telegramApiId || !this.config.telegramApiHash || !this.config.telegramPhone) {
+      throw new Error('Preencha API ID, API Hash e telefone antes de pedir o código do Telegram.');
+    }
+
+    await this.stopTelegramTransport();
+
+    const client = this.createTelegramUserClient('');
+    await client.connect();
+    const apiCredentials = {
+      apiId: Number(this.config.telegramApiId),
+      apiHash: String(this.config.telegramApiHash)
+    };
+    const sendResult = await client.sendCode(apiCredentials, this.config.telegramPhone);
+
+    this.telegramAuthFlow = {
+      client,
+      phoneNumber: this.config.telegramPhone,
+      phoneCodeHash: sendResult.phoneCodeHash,
+      isCodeViaApp: Boolean(sendResult.isCodeViaApp),
+      passwordRequired: false,
+      phase: 'code_required'
+    };
+    this.telegramStatus = 'code_required';
+    this.log(
+      sendResult.isCodeViaApp
+        ? 'Código do Telegram enviado para o aplicativo oficial.'
+        : 'Código do Telegram enviado por SMS ou outro canal disponível.',
+      {
+        type: 'telegram_code_sent'
+      }
+    );
+  }
+
+  async completeTelegramUserAuth({ code, password }) {
+    if (!this.telegramAuthFlow?.client || !this.telegramAuthFlow?.phoneCodeHash) {
+      throw new Error('Peça um novo código do Telegram antes de concluir a autenticação.');
+    }
+
+    const client = this.telegramAuthFlow.client;
+
+    try {
+      if (this.telegramAuthFlow.passwordRequired) {
+        if (!password) {
+          throw new Error('Informe a senha em duas etapas do Telegram para concluir o login.');
+        }
+
+        const passwordSrpResult = await client.invoke(new Api.account.GetPassword());
+        const passwordSrpCheck = await computeCheck(passwordSrpResult, password);
+        await client.invoke(new Api.auth.CheckPassword({ password: passwordSrpCheck }));
+      } else {
+        if (!code) {
+          throw new Error('Informe o código enviado pelo Telegram.');
+        }
+
+        await client.invoke(new Api.auth.SignIn({
+          phoneNumber: this.telegramAuthFlow.phoneNumber,
+          phoneCodeHash: this.telegramAuthFlow.phoneCodeHash,
+          phoneCode: code
+        }));
+      }
+    } catch (error) {
+      if (error?.errorMessage === 'SESSION_PASSWORD_NEEDED') {
+        this.telegramAuthFlow.passwordRequired = true;
+        this.telegramAuthFlow.phase = 'password_required';
+        this.telegramStatus = 'password_required';
+        this.log('O Telegram pediu a senha em duas etapas para concluir o login.', {
+          type: 'telegram_password_required'
+        });
+        return;
+      }
+
+      throw error;
+    }
+
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      telegramMode: 'user',
+      telegramSession: client.session.save()
+    });
+    this.telegramAuthFlow = null;
+    await client.disconnect().catch(() => {});
+    await this.startTelegram();
+  }
+
+  async disconnectTelegramUser() {
+    this.telegramAuthFlow = null;
+
+    if (this.telegramClient) {
+      try {
+        await this.telegramClient.logOut();
+      } catch {}
+    }
+
+    await this.stopTelegramTransport();
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      telegramSession: ''
+    });
+    this.telegramAvailableChats = [];
+    this.telegramUserProfile = null;
+    this.telegramStatus = 'not_configured';
+    this.log('Sessão da conta do Telegram desconectada.', {
+      type: 'telegram_disconnected'
+    });
+  }
+
+  async refreshTelegramAvailableChats() {
+    if (!this.telegramClient) {
+      this.telegramAvailableChats = [];
+      return;
+    }
+
+    const dialogs = await this.telegramClient.getDialogs({ limit: 200 });
+    this.telegramAvailableChats = dialogs
+      .filter((dialog) => dialog.isGroup || dialog.isChannel)
+      .map((dialog) => ({
+        id: String(dialog.id),
+        name: String(dialog.title || dialog.name || 'Chat do Telegram'),
+        type: dialog.isChannel && !dialog.isGroup ? 'channel' : 'group',
+        selected: String(dialog.id) === String(this.config.telegramChannel || '')
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+  }
+
+  async routeTelegramUserMessage(event) {
+    const message = event?.message;
+
+    if (!message) {
+      return;
+    }
+
+    const sourceChatId = normalizeTelegramUserChatId(message.chatId);
+
+    if (!this.config.telegramChannel || sourceChatId !== normalizeTelegramUserChatId(this.config.telegramChannel)) {
+      return;
+    }
+
+    const chat = await message.getChat().catch(() => null);
+    this.telegramStatus = 'listening';
+    this.log(
+      `Mensagem recebida do Telegram (user session) em ${describeTelegramEntity(chat, sourceChatId)}.`,
+      {
+        type: 'telegram_received',
+        increments: { telegramReceived: 1 },
+        metadata: {
+          updateType: 'user_session',
+          chatId: sourceChatId,
+          messageId: Number(message.id ?? 0)
+        }
+      }
+    );
+    await this.handleTelegramMessage({
+      __telegramSource: 'user_session',
+      id: Number(message.id ?? 0),
+      chatId: sourceChatId,
+      text: message.text || message.message || '',
+      caption: message.text || message.message || '',
+      rawMessage: message
+    });
   }
 
   async handleTelegramMessage(message, options = {}) {
@@ -530,8 +842,10 @@ export class UserBridgeRuntime {
       return;
     }
 
-    if (message.media_group_id) {
-      const key = String(message.media_group_id);
+    const mediaGroupId = message.media_group_id || message.rawMessage?.groupedId;
+
+    if (mediaGroupId) {
+      const key = String(mediaGroupId);
       const current = this.albumBuffers.get(key) ?? { items: [], timeout: null };
 
       current.items.push(message);
@@ -561,7 +875,9 @@ export class UserBridgeRuntime {
     }
 
     this.albumBuffers.delete(key);
-    const messages = [...bucket.items].sort((left, right) => left.message_id - right.message_id);
+    const messages = [...bucket.items].sort(
+      (left, right) => getTelegramMessageNumericId(left) - getTelegramMessageNumericId(right)
+    );
     await this.forwardMessagesWithRecovery(messages);
   }
 
@@ -755,6 +1071,10 @@ export class UserBridgeRuntime {
   }
 
   async prepareWhatsAppPayload(message) {
+    if (message.__telegramSource === 'user_session') {
+      return this.prepareWhatsAppPayloadFromTelegramUser(message);
+    }
+
     const caption = message.caption || '';
 
     if (Array.isArray(message.photo) && message.photo.length > 0) {
@@ -811,6 +1131,67 @@ export class UserBridgeRuntime {
     return {
       type: 'media',
       base64: buffer.toString('base64'),
+      mimeType: metadata.mimeType,
+      filename: metadata.filename,
+      caption: metadata.caption
+    };
+  }
+
+  async prepareWhatsAppPayloadFromTelegramUser(message) {
+    const rawMessage = message.rawMessage;
+    const caption = rawMessage?.text || rawMessage?.message || message.caption || '';
+    const messageId = getTelegramMessageNumericId(message);
+
+    if (rawMessage?.photo) {
+      return this.downloadTelegramUserMedia(rawMessage, {
+        mimeType: 'image/jpeg',
+        filename: `telegram-photo-${messageId}.jpg`,
+        caption
+      });
+    }
+
+    if (rawMessage?.video) {
+      return this.downloadTelegramUserMedia(rawMessage, {
+        mimeType: rawMessage.video.mimeType || 'video/mp4',
+        filename: inferTelegramFilename(rawMessage) || `telegram-video-${messageId}.mp4`,
+        caption
+      });
+    }
+
+    if (rawMessage?.document) {
+      return this.downloadTelegramUserMedia(rawMessage, {
+        mimeType: rawMessage.document.mimeType || 'application/octet-stream',
+        filename: inferTelegramFilename(rawMessage) || `telegram-document-${messageId}`,
+        caption
+      });
+    }
+
+    if (rawMessage?.gif) {
+      return this.downloadTelegramUserMedia(rawMessage, {
+        mimeType: rawMessage.gif.mimeType || 'image/gif',
+        filename: inferTelegramFilename(rawMessage) || `telegram-animation-${messageId}.gif`,
+        caption
+      });
+    }
+
+    const text = rawMessage?.text || rawMessage?.message || fallbackText(message);
+
+    return {
+      type: 'text',
+      text
+    };
+  }
+
+  async downloadTelegramUserMedia(rawMessage, metadata) {
+    const buffer = await rawMessage.downloadMedia({});
+
+    if (!buffer) {
+      throw new Error('Não foi possível baixar a mídia da sessão do Telegram.');
+    }
+
+    return {
+      type: 'media',
+      base64: Buffer.from(buffer).toString('base64'),
       mimeType: metadata.mimeType,
       filename: metadata.filename,
       caption: metadata.caption
@@ -1233,8 +1614,8 @@ function describeTelegramChat(chat) {
 }
 
 function buildTelegramMessageKey(message) {
-  const chatId = String(message?.chat?.id ?? '').trim();
-  const messageId = String(message?.message_id ?? '').trim();
+  const chatId = String(message?.chat?.id ?? message?.chatId ?? '').trim();
+  const messageId = String(message?.message_id ?? message?.id ?? '').trim();
 
   if (!chatId || !messageId) {
     return '';
@@ -1244,6 +1625,14 @@ function buildTelegramMessageKey(message) {
 }
 
 function fallbackText(message) {
+  if (message?.rawMessage?.poll) {
+    return `Enquete do Telegram: ${message.rawMessage.poll.question}`;
+  }
+
+  if (message?.rawMessage?.location) {
+    return `Localizacao recebida do Telegram: ${message.rawMessage.location.latitude}, ${message.rawMessage.location.longitude}`;
+  }
+
   if (message.poll) {
     return `Enquete do Telegram: ${message.poll.question}`;
   }
@@ -1253,6 +1642,29 @@ function fallbackText(message) {
   }
 
   return 'Mensagem encaminhada do Telegram.';
+}
+
+function normalizeTelegramUserChatId(value) {
+  return String(value ?? '').replace(/^-100/, '').trim();
+}
+
+function describeTelegramEntity(chat, fallbackId = '') {
+  const title = chat?.title || chat?.username || chat?.firstName || chat?.id || fallbackId || 'chat sem nome';
+  return `${title} [${fallbackId || chat?.id || ''}]`;
+}
+
+function getTelegramMessageNumericId(message) {
+  return Number(message?.message_id ?? message?.id ?? message?.rawMessage?.id ?? 0);
+}
+
+function inferTelegramFilename(message) {
+  const attributes = Array.isArray(message?.document?.attributes)
+    ? message.document.attributes
+    : Array.isArray(message?.rawMessage?.document?.attributes)
+      ? message.rawMessage.document.attributes
+      : [];
+  const attributeWithName = attributes.find((attribute) => attribute?.fileName);
+  return String(attributeWithName?.fileName || '').trim();
 }
 
 async function pathExists(targetPath) {

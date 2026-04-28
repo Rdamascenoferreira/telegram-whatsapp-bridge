@@ -11,7 +11,12 @@ const authRootDir = path.resolve(process.cwd(), '.wwebjs_auth');
 const legacyAuthSessionDir = path.join(authRootDir, 'session');
 
 export const defaultConfig = {
+  telegramMode: 'user',
   telegramBotToken: '',
+  telegramApiId: '',
+  telegramApiHash: '',
+  telegramPhone: '',
+  telegramSession: '',
   telegramChannel: '',
   bridgeEnabled: true,
   selectedGroupIds: []

@@ -81,14 +81,49 @@ export class BridgeApp {
 
     app.post('/api/settings', requireAuth, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
+      const telegramMode = String(request.body?.telegramMode ?? runtime.getTelegramMode()).trim();
       const incomingTelegramBotToken = String(request.body?.telegramBotToken ?? '').trim();
+      const telegramApiId = String(request.body?.telegramApiId ?? '').trim();
+      const telegramApiHash = String(request.body?.telegramApiHash ?? '').trim();
+      const telegramPhone = String(request.body?.telegramPhone ?? '').trim();
       const telegramChannel = String(request.body?.telegramChannel ?? '').trim();
       const telegramBotToken = incomingTelegramBotToken || runtime.config.telegramBotToken;
 
       await runtime.updateSettings({
+        telegramMode,
         telegramBotToken,
+        telegramApiId,
+        telegramApiHash,
+        telegramPhone,
         telegramChannel
       });
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/telegram/send-code', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      await runtime.sendTelegramUserCode();
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/telegram/complete-auth', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      await runtime.completeTelegramUserAuth({
+        code: String(request.body?.code ?? '').trim(),
+        password: String(request.body?.password ?? '')
+      });
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/telegram/disconnect', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      await runtime.disconnectTelegramUser();
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/telegram/refresh-chats', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      await runtime.refreshTelegramAvailableChats();
       await respondWithState(request, response);
     });
 
@@ -2093,26 +2128,75 @@ function renderPage() {
                 <p class="section-kicker">Origem</p>
                 <h3>Configuração do Telegram</h3>
                 <p class="section-copy">
-                  Defina a conta bot e a origem monitorada para iniciar a ponte.
+                  Conecte sua conta do Telegram, escolha o grupo de origem e use a ponte sem depender de bot.
                 </p>
               </div>
             </div>
 
             <form id="settings-form">
-              <label for="telegramBotToken">Token do bot</label>
-              <input id="telegramBotToken" name="telegramBotToken" type="password" placeholder="123456:ABC..." />
+              <label for="telegramMode">Modo de conexão</label>
+              <select id="telegramMode" name="telegramMode">
+                <option value="user">Sessão de usuário (sem bot)</option>
+                <option value="bot">Bot do Telegram</option>
+              </select>
 
-              <label for="telegramChannel">Canal ou grupo</label>
-              <input id="telegramChannel" name="telegramChannel" type="text" placeholder="@seucanal ou -1001234567890" />
+              <div id="telegram-user-fields" class="stacked-fields">
+                <label for="telegramApiId">API ID</label>
+                <input id="telegramApiId" name="telegramApiId" type="text" placeholder="Ex.: 12345678" />
+
+                <label for="telegramApiHash">API Hash</label>
+                <input id="telegramApiHash" name="telegramApiHash" type="password" placeholder="Cole o API Hash da sua conta Telegram" />
+
+                <label for="telegramPhone">Telefone da conta</label>
+                <input id="telegramPhone" name="telegramPhone" type="text" placeholder="+55 21 99999-9999" />
+              </div>
+
+              <div id="telegram-bot-fields" class="stacked-fields" hidden>
+                <label for="telegramBotToken">Token do bot</label>
+                <input id="telegramBotToken" name="telegramBotToken" type="password" placeholder="123456:ABC..." />
+              </div>
+
+              <label for="telegramChatSelect">Grupo ou canal monitorado</label>
+              <select id="telegramChatSelect" name="telegramChatSelect">
+                <option value="">Selecione após conectar sua conta</option>
+              </select>
+
+              <label for="telegramChannel">ID manual do grupo ou canal</label>
+              <input id="telegramChannel" name="telegramChannel" type="text" placeholder="Use este campo só se quiser informar o ID manualmente" />
 
               <div class="row">
                 <button type="submit">Salvar configuração</button>
+                <button id="telegram-refresh-chats" class="ghost" type="button">Atualizar grupos do Telegram</button>
               </div>
             </form>
 
+            <div id="telegram-user-auth-panel" class="auth-note">
+              <strong>Conectar conta do Telegram</strong>
+              <p class="hint">
+                Envie um código para o seu Telegram, depois confirme o código recebido. Se sua conta tiver senha em duas etapas, informe a senha no segundo passo.
+              </p>
+              <div class="row">
+                <button id="telegram-send-code" type="button">Enviar código</button>
+                <button id="telegram-disconnect" class="ghost" type="button">Desconectar Telegram</button>
+              </div>
+              <div class="form-grid telegram-auth-grid">
+                <div>
+                  <label for="telegramLoginCode">Código recebido</label>
+                  <input id="telegramLoginCode" type="text" placeholder="Digite o código do Telegram" />
+                </div>
+                <div>
+                  <label for="telegramTwoFactorPassword">Senha em duas etapas</label>
+                  <input id="telegramTwoFactorPassword" type="password" placeholder="Preencha apenas se o Telegram pedir" />
+                </div>
+              </div>
+              <div class="row">
+                <button id="telegram-complete-auth" class="secondary" type="button">Concluir login no Telegram</button>
+              </div>
+              <p id="telegram-auth-hint" class="hint">Sua sessão do Telegram ficará salva para reconectar sem bot.</p>
+            </div>
+
             <p class="hint">
-              Em canais, deixe o bot como administrador. Em grupos, mantenha o bot dentro da conversa
-              para receber as novas mensagens.
+              No modo sem bot, a ponte lê as mensagens usando a sua própria conta do Telegram. Escolha o grupo ou canal de origem e o sistema encaminhará as novas mensagens para o WhatsApp.
             </p>
           </article>
 
@@ -2349,6 +2433,22 @@ function renderPage() {
       const userChip = document.getElementById('user-chip');
       const logoutButton = document.getElementById('logout-button');
       const form = document.getElementById('settings-form');
+      const telegramModeInput = document.getElementById('telegramMode');
+      const telegramUserFields = document.getElementById('telegram-user-fields');
+      const telegramBotFields = document.getElementById('telegram-bot-fields');
+      const telegramApiIdInput = document.getElementById('telegramApiId');
+      const telegramApiHashInput = document.getElementById('telegramApiHash');
+      const telegramPhoneInput = document.getElementById('telegramPhone');
+      const telegramBotTokenInput = document.getElementById('telegramBotToken');
+      const telegramChatSelect = document.getElementById('telegramChatSelect');
+      const telegramRefreshChatsButton = document.getElementById('telegram-refresh-chats');
+      const telegramUserAuthPanel = document.getElementById('telegram-user-auth-panel');
+      const telegramSendCodeButton = document.getElementById('telegram-send-code');
+      const telegramDisconnectButton = document.getElementById('telegram-disconnect');
+      const telegramCompleteAuthButton = document.getElementById('telegram-complete-auth');
+      const telegramLoginCodeInput = document.getElementById('telegramLoginCode');
+      const telegramTwoFactorPasswordInput = document.getElementById('telegramTwoFactorPassword');
+      const telegramAuthHint = document.getElementById('telegram-auth-hint');
       const groupsContainer = document.getElementById('groups');
       const logs = document.getElementById('logs');
       const systemStatus = document.getElementById('system-status');
@@ -2437,8 +2537,15 @@ function renderPage() {
           selectedGroupIds = new Set(state.config.selectedGroupIds || []);
         }
 
+        telegramModeInput.value = state.config.telegramMode || 'user';
+        telegramApiIdInput.value = state.config.telegramApiId || '';
+        telegramApiHashInput.value = state.config.telegramApiHash || '';
+        telegramPhoneInput.value = state.config.telegramPhone || '';
         document.getElementById('telegramChannel').value = state.config.telegramChannel || '';
-        document.getElementById('telegramBotToken').value = '';
+        telegramBotTokenInput.value = '';
+        renderTelegramMode(state.config.telegramMode || 'user');
+        renderTelegramChats(state.telegram || {}, state.config.telegramChannel || '');
+        renderTelegramAuthPanel(state.telegram || {}, state.config || {});
         systemStatus.textContent = 'Sistema: ' + (state.config.bridgeEnabled ? 'ligado' : 'desligado');
         waStatus.textContent = 'WhatsApp: ' + state.whatsAppStatus;
         tgStatus.textContent = 'Telegram: ' + state.telegramStatus;
@@ -2502,6 +2609,69 @@ function renderPage() {
 
         metricErrors.textContent = formatNumber(metrics.totalErrors || 0);
         metricErrorsMeta.textContent = buildErrorMeta(metrics, activity);
+      }
+
+      function renderTelegramMode(mode) {
+        const isUserMode = mode !== 'bot';
+        telegramUserFields.hidden = !isUserMode;
+        telegramBotFields.hidden = isUserMode;
+        telegramUserAuthPanel.hidden = !isUserMode;
+      }
+
+      function renderTelegramChats(telegramState, selectedChannel) {
+        const chats = Array.isArray(telegramState.availableChats) ? telegramState.availableChats : [];
+        const currentValue = String(selectedChannel || '');
+        telegramChatSelect.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = chats.length
+          ? 'Selecione um grupo ou canal'
+          : 'Conecte sua conta para carregar os grupos';
+        telegramChatSelect.appendChild(placeholder);
+
+        chats.forEach((chat) => {
+          const option = document.createElement('option');
+          option.value = chat.id;
+          option.textContent = chat.name + ' (' + (chat.type === 'channel' ? 'canal' : 'grupo') + ')';
+          telegramChatSelect.appendChild(option);
+        });
+
+        if (chats.some((chat) => String(chat.id) === currentValue)) {
+          telegramChatSelect.value = currentValue;
+        }
+      }
+
+      function renderTelegramAuthPanel(telegramState, config) {
+        const isUserMode = (config.telegramMode || 'user') !== 'bot';
+
+        telegramUserAuthPanel.hidden = !isUserMode;
+
+        if (!isUserMode) {
+          return;
+        }
+
+        const authPhase = telegramState.authPhase || 'idle';
+        const status = currentState?.telegramStatus || 'not_configured';
+        const userLabel = telegramState.user?.name
+          ? 'Conta conectada: ' + telegramState.user.name + (telegramState.user.username ? ' (' + telegramState.user.username + ')' : '') + '.'
+          : '';
+
+        telegramAuthHint.textContent =
+          userLabel ||
+          (authPhase === 'password_required'
+            ? 'O Telegram pediu a senha em duas etapas para concluir o login.'
+            : authPhase === 'code_required'
+              ? 'Digite o código recebido no Telegram para concluir a conexão.'
+              : status === 'listening'
+                ? 'Sua sessão do Telegram está ativa e pronta para ler mensagens sem bot.'
+                : 'Sua sessão do Telegram ficará salva para reconectar sem bot.');
+
+        telegramLoginCodeInput.disabled = authPhase === 'password_required' ? true : false;
+        telegramCompleteAuthButton.textContent =
+          authPhase === 'password_required'
+            ? 'Enviar senha em duas etapas'
+            : 'Concluir login no Telegram';
       }
 
       function renderWorkspaceHero(auth, state) {
@@ -2948,7 +3118,11 @@ function renderPage() {
 
         try {
           const payload = {
-            telegramBotToken: document.getElementById('telegramBotToken').value.trim(),
+            telegramMode: telegramModeInput.value,
+            telegramBotToken: telegramBotTokenInput.value.trim(),
+            telegramApiId: telegramApiIdInput.value.trim(),
+            telegramApiHash: telegramApiHashInput.value.trim(),
+            telegramPhone: telegramPhoneInput.value.trim(),
             telegramChannel: document.getElementById('telegramChannel').value.trim()
           };
 
@@ -3060,6 +3234,120 @@ function renderPage() {
           render(currentState);
         } catch (error) {
           setFeedback(error.message, 'error');
+        }
+      });
+
+      telegramModeInput.addEventListener('change', () => {
+        renderTelegramMode(telegramModeInput.value);
+      });
+
+      telegramChatSelect.addEventListener('change', () => {
+        if (telegramChatSelect.value) {
+          document.getElementById('telegramChannel').value = telegramChatSelect.value;
+        }
+      });
+
+      telegramRefreshChatsButton.addEventListener('click', async () => {
+        try {
+          currentState = await requestJson('/api/telegram/refresh-chats', {
+            method: 'POST'
+          });
+
+          setFeedback('Lista de grupos do Telegram atualizada.', 'success');
+          render(currentState);
+        } catch (error) {
+          setFeedback(error.message, 'error');
+        }
+      });
+
+      telegramSendCodeButton.addEventListener('click', async () => {
+        setButtonLoading(telegramSendCodeButton, true, 'Enviar código', 'Enviando código...');
+
+        try {
+          currentState = await requestJson('/api/settings', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              telegramMode: telegramModeInput.value,
+              telegramApiId: telegramApiIdInput.value.trim(),
+              telegramApiHash: telegramApiHashInput.value.trim(),
+              telegramPhone: telegramPhoneInput.value.trim(),
+              telegramChannel: document.getElementById('telegramChannel').value.trim(),
+              telegramBotToken: telegramBotTokenInput.value.trim()
+            })
+          });
+
+          currentState = await requestJson('/api/telegram/send-code', {
+            method: 'POST'
+          });
+
+          setFeedback('Código do Telegram enviado. Agora confirme no campo ao lado.', 'success');
+          render(currentState);
+        } catch (error) {
+          setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(telegramSendCodeButton, false, 'Enviar código', 'Enviando código...');
+        }
+      });
+
+      telegramCompleteAuthButton.addEventListener('click', async () => {
+        setButtonLoading(
+          telegramCompleteAuthButton,
+          true,
+          'Concluir login no Telegram',
+          'Conectando Telegram...'
+        );
+
+        try {
+          currentState = await requestJson('/api/telegram/complete-auth', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              code: telegramLoginCodeInput.value.trim(),
+              password: telegramTwoFactorPasswordInput.value
+            })
+          });
+
+          telegramLoginCodeInput.value = '';
+          telegramTwoFactorPasswordInput.value = '';
+          setFeedback('Conta do Telegram conectada com sucesso.', 'success');
+          render(currentState);
+        } catch (error) {
+          setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(
+            telegramCompleteAuthButton,
+            false,
+            'Concluir login no Telegram',
+            'Conectando Telegram...'
+          );
+        }
+      });
+
+      telegramDisconnectButton.addEventListener('click', async () => {
+        const confirmed = window.confirm(
+          'Isso vai desconectar a sessão atual do Telegram nesta conta. Deseja continuar?'
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        setButtonLoading(telegramDisconnectButton, true, 'Desconectar Telegram', 'Desconectando...');
+
+        try {
+          currentState = await requestJson('/api/telegram/disconnect', {
+            method: 'POST'
+          });
+
+          telegramLoginCodeInput.value = '';
+          telegramTwoFactorPasswordInput.value = '';
+          setFeedback('Sessão do Telegram desconectada.', 'success');
+          render(currentState);
+        } catch (error) {
+          setFeedback(error.message, 'error');
+        } finally {
+          setButtonLoading(telegramDisconnectButton, false, 'Desconectar Telegram', 'Desconectando...');
         }
       });
 
