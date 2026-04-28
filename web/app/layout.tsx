@@ -1,6 +1,12 @@
+import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap'
+});
 
 export const metadata: Metadata = {
   title: 'Portal do Afiliado',
@@ -18,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
