@@ -14,20 +14,6 @@
   --warning: #f7c948;
 }
 
-:root[data-theme='light'] {
-  color-scheme: light;
-  --background: #f5f7f2;
-  --foreground: #101914;
-  --muted: #5d6d64;
-  --panel: #ffffff;
-  --panel-strong: #edf5ef;
-  --border: rgba(26, 55, 39, 0.14);
-  --accent: #18b86d;
-  --accent-strong: #0f9959;
-  --danger: #d9533f;
-  --warning: #b58116;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -47,6 +33,33 @@ button,
 input,
 select {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  color: var(--foreground);
+}
+
+select {
+  appearance: none;
+  background-color: color-mix(in srgb, var(--panel-strong) 78%, black 22%);
+  color: var(--foreground);
+}
+
+select:focus,
+select:focus-visible {
+  outline: none;
+}
+
+select option {
+  background: #122019;
+  color: var(--foreground);
+}
+
+select option:checked {
+  background: color-mix(in srgb, var(--accent) 34%, #122019 66%);
+  color: #f7fff9;
 }
 
 button {

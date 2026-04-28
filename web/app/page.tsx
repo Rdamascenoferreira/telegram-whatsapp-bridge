@@ -9,7 +9,6 @@ import {
   Gauge,
   LogOut,
   MessageSquare,
-  Moon,
   Power,
   RefreshCcw,
   Search,
@@ -17,14 +16,13 @@ import {
   Settings2,
   Shield,
   Smartphone,
-  Sun,
   Users,
   Zap
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 005';
+const panelVersion = 'Versao 006';
 
 type AuthUser = {
   id: string;
@@ -144,7 +142,6 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
   const [view, setView] = useState<ViewKey>('overview');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
@@ -162,26 +159,20 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
   if (!state) {
     return <LoadingScreen />;
   }
 
   if (!state.auth.authenticated) {
     return (
-      <AuthScreen
-        googleEnabled={state.auth.googleEnabled}
-        onAuthenticated={loadState}
-        notice={notice || state.auth.error || ''}
-        setNotice={setNotice}
-        theme={theme}
-        setTheme={setTheme}
-      />
-    );
-  }
+        <AuthScreen
+          googleEnabled={state.auth.googleEnabled}
+          onAuthenticated={loadState}
+          notice={notice || state.auth.error || ''}
+          setNotice={setNotice}
+        />
+      );
+    }
 
   const isAdmin = state.auth.user?.role === 'admin';
 
@@ -227,8 +218,6 @@ export default function Home() {
         <section className="min-w-0 px-6 py-5 max-sm:px-4">
           <Topbar
             state={state}
-            theme={theme}
-            setTheme={setTheme}
             onLogout={async () => {
               await postJson('/api/auth/logout');
               await loadState();
@@ -280,16 +269,12 @@ function AuthScreen({
   googleEnabled,
   onAuthenticated,
   notice,
-  setNotice,
-  theme,
-  setTheme
+  setNotice
 }: {
   googleEnabled: boolean;
   onAuthenticated: () => Promise<void>;
   notice: string;
   setNotice: (message: string) => void;
-  theme: 'dark' | 'light';
-  setTheme: (theme: 'dark' | 'light') => void;
 }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [busy, setBusy] = useState(false);
@@ -324,7 +309,6 @@ function AuthScreen({
             Gerencie conexoes, grupos, sessoes e entregas em uma interface preparada para operacao real.
           </p>
         </div>
-        <ThemeButton theme={theme} setTheme={setTheme} />
       </div>
 
       <div className="mx-auto mt-8 grid max-w-5xl grid-cols-[1fr_420px] gap-5 max-lg:grid-cols-1">
@@ -413,13 +397,9 @@ function AuthScreen({
 
 function Topbar({
   state,
-  theme,
-  setTheme,
   onLogout
 }: {
   state: AppState;
-  theme: 'dark' | 'light';
-  setTheme: (theme: 'dark' | 'light') => void;
   onLogout: () => Promise<void>;
 }) {
   return (
@@ -431,7 +411,6 @@ function Topbar({
       <div className="flex items-center gap-2 max-sm:flex-wrap">
         <StatusBadge label="Telegram" value={state.telegramStatus} />
         <StatusBadge label="WhatsApp" value={state.whatsAppStatus} />
-        <ThemeButton theme={theme} setTheme={setTheme} />
         <button
           type="button"
           onClick={() => void onLogout()}
@@ -635,7 +614,7 @@ function Connections({
               setBusy('settings');
               await postJson('/api/settings', {
                 telegramMode,
-                telegramChannel: state.config.telegramChannel || '',
+                telegramChannel,
                 telegramApiId,
                 telegramApiHash,
                 telegramPhone,
@@ -681,7 +660,7 @@ function Connections({
                     setBusy('telegram-send-code');
                     await postJson('/api/settings', {
                       telegramMode,
-                      telegramChannel: state.config.telegramChannel || '',
+                      telegramChannel,
                       telegramApiId,
                       telegramApiHash,
                       telegramPhone,
@@ -786,7 +765,10 @@ function Connections({
                 Grupo ou canal monitorado
                 <select
                   value={telegramChannel}
-                  onChange={(event) => setTelegramChannel(event.target.value)}
+                  onChange={(event) => {
+                    const nextChannelId = event.target.value;
+                    setTelegramChannel(nextChannelId);
+                  }}
                   className={inputClass}
                 >
                   <option value="">Selecione uma origem</option>
@@ -800,6 +782,9 @@ function Connections({
 
               <div className="mt-4 grid gap-4">
                 <Field label="ID manual da origem" value={telegramChannel} onChange={setTelegramChannel} placeholder="-100..." />
+                <p className="text-xs text-[var(--muted)]">
+                  Quando voce escolher uma origem no menu acima, este ID sera preenchido automaticamente.
+                </p>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1236,27 +1221,6 @@ function Field({
         className={inputClass}
       />
     </label>
-  );
-}
-
-function ThemeButton({
-  theme,
-  setTheme
-}: {
-  theme: 'dark' | 'light';
-  setTheme: (theme: 'dark' | 'light') => void;
-}) {
-  const Icon = theme === 'dark' ? Sun : Moon;
-  return (
-    <button
-      type="button"
-      title="Alternar tema"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold hover:bg-white/5"
-    >
-      <Icon size={16} />
-      {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-    </button>
   );
 }
 
