@@ -78,16 +78,18 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
           AWS_DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH }}
           AWS_DEPLOY_PM2_APP_NAME: ${{ secrets.AWS_DEPLOY_PM2_APP_NAME }}
+          AWS_DEPLOY_PM2_FRONTEND_APP_NAME: ${{ secrets.AWS_DEPLOY_PM2_FRONTEND_APP_NAME }}
         run: |
           set -euo pipefail
           PM2_NAME="${AWS_DEPLOY_PM2_APP_NAME:-telegram-whatsapp-bridge}"
+          PM2_FRONTEND_NAME="${AWS_DEPLOY_PM2_FRONTEND_APP_NAME:-portal-afiliado-web}"
           ssh \
             -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -p 22 \
             "$AWS_DEPLOY_USER@3.99.4.225" \
-            "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' bash -s" \
+            "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' PM2_FRONTEND_APP_NAME='$PM2_FRONTEND_NAME' bash -s" \
             < scripts/deploy-release.sh
 
       - name: Healthcheck

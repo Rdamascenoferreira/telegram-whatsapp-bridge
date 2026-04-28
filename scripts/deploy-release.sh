@@ -5,6 +5,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:?APP_DIR is required}"
 RELEASE_ARCHIVE="${RELEASE_ARCHIVE:?RELEASE_ARCHIVE is required}"
 PM2_APP_NAME="${PM2_APP_NAME:-telegram-whatsapp-bridge}"
+PM2_FRONTEND_APP_NAME="${PM2_FRONTEND_APP_NAME:-portal-afiliado-web}"
 
 # Faz shell remoto enxergar Node/npm/pm2 instalados via nvm
 export NVM_DIR="${HOME}/.nvm"
@@ -66,9 +67,17 @@ rsync -a --delete \
 cd "$APP_DIR"
 npm ci --omit=dev
 
+cd "$APP_DIR/web"
+npm ci
+npm run build
+
+cd "$APP_DIR"
+
 mkdir -p data .wwebjs_auth .wwebjs_cache
 
 export PM2_APP_NAME
+export PM2_BACKEND_APP_NAME="$PM2_APP_NAME"
+export PM2_FRONTEND_APP_NAME
 pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save >/dev/null || true
 
