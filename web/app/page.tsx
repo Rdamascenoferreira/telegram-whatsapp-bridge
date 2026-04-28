@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 014';
+const panelVersion = 'Versão 0.15';
 
 type AuthUser = {
   id: string;
@@ -901,6 +901,7 @@ function Groups({
   refresh: () => Promise<void>;
 }) {
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
+  const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const groupsProgress = state.metrics.groupRefreshProgress;
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
   const groupsProcessed = groupsProgress?.processed || 0;
@@ -920,8 +921,13 @@ function Groups({
   }, [filter, selected, state.groups]);
 
   useEffect(() => {
-    setSelected(new Set(state.config.selectedGroupIds));
-  }, [state.config.selectedGroupIds]);
+    const nextSelected = new Set(state.config.selectedGroupIds);
+
+    if (!hasPendingSelectionChanges || areSameSet(selected, nextSelected)) {
+      setSelected(nextSelected);
+      setHasPendingSelectionChanges(false);
+    }
+  }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
 
   return (
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -1023,6 +1029,7 @@ function Groups({
                   const next = new Set(selected);
                   next.delete(group.id);
                   setSelected(next);
+                  setHasPendingSelectionChanges(true);
                 }}
                 className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-left text-xs font-semibold text-emerald-50 transition hover:bg-emerald-400/15"
                 title="Remover dos selecionados"
@@ -1051,6 +1058,7 @@ function Groups({
                     next.delete(group.id);
                   }
                   setSelected(next);
+                  setHasPendingSelectionChanges(true);
                 }}
               />
               <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
@@ -1064,19 +1072,25 @@ function Groups({
 
       <div className="mt-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
         <p className="text-sm text-[var(--muted)]">{selected.size} grupo(s) selecionado(s)</p>
-        <button
-          type="button"
-          className={primaryButton}
-          onClick={async () => {
-            setBusy('save-groups');
-            await postJson('/api/groups', { selectedGroupIds: [...selected] });
-            await refresh();
-            setNotice('Grupos selecionados salvos.');
-            setBusy('');
-          }}
-        >
-          Salvar grupos
-        </button>
+        <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
+          {hasPendingSelectionChanges ? (
+            <span className="text-xs font-semibold text-amber-200">Selecao alterada. Clique em salvar para manter esses destinos.</span>
+          ) : null}
+          <button
+            type="button"
+            className={primaryButton}
+            onClick={async () => {
+              setBusy('save-groups');
+              await postJson('/api/groups', { selectedGroupIds: [...selected] });
+              await refresh();
+              setHasPendingSelectionChanges(false);
+              setNotice('Grupos selecionados salvos.');
+              setBusy('');
+            }}
+          >
+            Salvar grupos
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -1189,7 +1203,11 @@ function GroupKindBadge({ group }: { group: WhatsAppGroup }) {
     );
   }
 
-  return null;
+  return (
+    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">
+      Grupo
+    </span>
+  );
 }
 
 function SystemPowerSwitch({
@@ -1540,6 +1558,20 @@ function formatDate(value?: string) {
 
 function lastLabel(value?: string) {
   return value ? `Ultimo: ${formatDate(value)}` : 'Sem registro';
+}
+
+function areSameSet(left: Set<string>, right: Set<string>) {
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const value of left) {
+    if (!right.has(value)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function humanize(value: string) {
