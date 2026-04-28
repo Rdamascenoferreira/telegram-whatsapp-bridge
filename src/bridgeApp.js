@@ -710,6 +710,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
+  const currentPanelVersion = 'Versão 001';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
@@ -1531,6 +1532,12 @@ function renderPage() {
         font-weight: 700;
       }
 
+      .soft-pill-version {
+        background: color-mix(in srgb, var(--accent) 16%, var(--soft));
+        border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+        color: color-mix(in srgb, var(--accent-strong) 72%, white 28%);
+      }
+
       .dashboard-hero-stats {
         display: grid;
         gap: 12px;
@@ -2075,6 +2082,7 @@ function renderPage() {
               e mantenha a operação organizada em uma interface única.
             </p>
             <div class="dashboard-badges">
+              <span id="workspace-version-badge" class="soft-pill soft-pill-version">${currentPanelVersion}</span>
               <span id="workspace-plan-badge" class="soft-pill">Plano Beta</span>
               <span id="workspace-account-badge" class="soft-pill">Conta ativa</span>
             </div>
