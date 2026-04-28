@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.19';
+const panelVersion = 'Versão 0.20';
 
 type AuthUser = {
   id: string;

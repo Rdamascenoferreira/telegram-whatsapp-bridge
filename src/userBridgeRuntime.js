@@ -1326,14 +1326,13 @@ export class UserBridgeRuntime {
           processed % 5 === 0;
 
         if (adminParticipant) {
-          const groupKind = getWhatsAppGroupKind(chat);
           availableGroups.push({
             id: chat.id,
             name: chat.name || 'Grupo sem nome',
-            kind: groupKind.kind,
-            isAnnouncement: groupKind.isAnnouncement,
-            isCommunityLinked: groupKind.isCommunityLinked,
-            parentGroupId: groupKind.parentGroupId
+            kind: chat.kind,
+            isAnnouncement: chat.isAnnouncement,
+            isCommunityLinked: chat.isCommunityLinked,
+            parentGroupId: chat.parentGroupId
           });
         }
 
@@ -1422,15 +1421,23 @@ export class UserBridgeRuntime {
 
     return chats
       .filter((chat) => chat.isGroup)
-      .map((chat) => ({
-        id: serializeWid(chat.id),
-        name: chat.name || 'Grupo sem nome',
-        participants: getGroupParticipants(chat).map((participant) => ({
-          id: serializeWid(participant.id),
-          isAdmin: Boolean(participant.isAdmin),
-          isSuperAdmin: Boolean(participant.isSuperAdmin)
-        }))
-      }));
+      .map((chat) => {
+        const groupKind = getWhatsAppGroupKind(chat);
+
+        return {
+          id: serializeWid(chat.id),
+          name: chat.name || 'Grupo sem nome',
+          participants: getGroupParticipants(chat).map((participant) => ({
+            id: serializeWid(participant.id),
+            isAdmin: Boolean(participant.isAdmin),
+            isSuperAdmin: Boolean(participant.isSuperAdmin)
+          })),
+          kind: groupKind.kind,
+          isAnnouncement: groupKind.isAnnouncement,
+          isCommunityLinked: groupKind.isCommunityLinked,
+          parentGroupId: groupKind.parentGroupId
+        };
+      });
   }
 
   hydrateGroupCache() {
@@ -1694,10 +1701,27 @@ function getWhatsAppGroupKind(chat) {
       metadata.linkedParent ||
       metadata.linkedParentId ||
       metadata.communityId ||
-      metadata.communityParentId
+      metadata.communityParentId ||
+      metadata.parentGroup ||
+      metadata.linkedParentWid ||
+      metadata.linkedParentGroupId
   );
-  const isAnnouncement = Boolean(metadata.announce || metadata.isAnnounceGrp || metadata.announcement);
-  const isCommunityLinked = Boolean(parentGroupId);
+  const isAnnouncement = Boolean(
+    metadata.announce ||
+      metadata.isAnnounceGrp ||
+      metadata.announcement ||
+      metadata.isAnnouncementGroup ||
+      metadata.announceGrp ||
+      chat?.isReadOnly
+  );
+  const explicitCommunityFlag = Boolean(
+    metadata.isCommunity ||
+      metadata.isCommunityGroup ||
+      metadata.community ||
+      metadata.isParentGroup ||
+      metadata.isParentCommunity
+  );
+  const isCommunityLinked = Boolean(parentGroupId || explicitCommunityFlag);
 
   return {
     kind: isAnnouncement ? 'announcement' : isCommunityLinked ? 'community_group' : 'group',
