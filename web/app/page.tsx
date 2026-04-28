@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.20';
+const panelVersion = 'Versão 0.21';
 
 type AuthUser = {
   id: string;
@@ -324,8 +324,24 @@ function AuthScreen({
 
       <div className="mx-auto mt-8 grid max-w-5xl grid-cols-[1fr_420px] gap-5 max-lg:grid-cols-1">
         <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6">
-          <div className="mb-6 flex h-28 items-center overflow-hidden rounded-2xl border border-emerald-400/10 bg-[linear-gradient(135deg,rgba(26,56,42,0.65),rgba(8,17,13,0.92))] px-5 shadow-[inset_0_1px_0_rgba(108,255,196,0.08)]">
-            <img src="/brand/portal-wordmark.svg" alt="Portal do Afiliado" className="h-full w-full object-contain" />
+          <div className="mb-6 rounded-2xl border border-emerald-400/10 bg-[linear-gradient(135deg,rgba(18,40,30,0.82),rgba(8,17,13,0.96))] p-5 shadow-[inset_0_1px_0_rgba(108,255,196,0.08)]">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/20 bg-black/25 shadow-[0_0_24px_rgba(43,214,140,0.14)]">
+                <img src="/brand/portal-icon.svg" alt="" className="h-10 w-10 object-contain" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-300/80">
+                  Automação Telegram × WhatsApp
+                </p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 className="text-3xl font-semibold leading-none text-white">Portal do</h2>
+                  <h2 className="text-3xl font-semibold leading-none text-[var(--accent)]">Afiliado</h2>
+                </div>
+                <p className="mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
+                  Painel central para organizar conexões, destinos e entregas sem poluição visual.
+                </p>
+              </div>
+            </div>
           </div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Produto beta</p>
           <h2 className="mt-3 text-2xl font-semibold">Uma ponte mais organizada para operar no dia a dia.</h2>
