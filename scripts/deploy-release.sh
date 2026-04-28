@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+log_step() {
+  echo
+  echo "==> $1"
+}
+
 APP_DIR="${APP_DIR:?APP_DIR is required}"
 RELEASE_ARCHIVE="${RELEASE_ARCHIVE:?RELEASE_ARCHIVE is required}"
 PM2_APP_NAME="${PM2_APP_NAME:-telegram-whatsapp-bridge}"
@@ -55,6 +60,7 @@ trap cleanup EXIT
 
 tar -xzf "$RELEASE_ARCHIVE" -C "$TMP_DIR"
 
+log_step "Sincronizando release em $APP_DIR"
 rsync -a --delete \
   --exclude '.env' \
   --exclude 'data' \
@@ -65,11 +71,15 @@ rsync -a --delete \
   "$TMP_DIR"/ "$APP_DIR"/
 
 cd "$APP_DIR"
-npm ci --omit=dev
+log_step "Instalando dependencias do backend"
+npm ci --omit=dev --no-audit --no-fund
 
 cd "$APP_DIR/web"
-npm ci
-npm run build
+log_step "Instalando dependencias do frontend"
+npm ci --no-audit --no-fund
+
+log_step "Gerando build do frontend"
+CI=1 npm run build
 
 cd "$APP_DIR"
 
@@ -78,7 +88,8 @@ mkdir -p data .wwebjs_auth .wwebjs_cache
 export PM2_APP_NAME
 export PM2_BACKEND_APP_NAME="$PM2_APP_NAME"
 export PM2_FRONTEND_APP_NAME
+log_step "Recarregando processos no PM2"
 pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save >/dev/null || true
 
-echo "Deploy concluido em $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+log_step "Deploy concluido em $(date -u +%Y-%m-%dT%H:%M:%SZ)"
