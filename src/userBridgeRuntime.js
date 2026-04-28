@@ -86,6 +86,7 @@ export class UserBridgeRuntime {
       percent: 0,
       foundAdmins: 0
     };
+    this.groupCacheRefreshedAt = '';
     this.persistActivityPromise = Promise.resolve();
     this.initialized = false;
   }
@@ -99,6 +100,7 @@ export class UserBridgeRuntime {
     this.config = await loadConfigForUser(this.userId);
     this.activity = await loadActivityForUser(this.userId);
     this.logs = buildLogLines(this.activity.events).slice(0, 80);
+    this.hydrateGroupCache();
     this.startWhatsApp().catch((error) => {
       this.whatsAppStatus = 'error';
       this.log(`Falha ao iniciar o WhatsApp: ${error.message}`, {
@@ -138,6 +140,8 @@ export class UserBridgeRuntime {
         telegramStatus: this.telegramStatus,
         groupsRefreshing: this.isRefreshingGroups,
         groupRefreshProgress: this.groupRefreshProgress,
+        groupCacheRefreshedAt: this.groupCacheRefreshedAt,
+        hasCachedGroups: this.availableGroups.length > 0,
         pendingTelegramCount: this.pendingTelegramMessages.length,
         canResetWhatsAppSession: Boolean(this.whatsAppIssue?.canResetSession),
         canReconnectWhatsApp: this.whatsAppStatus !== 'connecting' && !this.whatsAppReconnectInProgress
@@ -270,7 +274,6 @@ export class UserBridgeRuntime {
     this.clearWhatsAppAutoReconnect();
     this.whatsAppIssue = null;
     this.whatsAppStatus = 'reconnecting';
-    this.availableGroups = [];
     this.qrDataUrl = null;
 
     try {
@@ -388,7 +391,6 @@ export class UserBridgeRuntime {
     this.whatsAppClient.on('disconnected', (reason) => {
       this.whatsAppStatus = 'disconnected';
       this.whatsAppIssue = null;
-      this.availableGroups = [];
       this.log(`WhatsApp desconectado: ${reason}`, {
         type: 'whatsapp_disconnected'
       });
@@ -443,6 +445,8 @@ export class UserBridgeRuntime {
     this.qrDataUrl = null;
     this.whatsAppPhone = null;
     this.availableGroups = [];
+    this.groupCacheRefreshedAt = '';
+    await this.persistGroupCache([], null, '');
 
     try {
       await this.stopWhatsAppClient();
@@ -1349,6 +1353,7 @@ export class UserBridgeRuntime {
       this.availableGroups = availableGroups.sort((left, right) =>
         left.name.localeCompare(right.name, 'pt-BR')
       );
+      this.groupCacheRefreshedAt = new Date().toISOString();
       this.groupRefreshProgress = {
         phase: 'done',
         total: groups.length,
@@ -1362,6 +1367,7 @@ export class UserBridgeRuntime {
         myCanonicalIds: [...myCanonicalIds],
         sample: diagnosticSample
       };
+      await this.persistGroupCache(this.availableGroups, this.groupDiagnostics, this.groupCacheRefreshedAt);
 
       this.log(
         `Lista de grupos atualizada. Total vistos: ${groups.length}. Grupos com admin detectado: ${this.availableGroups.length}.`,
@@ -1425,6 +1431,44 @@ export class UserBridgeRuntime {
           isSuperAdmin: Boolean(participant.isSuperAdmin)
         }))
       }));
+  }
+
+  hydrateGroupCache() {
+    const cache = this.config?.whatsAppGroupCache;
+
+    if (!cache || !Array.isArray(cache.groups) || cache.groups.length === 0) {
+      this.availableGroups = [];
+      this.groupCacheRefreshedAt = '';
+      return;
+    }
+
+    this.availableGroups = cache.groups
+      .map((group) => ({
+        id: String(group.id ?? ''),
+        name: String(group.name ?? 'Grupo sem nome'),
+        kind: group.kind ?? 'group',
+        isAnnouncement: Boolean(group.isAnnouncement),
+        isCommunityLinked: Boolean(group.isCommunityLinked),
+        parentGroupId: group.parentGroupId ? String(group.parentGroupId) : null
+      }))
+      .filter((group) => group.id)
+      .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+    this.groupCacheRefreshedAt = typeof cache.refreshedAt === 'string' ? cache.refreshedAt : '';
+
+    if (cache.diagnostics && typeof cache.diagnostics === 'object') {
+      this.groupDiagnostics = cache.diagnostics;
+    }
+  }
+
+  async persistGroupCache(groups, diagnostics, refreshedAt) {
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      whatsAppGroupCache: {
+        groups,
+        diagnostics,
+        refreshedAt
+      }
+    });
   }
 
   async persistActivity() {
@@ -1571,7 +1615,6 @@ export class UserBridgeRuntime {
 
     this.whatsAppStatus = 'browser_closed';
     this.qrDataUrl = null;
-    this.availableGroups = [];
     this.whatsAppIssue = {
       status: 'browser_closed',
       canReconnect: true,

@@ -22,7 +22,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 013';
+const panelVersion = 'Versao 014';
 
 type AuthUser = {
   id: string;
@@ -105,6 +105,8 @@ type AppState = {
       processed?: number;
       percent?: number;
     };
+    groupCacheRefreshedAt?: string;
+    hasCachedGroups?: boolean;
     lastActivityAt?: string;
     lastTelegramMessageAt?: string;
     lastForwardedAt?: string;
@@ -903,6 +905,9 @@ function Groups({
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
   const groupsProcessed = groupsProgress?.processed || 0;
   const groupsTotal = groupsProgress?.total || 0;
+  const cachedAtLabel = state.metrics.groupCacheRefreshedAt
+    ? formatDate(state.metrics.groupCacheRefreshedAt)
+    : '';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
@@ -968,9 +973,18 @@ function Groups({
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
-            <span>{groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}</span>
+            <span>
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` · exibindo lista salva de ${cachedAtLabel}` : ''}
+            </span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
           </div>
+        </div>
+      ) : null}
+
+      {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
+        <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. Voce pode usar essa lista imediatamente enquanto uma nova sincronizacao nao for necessaria.
         </div>
       ) : null}
 

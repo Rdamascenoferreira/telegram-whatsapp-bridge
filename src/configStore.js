@@ -19,7 +19,12 @@ export const defaultConfig = {
   telegramSession: '',
   telegramChannel: '',
   bridgeEnabled: true,
-  selectedGroupIds: []
+  selectedGroupIds: [],
+  whatsAppGroupCache: {
+    groups: [],
+    diagnostics: null,
+    refreshedAt: ''
+  }
 };
 
 export function getWorkspacePaths(userId) {
@@ -78,7 +83,8 @@ export async function loadConfigForUser(userId) {
     return {
       ...defaultConfig,
       ...parsed,
-      selectedGroupIds: Array.isArray(parsed.selectedGroupIds) ? parsed.selectedGroupIds : []
+      selectedGroupIds: Array.isArray(parsed.selectedGroupIds) ? parsed.selectedGroupIds : [],
+      whatsAppGroupCache: normalizeWhatsAppGroupCache(parsed.whatsAppGroupCache)
     };
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -95,7 +101,8 @@ export async function saveConfigForUser(userId, nextConfig) {
   const merged = {
     ...defaultConfig,
     ...nextConfig,
-    selectedGroupIds: Array.isArray(nextConfig.selectedGroupIds) ? nextConfig.selectedGroupIds : []
+    selectedGroupIds: Array.isArray(nextConfig.selectedGroupIds) ? nextConfig.selectedGroupIds : [],
+    whatsAppGroupCache: normalizeWhatsAppGroupCache(nextConfig.whatsAppGroupCache)
   };
 
   await fs.writeFile(paths.configPath, JSON.stringify(merged, null, 2), 'utf8');
@@ -222,4 +229,16 @@ async function readJson(targetPath) {
 
     throw error;
   }
+}
+
+function normalizeWhatsAppGroupCache(cache) {
+  if (!cache || typeof cache !== 'object') {
+    return structuredClone(defaultConfig.whatsAppGroupCache);
+  }
+
+  return {
+    groups: Array.isArray(cache.groups) ? cache.groups : [],
+    diagnostics: cache.diagnostics && typeof cache.diagnostics === 'object' ? cache.diagnostics : null,
+    refreshedAt: typeof cache.refreshedAt === 'string' ? cache.refreshedAt : ''
+  };
 }
