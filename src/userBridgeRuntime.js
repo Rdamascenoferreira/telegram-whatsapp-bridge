@@ -837,9 +837,10 @@ export class UserBridgeRuntime {
       return;
     }
 
-    const sourceChatId = normalizeTelegramUserChatId(message.chatId);
+    const sourceChatRefs = getTelegramUserMessageChatRefs(message);
+    const sourceChatId = sourceChatRefs[0] || '';
 
-    if (!this.config.telegramChannel || sourceChatId !== normalizeTelegramUserChatId(this.config.telegramChannel)) {
+    if (!matchesTelegramUserMessage(message, this.config.telegramChannel)) {
       return;
     }
 
@@ -1746,6 +1747,30 @@ function fallbackText(message) {
 
 function normalizeTelegramUserChatId(value) {
   return normalizeTelegramChatRef(value);
+}
+
+function getTelegramUserMessageChatRefs(message) {
+  const candidates = [
+    message?.chatId,
+    message?.peerId?.channelId,
+    message?.peerId?.chatId,
+    message?.peerId?.userId,
+    message?.inputChat?.channelId,
+    message?.inputChat?.chatId,
+    message?.inputSender?.channelId,
+    message?.inputSender?.chatId
+  ];
+
+  return [...new Set(candidates.map(normalizeTelegramUserChatId).filter(Boolean))];
+}
+
+function matchesTelegramUserMessage(message, configuredChannel) {
+  if (!configuredChannel) {
+    return false;
+  }
+
+  const configured = normalizeTelegramUserChatId(configuredChannel);
+  return getTelegramUserMessageChatRefs(message).includes(configured);
 }
 
 function describeTelegramEntity(chat, fallbackId = '') {
