@@ -14,7 +14,7 @@ const auth = new AuthService({
 });
 const bridge = new BridgeApp({ auth });
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '4mb' }));
 app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
@@ -27,6 +27,29 @@ app.get('/api/health', (_request, response) => {
 auth.configure(app);
 await bridge.init();
 bridge.attachRoutes(app);
+
+app.use((error, _request, response, next) => {
+  if (!error) {
+    next();
+    return;
+  }
+
+  if (error.type === 'entity.too.large') {
+    response.status(413).json({
+      error: 'A imagem enviada é grande demais. Use um arquivo com até 1 MB.'
+    });
+    return;
+  }
+
+  if (error instanceof SyntaxError) {
+    response.status(400).json({
+      error: 'Não foi possível processar os dados enviados.'
+    });
+    return;
+  }
+
+  next(error);
+});
 
 app.listen(port, () => {
   console.log(`Telegram -> WhatsApp bridge listening on http://localhost:${port}`);

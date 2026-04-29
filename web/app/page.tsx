@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.37';
+const panelVersion = 'Versao 0.38';
 
 type AuthUser = {
   id: string;
@@ -2130,6 +2130,10 @@ function AccountPanel({
                   }
 
                   try {
+                    if (file.size > 1024 * 1024) {
+                      throw new Error('A imagem deve ter no máximo 1 MB.');
+                    }
+
                     const avatarDataUrl = await readFileAsDataUrl(file);
                     setBusy('avatar');
                     setPreviewAvatar(avatarDataUrl);
