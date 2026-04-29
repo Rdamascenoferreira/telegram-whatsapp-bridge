@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.28';
+const panelVersion = 'Versao 0.29';
 
 type AuthUser = {
   id: string;
@@ -474,10 +474,25 @@ function AuthScreen({
                 />
               </div>
 
-              <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] md:grid-cols-3">
-                <AuthTrustItem icon={TrendingUp} title="Operacao organizada" label="mais visibilidade em cada entrega" accentClassName="text-[#25D366]" />
-                <AuthTrustItem icon={ShieldCheck} title="Sessoes protegidas" label="estabilidade para rodar todos os dias" accentClassName="text-[#77E6A0]" />
-                <AuthTrustItem icon={Users} title="Gestao multicanal" label="controle total de contas e fluxos" accentClassName="text-[#51CFFF]" />
+              <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] lg:grid-cols-3">
+                <AuthTrustItem
+                  icon={TrendingUp}
+                  title="Operacao organizada"
+                  label="mais visibilidade em cada entrega"
+                  accentClassName="text-[#25D366]"
+                />
+                <AuthTrustItem
+                  icon={ShieldCheck}
+                  title="Sessoes protegidas"
+                  label="estabilidade para rodar todos os dias"
+                  accentClassName="text-[#77E6A0]"
+                />
+                <AuthTrustItem
+                  icon={Users}
+                  title="Gestao multicanal"
+                  label="controle total de contas e fluxos"
+                  accentClassName="text-[#51CFFF]"
+                />
               </div>
             </div>
           </section>
@@ -682,13 +697,13 @@ function AuthTrustItem({
   accentClassName: string;
 }) {
   return (
-    <div className="flex items-center gap-4 max-sm:flex-col max-sm:items-start">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
-        <Icon size={26} className={accentClassName} />
+    <div className="flex items-start gap-4 rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-4 transition hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.03)]">
+      <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+        <Icon size={22} className={accentClassName} />
       </div>
-      <div>
-        <p className="text-[1.15rem] font-semibold text-[#F8FAFC]">{title}</p>
-        <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">{label}</p>
+      <div className="min-w-0">
+        <p className="text-[1.18rem] font-semibold leading-6 text-[#F8FAFC]">{title}</p>
+        <p className="mt-1 max-w-[16rem] text-sm leading-6 text-[#AAB8B0]">{label}</p>
       </div>
     </div>
   );
