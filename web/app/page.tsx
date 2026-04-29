@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.46';
+const panelVersion = 'Versao 0.47';
 
 type AuthUser = {
   id: string;
@@ -194,6 +194,12 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (!state?.auth.authenticated) {
+      setView('overview');
+    }
+  }, [state?.auth.authenticated]);
+
   if (!state) {
     return <LoadingScreen />;
   }
@@ -202,7 +208,10 @@ export default function Home() {
     return (
         <AuthScreen
           googleEnabled={state.auth.googleEnabled}
-          onAuthenticated={loadState}
+          onAuthenticated={async () => {
+            setView('overview');
+            await loadState();
+          }}
           notice={notice || state.auth.error || ''}
           setNotice={setNotice}
         />
@@ -254,6 +263,7 @@ export default function Home() {
           <Topbar
             state={state}
             onLogout={async () => {
+              setView('overview');
               await postJson('/api/auth/logout');
               await loadState();
             }}
