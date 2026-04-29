@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.26';
+const panelVersion = 'Versao 0.27';
 
 type AuthUser = {
   id: string;
@@ -327,12 +327,12 @@ function AuthScreen({
                 Automacao para <span className="text-[#25D366]">WhatsApp</span> e <span className="text-[#229ED9]">Telegram</span>
               </span>
 
-              <div className="mt-6 flex items-start gap-5 max-sm:flex-col">
+              <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
                 <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[22px] border border-[rgba(37,211,102,0.24)] bg-[linear-gradient(180deg,rgba(6,22,16,0.95),rgba(8,30,22,0.92))] shadow-[0_14px_28px_rgba(0,0,0,0.24),0_0_0_1px_rgba(255,255,255,0.03)] max-sm:h-16 max-sm:w-16">
-                  <img src="/brand/portal-icon.svg" alt="" className="h-11 w-11 object-contain max-sm:h-9 max-sm:w-9" />
+                  <img src="/brand/portal-icon.svg" alt="Portal do Afiliado" className="h-11 w-11 object-contain max-sm:h-9 max-sm:w-9" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="grid gap-1">
                     <span className="text-sm font-semibold uppercase tracking-[0.34em] text-[#9FD0B7]">Portal do</span>
                     <span className="text-[3.25rem] font-semibold leading-none text-[#F8FAFC] max-xl:text-[2.8rem] max-sm:text-[2.35rem]">
                       Afiliado
@@ -445,29 +445,21 @@ function AuthScreen({
                       <AuthDashboardRow label="Entregas por hora" value="4.190" />
                       <AuthDashboardRow label="Conversoes" value="+18,4%" />
                     </div>
-                  </div>
-
-                  <div className="absolute left-3 top-[42%] rounded-[20px] border border-[rgba(37,211,102,0.22)] bg-[linear-gradient(180deg,rgba(37,211,102,0.14),rgba(8,28,20,0.95))] px-4 py-3 shadow-[0_18px_28px_rgba(0,0,0,0.24)]">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(37,211,102,0.14)]">
-                        <Smartphone size={26} className="text-[#25D366]" />
-                      </div>
-                      <div>
-                        <p className="text-base font-semibold text-[#F8FAFC]">WhatsApp</p>
-                        <p className="text-sm text-[#A9DDBF]">Conectado</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute bottom-[22%] right-2 rounded-[20px] border border-[rgba(34,158,217,0.22)] bg-[linear-gradient(180deg,rgba(34,158,217,0.14),rgba(6,22,18,0.96))] px-4 py-3 shadow-[0_18px_28px_rgba(0,0,0,0.24)]">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(34,158,217,0.14)]">
-                        <Send size={25} className="text-[#229ED9]" />
-                      </div>
-                      <div>
-                        <p className="text-base font-semibold text-[#F8FAFC]">Telegram</p>
-                        <p className="text-sm text-[#B3E8FF]">Ativo</p>
-                      </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <AuthMiniSignal
+                        icon={Smartphone}
+                        title="WhatsApp"
+                        detail="Conectado"
+                        accentClassName="text-[#25D366]"
+                        panelClassName="border-[rgba(37,211,102,0.14)] bg-[rgba(37,211,102,0.06)]"
+                      />
+                      <AuthMiniSignal
+                        icon={Send}
+                        title="Telegram"
+                        detail="Ativo"
+                        accentClassName="text-[#229ED9]"
+                        panelClassName="border-[rgba(34,158,217,0.14)] bg-[rgba(34,158,217,0.06)]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -665,6 +657,34 @@ function AuthDashboardRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.025)] px-3 py-2.5">
       <p className="text-sm text-[#B8C7C0]">{label}</p>
       <p className="text-sm font-semibold text-[#F8FAFC]">{value}</p>
+    </div>
+  );
+}
+
+function AuthMiniSignal({
+  icon: Icon,
+  title,
+  detail,
+  accentClassName,
+  panelClassName
+}: {
+  icon: typeof Smartphone;
+  title: string;
+  detail: string;
+  accentClassName: string;
+  panelClassName: string;
+}) {
+  return (
+    <div className={cn('rounded-2xl border px-3 py-3', panelClassName)}>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.04)]">
+          <Icon size={20} className={accentClassName} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#F8FAFC]">{title}</p>
+          <p className="text-xs text-[#AAB8B0]">{detail}</p>
+        </div>
+      </div>
     </div>
   );
 }
