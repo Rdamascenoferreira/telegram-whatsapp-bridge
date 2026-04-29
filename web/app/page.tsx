@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.45';
+const panelVersion = 'Versao 0.46';
 
 type AuthUser = {
   id: string;
@@ -2140,6 +2140,7 @@ function AccountPanel({
                     setBusy('avatar');
                     setPreviewAvatar(avatarDataUrl);
                     await postJson('/api/account/avatar', { avatarDataUrl });
+                    setBusy('');
                     await refresh();
                     setNotice('Foto do perfil atualizada com sucesso.');
                   } catch (error) {
