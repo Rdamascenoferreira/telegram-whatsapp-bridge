@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.32';
+const panelVersion = 'Versao 0.33';
 
 type AuthUser = {
   id: string;
@@ -1211,6 +1211,7 @@ function Groups({
     : '';
   const whatsAppReady = state.whatsAppStatus === 'ready';
   const hasQrCode = Boolean(state.qrDataUrl);
+  const whatsAppStatusLabel = whatsAppReady ? 'Conectado' : hasQrCode ? 'QR pronto' : 'Sem sessao';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
@@ -1244,118 +1245,191 @@ function Groups({
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-        <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">WhatsApp</p>
-            <h2 className="mt-1 text-xl font-semibold">Conexao e grupos de destino</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Conecte sua conta, escaneie o QR Code quando necessario e gerencie todos os grupos de destino nesta mesma tela.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-              Status: {humanize(state.whatsAppStatus || 'not_configured')}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-              {state.whatsAppPhone || 'Sem sessao conectada'}
-            </span>
+      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
+        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
+          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">WhatsApp</p>
+              <div className="mt-3 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+                  <Smartphone size={22} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do WhatsApp</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    Conecte sua conta, acompanhe o QR Code e gerencie todos os grupos de destino em um fluxo unico, limpo e pronto para operacao.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+                {whatsAppStatusLabel}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
+                {state.whatsAppPhone || 'Sem sessao conectada'}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
-          <div className="grid gap-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+        <div className="grid gap-5 px-6 py-6 xl:grid-cols-[minmax(0,1.25fr)_330px] max-sm:px-4">
+          <div className="grid gap-5">
             <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexao</p>
-                <p className="mt-1.5 text-base font-semibold">{whatsAppReady ? 'Pronta' : hasQrCode ? 'Aguardando QR' : 'Nao conectada'}</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  {whatsAppReady ? 'Sua sessao esta ativa para encaminhar mensagens.' : 'Finalize a autenticacao para liberar os envios.'}
+              <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                    <Smartphone size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conexao</p>
+                    <p className="mt-1 text-base font-semibold">{whatsAppReady ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'Nao conectada'}</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                  {whatsAppReady ? 'Sessao autenticada e pronta para encaminhar mensagens.' : 'Use o QR Code ao lado para concluir a autenticacao da conta.'}
                 </p>
               </div>
-              <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos salvos</p>
-                <p className="mt-1.5 text-base font-semibold">{selectedGroups.length}</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Grupos prontos para receber as mensagens da ponte.</p>
-              </div>
-              <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Leitura de grupos</p>
-                <p className="mt-1.5 text-base font-semibold">
-                  {state.metrics.groupsRefreshing
-                    ? `${state.metrics.groupRefreshProgress?.percent || 0}%`
-                    : `${state.metrics.availableAdminGroupCount || 0}`}
+
+              <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-200">
+                    <Users size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Destinos salvos</p>
+                    <p className="mt-1 text-base font-semibold">{selectedGroups.length} grupo(s)</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                  Grupos prontos para receber as mensagens encaminhadas pela ponte.
                 </p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[var(--foreground)]">
+                    <Shield size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Leitura de grupos</p>
+                    <p className="mt-1 text-base font-semibold">
+                      {state.metrics.groupsRefreshing
+                        ? `${state.metrics.groupRefreshProgress?.percent || 0}%`
+                        : `${state.metrics.availableAdminGroupCount || 0} encontrados`}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
                   {state.metrics.groupsRefreshing ? 'Sincronizacao em andamento.' : 'Grupos detectados com acesso administrativo.'}
                 </p>
               </div>
             </div>
 
             {state.issue?.message ? (
-              <p className="rounded-md border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100">
+              <p className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
                 {state.issue.message}
               </p>
             ) : null}
 
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                disabled={busy === 'wa-reconnect'}
-                onClick={async () => {
-                  setBusy('wa-reconnect');
-                  await postJson('/api/whatsapp/reconnect');
-                  await refresh();
-                  setNotice('Reconexao do WhatsApp solicitada.');
-                  setBusy('');
-                }}
-                className={secondaryButton}
-              >
-                Reconectar WhatsApp
-              </button>
-              <button
-                type="button"
-                disabled={busy === 'wa-reset'}
-                onClick={async () => {
-                  setBusy('wa-reset');
-                  await postJson('/api/whatsapp/reset-session');
-                  await refresh();
-                  setNotice('Nova sessao do WhatsApp preparada.');
-                  setBusy('');
-                }}
-                className={secondaryButton}
-              >
-                Trocar conta
-              </button>
-              <button
-                type="button"
-                disabled={busy === 'reset-all'}
-                onClick={async () => {
-                  const confirmed = window.confirm(
-                    'Isso vai esquecer Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
-                  );
+            <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+              <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+                <div>
+                  <p className="text-sm font-semibold">Acoes da sessao</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                    Refaça a conexao, troque a conta ou reinicie todo o ambiente da ponte quando precisar.
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                  Operacao manual
+                </span>
+              </div>
 
-                  if (!confirmed) {
-                    return;
-                  }
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <button
+                  type="button"
+                  disabled={busy === 'wa-reconnect'}
+                  onClick={async () => {
+                    setBusy('wa-reconnect');
+                    await postJson('/api/whatsapp/reconnect');
+                    await refresh();
+                    setNotice('Reconexao do WhatsApp solicitada.');
+                    setBusy('');
+                  }}
+                  className="group rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-4 text-left transition hover:border-emerald-400/20 hover:bg-emerald-400/[0.06] disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200 transition group-hover:scale-[1.02]">
+                      <RefreshCcw size={18} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Reconectar</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">Solicita uma nova tentativa de conexao.</p>
+                    </div>
+                  </div>
+                </button>
 
-                  setBusy('reset-all');
-                  await postJson('/api/connections/reset-all');
-                  await refresh();
-                  setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexao.');
-                  setBusy('');
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
-              >
-                <Power size={16} />
-                Reset completo
-              </button>
+                <button
+                  type="button"
+                  disabled={busy === 'wa-reset'}
+                  onClick={async () => {
+                    setBusy('wa-reset');
+                    await postJson('/api/whatsapp/reset-session');
+                    await refresh();
+                    setNotice('Nova sessao do WhatsApp preparada.');
+                    setBusy('');
+                  }}
+                  className="group rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-400/20 hover:bg-sky-400/[0.06] disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-200 transition group-hover:scale-[1.02]">
+                      <Bot size={18} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Trocar conta</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">Gera uma nova sessao para autenticar outra conta.</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={busy === 'reset-all'}
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      'Isso vai esquecer Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
+                    );
+
+                    if (!confirmed) {
+                      return;
+                    }
+
+                    setBusy('reset-all');
+                    await postJson('/api/connections/reset-all');
+                    await refresh();
+                    setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexao.');
+                    setBusy('');
+                  }}
+                  className="group rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-4 text-left transition hover:bg-red-400/[0.12] disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 text-red-100 transition group-hover:scale-[1.02]">
+                      <Power size={18} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-red-50">Reset completo</p>
+                      <p className="mt-1 text-xs text-red-100/75">Limpa conexoes e volta o painel ao estado inicial.</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+          <div className="rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(8,20,16,0.98),rgba(8,20,16,0.9))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">QR Code do WhatsApp</p>
+                <p className="text-base font-semibold">QR Code do WhatsApp</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {hasQrCode
                     ? 'Escaneie com o seu WhatsApp para concluir a autenticacao.'
@@ -1364,23 +1438,27 @@ function Groups({
                       : 'Quando uma nova autenticacao for exigida, o QR Code sera exibido aqui automaticamente.'}
                 </p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
                 {hasQrCode ? 'Disponivel' : whatsAppReady ? 'Conectado' : 'Aguardando'}
               </span>
             </div>
 
-            <div className="mt-4 rounded-md border border-[var(--border)] bg-white/5 p-3">
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white/[0.04] p-4">
               {state.qrDataUrl ? (
-                <div className="rounded-md bg-white p-3">
-                  <img src={state.qrDataUrl} alt="QR Code do WhatsApp" className="mx-auto h-auto max-w-full" />
+                <div className="rounded-2xl bg-white p-4 shadow-[0_20px_40px_rgba(0,0,0,0.12)]">
+                  <img src={state.qrDataUrl} alt="QR Code do WhatsApp" className="mx-auto h-auto max-w-full rounded-lg" />
                 </div>
               ) : (
-                <div className="flex min-h-[220px] items-center justify-center rounded-md border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
+                <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
                   {whatsAppReady
                     ? 'Sessao autenticada com sucesso.'
                     : 'Nenhum QR Code disponivel no momento.'}
                 </div>
               )}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-3 text-xs leading-5 text-[var(--muted)]">
+              Dica: mantenha esta tela aberta apenas quando for autenticar ou trocar a conta. Depois disso, basta gerenciar os grupos e deixar a automacao seguir normalmente.
             </div>
           </div>
         </div>
