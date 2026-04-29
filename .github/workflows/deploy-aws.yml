@@ -16,11 +16,13 @@ jobs:
 
       - name: Validate required secrets
         env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
           AWS_DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH }}
           AWS_DEPLOY_SSH_KEY: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
+          test -n "$AWS_DEPLOY_HOST" || (echo "Missing secret AWS_DEPLOY_HOST" && exit 1)
           test -n "$AWS_DEPLOY_USER" || (echo "Missing secret AWS_DEPLOY_USER" && exit 1)
           test -n "$AWS_DEPLOY_PATH" || (echo "Missing secret AWS_DEPLOY_PATH" && exit 1)
           test -n "$AWS_DEPLOY_SSH_KEY" || (echo "Missing secret AWS_DEPLOY_SSH_KEY" && exit 1)
@@ -43,6 +45,7 @@ jobs:
 
       - name: Configure SSH
         env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_SSH_KEY: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
@@ -51,17 +54,20 @@ jobs:
           chmod 600 "$HOME/.ssh/id_ed25519"
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
           touch "$HOME/.ssh/known_hosts"
-          ssh-keyscan -H -p 22 3.99.4.225 >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
+          ssh-keyscan -H -p 22 "$AWS_DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 
       - name: Test SSH TCP connectivity
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
         run: |
           set -euo pipefail
-          echo "Testing TCP connection to 3.99.4.225:22"
-          timeout 15 bash -c "cat < /dev/null > /dev/tcp/3.99.4.225/22"
+          echo "Testing TCP connection to $AWS_DEPLOY_HOST:22"
+          timeout 15 bash -c "cat < /dev/null > /dev/tcp/$AWS_DEPLOY_HOST/22"
           echo "TCP connection OK"
 
       - name: Upload release archive
         env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
@@ -73,10 +79,11 @@ jobs:
             -o UserKnownHostsFile=/dev/null \
             -P 22 \
             /tmp/telegram-whatsapp-bridge-release.tgz \
-            "$AWS_DEPLOY_USER@3.99.4.225:/tmp/telegram-whatsapp-bridge-release.tgz"
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
 
       - name: Run deploy script
         env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
           AWS_DEPLOY_PATH: ${{ secrets.AWS_DEPLOY_PATH }}
           AWS_DEPLOY_PM2_APP_NAME: ${{ secrets.AWS_DEPLOY_PM2_APP_NAME }}
@@ -92,7 +99,7 @@ jobs:
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -p 22 \
-            "$AWS_DEPLOY_USER@3.99.4.225" \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' PM2_FRONTEND_APP_NAME='$PM2_FRONTEND_NAME' bash -s" \
             < scripts/deploy-release.sh
 
