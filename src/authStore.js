@@ -2,6 +2,21 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import bcrypt from 'bcryptjs';
+import {
+  createCloudPasswordUser,
+  ensureCloudUsersSeeded,
+  findCloudUserByEmail,
+  findCloudUserByGoogleId,
+  findCloudUserById,
+  isCloudAuthEnabled,
+  listCloudUsers,
+  touchCloudUserLogin,
+  updateCloudUserAdminSettings,
+  updateCloudUserAvatar,
+  updateCloudUserPassword,
+  updateCloudUserProfile,
+  upsertCloudGoogleUser
+} from './cloudAuthStore.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
@@ -20,7 +35,7 @@ async function loadUsers() {
     const raw = await fs.readFile(usersPath, 'utf8');
     const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
     const inputUsers = Array.isArray(parsed.users) ? parsed.users : [];
-    const users = inputUsers.map((user, index) => normalizeStoredUser(user, index, inputUsers));
+    const users = inputUsers.map((user, index, list) => normalizeStoredUser(user, index, list));
 
     if (JSON.stringify(inputUsers) !== JSON.stringify(users)) {
       await saveUsers(users);
@@ -64,9 +79,9 @@ function buildProviders(user) {
   return providers;
 }
 
-function normalizeStoredUser(user, index, users) {
+function normalizeStoredUser(user, _index, _users) {
   const normalizedEmail = normalizeEmail(user?.email);
-  const normalizedRole = resolveUserRole(user?.role, normalizedEmail, index, users);
+  const normalizedRole = resolveUserRole(user?.role, normalizedEmail);
   const avatarStorage = normalizeAvatarStorage(user?.avatarStorage, Boolean(user?.googleId));
   const avatarFileExt = String(user?.avatarFileExt ?? '').trim().toLowerCase();
   const avatarUpdatedAt = user?.avatarUpdatedAt ? String(user.avatarUpdatedAt) : null;
@@ -74,7 +89,7 @@ function normalizeStoredUser(user, index, users) {
 
   return {
     id: String(user?.id ?? crypto.randomUUID()),
-    name: String(user?.name ?? '').trim() || normalizedEmail || 'Usuário sem nome',
+    name: String(user?.name ?? '').trim() || normalizedEmail || 'Usuario sem nome',
     email: normalizedEmail,
     passwordHash: String(user?.passwordHash ?? ''),
     googleId: String(user?.googleId ?? '').trim(),
@@ -104,7 +119,7 @@ function normalizeOption(value, validOptions, fallback) {
   return validOptions.includes(normalized) ? normalized : fallback;
 }
 
-function resolveUserRole(role, email, index, users) {
+function resolveUserRole(_role, email) {
   if (isPrimaryAdminEmail(email)) {
     return 'admin';
   }
@@ -123,6 +138,10 @@ function normalizeAvatarStorage(value, hasGoogleId) {
 }
 
 function resolveAvatarUrl({ id, avatarStorage, avatarFileExt, avatarUpdatedAt, rawAvatarUrl }) {
+  if (rawAvatarUrl && /^https?:\/\//i.test(rawAvatarUrl)) {
+    return rawAvatarUrl;
+  }
+
   if (avatarStorage === 'upload' && id && avatarFileExt) {
     return `/api/account/avatar/${encodeURIComponent(id)}?v=${encodeURIComponent(avatarUpdatedAt || '1')}`;
   }
@@ -134,15 +153,18 @@ function resolveAvatarUrl({ id, avatarStorage, avatarFileExt, avatarUpdatedAt, r
   return '';
 }
 
-function inferAvatarFileExtFromDataUrl(dataUrl) {
+function inferAvatarMetaFromDataUrl(dataUrl) {
   const match = String(dataUrl ?? '').match(/^data:image\/(png|jpeg|jpg|webp);base64,/i);
   const subtype = match?.[1]?.toLowerCase();
 
   if (!subtype) {
-    return '';
+    return null;
   }
 
-  return subtype === 'jpeg' ? 'jpg' : subtype;
+  const fileExt = subtype === 'jpeg' ? 'jpg' : subtype;
+  const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+
+  return { fileExt, mimeType };
 }
 
 function getAvatarFilePath(user) {
@@ -151,6 +173,15 @@ function getAvatarFilePath(user) {
   }
 
   return path.join(avatarUploadsDir, `${user.id}.${user.avatarFileExt}`);
+}
+
+async function ensureCloudSeeded() {
+  if (!isCloudAuthEnabled()) {
+    return;
+  }
+
+  const localUsers = await loadUsers();
+  await ensureCloudUsersSeeded(localUsers);
 }
 
 export function sanitizeUser(user) {
@@ -175,6 +206,20 @@ export function sanitizeUser(user) {
 }
 
 export async function listUsersForAdmin() {
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const users = await listCloudUsers();
+
+    return users
+      .slice()
+      .sort((left, right) => Date.parse(right.createdAt || 0) - Date.parse(left.createdAt || 0))
+      .map((user) => ({
+        ...sanitizeUser(user),
+        updatedAt: user.updatedAt || null,
+        internalNote: user.internalNote || ''
+      }));
+  }
+
   const users = await loadUsers();
 
   return users
@@ -188,14 +233,26 @@ export async function listUsersForAdmin() {
 }
 
 export async function updateUserAdminSettings(userId, updates = {}) {
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const user = await updateCloudUserAdminSettings(userId, updates);
+
+    if (!user) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    user.role = resolveUserRole(user.role, user.email);
+    return user;
+  }
+
   const users = await loadUsers();
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuário não encontrado.');
+    throw new Error('Usuario nao encontrado.');
   }
 
-  user.role = resolveUserRole(user.role, user.email, 0, users);
+  user.role = resolveUserRole(user.role, user.email);
   user.plan = updates.plan ? normalizeOption(updates.plan, userPlanOptions, user.plan) : user.plan;
   user.accountStatus = updates.accountStatus
     ? normalizeOption(updates.accountStatus, userAccountStatusOptions, user.accountStatus)
@@ -211,6 +268,11 @@ export async function updateUserAdminSettings(userId, updates = {}) {
 }
 
 export async function findUserById(userId) {
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    return await findCloudUserById(userId);
+  }
+
   const users = await loadUsers();
   return users.find((user) => user.id === userId) || null;
 }
@@ -225,18 +287,42 @@ export async function createPasswordUser({ name, email, password }) {
   }
 
   if (!normalizedEmail || !normalizedEmail.includes('@')) {
-    throw new Error('Informe um e-mail válido.');
+    throw new Error('Informe um e-mail valido.');
   }
 
   if (normalizedPassword.length < 8) {
     throw new Error('A senha precisa ter pelo menos 8 caracteres.');
   }
 
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const existingUser = await findCloudUserByEmail(normalizedEmail);
+
+    if (existingUser) {
+      throw new Error('Ja existe uma conta com esse e-mail.');
+    }
+
+    const now = new Date().toISOString();
+    return await createCloudPasswordUser({
+      id: crypto.randomUUID(),
+      name: normalizedName,
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(normalizedPassword, 10),
+      role: resolveUserRole('', normalizedEmail),
+      plan: 'beta',
+      accountStatus: 'active',
+      billingStatus: 'beta',
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now
+    });
+  }
+
   const users = await loadUsers();
   const existingUser = users.find((user) => user.email === normalizedEmail);
 
   if (existingUser) {
-    throw new Error('Já existe uma conta com esse e-mail.');
+    throw new Error('Ja existe uma conta com esse e-mail.');
   }
 
   const now = new Date().toISOString();
@@ -250,7 +336,7 @@ export async function createPasswordUser({ name, email, password }) {
     avatarStorage: 'none',
     avatarFileExt: '',
     avatarUpdatedAt: null,
-    role: resolveUserRole('', normalizedEmail, users.length, users),
+    role: resolveUserRole('', normalizedEmail),
     plan: 'beta',
     accountStatus: 'active',
     billingStatus: 'beta',
@@ -268,6 +354,28 @@ export async function createPasswordUser({ name, email, password }) {
 export async function verifyPasswordUser({ email, password }) {
   const normalizedEmail = normalizeEmail(email);
   const candidatePassword = String(password ?? '');
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const user = await findCloudUserByEmail(normalizedEmail);
+
+    if (!user?.passwordHash) {
+      return null;
+    }
+
+    if (user.accountStatus === 'suspended') {
+      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+    }
+
+    const isValid = await bcrypt.compare(candidatePassword, user.passwordHash);
+
+    if (!isValid) {
+      return null;
+    }
+
+    return await touchCloudUserLogin(user.id);
+  }
+
   const users = await loadUsers();
   const user = users.find((entry) => entry.email === normalizedEmail);
 
@@ -276,7 +384,7 @@ export async function verifyPasswordUser({ email, password }) {
   }
 
   if (user.accountStatus === 'suspended') {
-    throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+    throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
   }
 
   const isValid = await bcrypt.compare(candidatePassword, user.passwordHash);
@@ -285,7 +393,7 @@ export async function verifyPasswordUser({ email, password }) {
     return null;
   }
 
-  return touchUserLogin(user.id);
+  return await touchUserLogin(user.id);
 }
 
 export async function upsertGoogleUser(profile) {
@@ -298,11 +406,76 @@ export async function upsertGoogleUser(profile) {
     email;
 
   if (!googleId) {
-    throw new Error('Não foi possível identificar a conta Google.');
+    throw new Error('Nao foi possivel identificar a conta Google.');
   }
 
   if (!email) {
-    throw new Error('Sua conta Google não retornou um e-mail válido.');
+    throw new Error('Sua conta Google nao retornou um e-mail valido.');
+  }
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const existingByGoogle = await findCloudUserByGoogleId(googleId);
+
+    if (existingByGoogle) {
+      if (existingByGoogle.accountStatus === 'suspended') {
+        throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+      }
+
+      return await upsertCloudGoogleUser({
+        id: existingByGoogle.id,
+        email,
+        name: name || existingByGoogle.name,
+        googleId,
+        avatarUrl: avatarUrl || existingByGoogle.avatarUrl,
+        role: resolveUserRole(existingByGoogle.role, email),
+        plan: existingByGoogle.plan,
+        accountStatus: existingByGoogle.accountStatus,
+        billingStatus: existingByGoogle.billingStatus,
+        createdAt: existingByGoogle.createdAt,
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      });
+    }
+
+    const existingByEmail = await findCloudUserByEmail(email);
+
+    if (existingByEmail) {
+      if (existingByEmail.accountStatus === 'suspended') {
+        throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+      }
+
+      return await upsertCloudGoogleUser({
+        id: existingByEmail.id,
+        email,
+        name: name || existingByEmail.name,
+        googleId,
+        avatarUrl: avatarUrl || existingByEmail.avatarUrl,
+        role: resolveUserRole(existingByEmail.role, email),
+        plan: existingByEmail.plan,
+        accountStatus: existingByEmail.accountStatus,
+        billingStatus: existingByEmail.billingStatus,
+        createdAt: existingByEmail.createdAt,
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      });
+    }
+
+    const now = new Date().toISOString();
+    return await upsertCloudGoogleUser({
+      id: crypto.randomUUID(),
+      email,
+      name,
+      googleId,
+      avatarUrl,
+      role: resolveUserRole('', email),
+      plan: 'beta',
+      accountStatus: 'active',
+      billingStatus: 'beta',
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: now
+    });
   }
 
   const users = await loadUsers();
@@ -311,7 +484,7 @@ export async function upsertGoogleUser(profile) {
 
   if (existingByGoogle) {
     if (existingByGoogle.accountStatus === 'suspended') {
-      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
     }
 
     existingByGoogle.name = name || existingByGoogle.name;
@@ -330,7 +503,7 @@ export async function upsertGoogleUser(profile) {
 
   if (existingByEmail) {
     if (existingByEmail.accountStatus === 'suspended') {
-      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
     }
 
     existingByEmail.googleId = googleId;
@@ -355,7 +528,7 @@ export async function upsertGoogleUser(profile) {
     avatarStorage: 'google',
     avatarFileExt: '',
     avatarUpdatedAt: now,
-    role: resolveUserRole('', email, users.length, users),
+    role: resolveUserRole('', email),
     plan: 'beta',
     accountStatus: 'active',
     billingStatus: 'beta',
@@ -371,6 +544,11 @@ export async function upsertGoogleUser(profile) {
 }
 
 export async function touchUserLogin(userId) {
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    return await touchCloudUserLogin(userId);
+  }
+
   const users = await loadUsers();
   const user = users.find((entry) => entry.id === userId);
 
@@ -385,17 +563,30 @@ export async function touchUserLogin(userId) {
 }
 
 export async function updateUserProfile(userId, updates = {}) {
-  const users = await loadUsers();
-  const user = users.find((entry) => entry.id === userId);
-
-  if (!user) {
-    throw new Error('Usuário não encontrado.');
-  }
-
   const nextName = String(updates.name ?? '').trim();
 
   if (!nextName) {
     throw new Error('Informe seu nome.');
+  }
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const user = await updateCloudUserProfile(userId, {
+      name: nextName
+    });
+
+    if (!user) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    return user;
+  }
+
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuario nao encontrado.');
   }
 
   user.name = nextName;
@@ -405,24 +596,60 @@ export async function updateUserProfile(userId, updates = {}) {
 }
 
 export async function updateUserPassword(userId, updates = {}) {
+  const currentPassword = String(updates.currentPassword ?? '');
+  const nextPassword = String(updates.nextPassword ?? '');
+  const confirmPassword = String(updates.confirmPassword ?? '');
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const user = await findCloudUserById(userId);
+
+    if (!user) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    if (!user.passwordHash) {
+      throw new Error('Essa conta usa login externo e nao permite trocar senha por aqui.');
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+
+    if (!isValid) {
+      throw new Error('A senha atual esta incorreta.');
+    }
+
+    if (nextPassword.length < 8) {
+      throw new Error('A nova senha precisa ter pelo menos 8 caracteres.');
+    }
+
+    if (nextPassword !== confirmPassword) {
+      throw new Error('A confirmacao da nova senha nao confere.');
+    }
+
+    const updatedUser = await updateCloudUserPassword(userId, await bcrypt.hash(nextPassword, 10));
+
+    if (!updatedUser) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    return updatedUser;
+  }
+
   const users = await loadUsers();
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuário não encontrado.');
+    throw new Error('Usuario nao encontrado.');
   }
 
   if (!user.passwordHash) {
-    throw new Error('Essa conta usa login externo e não permite trocar senha por aqui.');
+    throw new Error('Essa conta usa login externo e nao permite trocar senha por aqui.');
   }
 
-  const currentPassword = String(updates.currentPassword ?? '');
-  const nextPassword = String(updates.nextPassword ?? '');
-  const confirmPassword = String(updates.confirmPassword ?? '');
   const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
   if (!isValid) {
-    throw new Error('A senha atual está incorreta.');
+    throw new Error('A senha atual esta incorreta.');
   }
 
   if (nextPassword.length < 8) {
@@ -430,7 +657,7 @@ export async function updateUserPassword(userId, updates = {}) {
   }
 
   if (nextPassword !== confirmPassword) {
-    throw new Error('A confirmação da nova senha não confere.');
+    throw new Error('A confirmacao da nova senha nao confere.');
   }
 
   user.passwordHash = await bcrypt.hash(nextPassword, 10);
@@ -440,21 +667,10 @@ export async function updateUserPassword(userId, updates = {}) {
 }
 
 export async function updateUserAvatar(userId, input = {}) {
-  const users = await loadUsers();
-  const user = users.find((entry) => entry.id === userId);
-
-  if (!user) {
-    throw new Error('Usuário não encontrado.');
-  }
-
-  if (user.googleId) {
-    throw new Error('Contas conectadas com Google usam automaticamente a foto do perfil do Google.');
-  }
-
   const dataUrl = String(input.avatarDataUrl ?? '').trim();
-  const fileExt = inferAvatarFileExtFromDataUrl(dataUrl);
+  const avatarMeta = inferAvatarMetaFromDataUrl(dataUrl);
 
-  if (!fileExt) {
+  if (!avatarMeta) {
     throw new Error('Envie uma imagem PNG, JPG ou WEBP.');
   }
 
@@ -462,17 +678,53 @@ export async function updateUserAvatar(userId, input = {}) {
   const buffer = Buffer.from(base64Payload, 'base64');
 
   if (!buffer.length) {
-    throw new Error('Não foi possível processar a imagem enviada.');
+    throw new Error('Nao foi possivel processar a imagem enviada.');
   }
 
   if (buffer.byteLength > 1024 * 1024) {
-    throw new Error('A imagem deve ter no máximo 1 MB.');
+    throw new Error('A imagem deve ter no maximo 1 MB.');
+  }
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    const user = await findCloudUserById(userId);
+
+    if (!user) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    if (user.googleId) {
+      throw new Error('Contas conectadas com Google usam automaticamente a foto do perfil do Google.');
+    }
+
+    const updatedUser = await updateCloudUserAvatar(userId, {
+      buffer,
+      fileExt: avatarMeta.fileExt,
+      mimeType: avatarMeta.mimeType
+    });
+
+    if (!updatedUser) {
+      throw new Error('Usuario nao encontrado.');
+    }
+
+    return updatedUser;
+  }
+
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuario nao encontrado.');
+  }
+
+  if (user.googleId) {
+    throw new Error('Contas conectadas com Google usam automaticamente a foto do perfil do Google.');
   }
 
   await fs.mkdir(avatarUploadsDir, { recursive: true });
 
   const previousAvatarPath = getAvatarFilePath(user);
-  const nextAvatarPath = path.join(avatarUploadsDir, `${user.id}.${fileExt}`);
+  const nextAvatarPath = path.join(avatarUploadsDir, `${user.id}.${avatarMeta.fileExt}`);
   await fs.writeFile(nextAvatarPath, buffer);
 
   if (previousAvatarPath && previousAvatarPath !== nextAvatarPath) {
@@ -480,7 +732,7 @@ export async function updateUserAvatar(userId, input = {}) {
   }
 
   user.avatarStorage = 'upload';
-  user.avatarFileExt = fileExt;
+  user.avatarFileExt = avatarMeta.fileExt;
   user.avatarUpdatedAt = new Date().toISOString();
   user.avatarUrl = resolveAvatarUrl({
     id: user.id,
@@ -497,7 +749,7 @@ export async function updateUserAvatar(userId, input = {}) {
 export async function getUserAvatarFile(userId) {
   const user = await findUserById(userId);
 
-  if (!user || user.avatarStorage !== 'upload' || !user.avatarFileExt) {
+  if (!user || user.avatarStorage !== 'upload' || !user.avatarFileExt || /^https?:\/\//i.test(user.avatarUrl || '')) {
     return null;
   }
 

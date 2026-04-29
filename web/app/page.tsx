@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.42';
+const panelVersion = 'Versao 0.43';
 
 type AuthUser = {
   id: string;
