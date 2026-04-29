@@ -5,6 +5,7 @@ import {
   createPasswordUser,
   findUserById,
   getUserAvatarFile,
+  isPrimaryAdminEmail,
   sanitizeUser,
   updateUserAvatar,
   updateUserPassword,
@@ -114,7 +115,8 @@ export class AuthService {
         await this.login(request, user);
         response.json(this.getClientSession(user));
       } catch (error) {
-        response.status(500).json({
+        const isSuspended = String(error.message || '').toLowerCase().includes('suspensa');
+        response.status(isSuspended ? 403 : 500).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
           error: error.message || 'Não foi possível entrar agora.'
@@ -221,16 +223,27 @@ export class AuthService {
       passport.authenticate('google', { scope: ['profile', 'email'] })(request, response, next);
     });
 
-    app.get(
-      '/auth/google/callback',
-      passport.authenticate('google', {
-        failureRedirect: '/?auth=google_failed',
-        session: true
-      }),
-      (_request, response) => {
-        response.redirect('/');
-      }
-    );
+    app.get('/auth/google/callback', (request, response, next) => {
+      passport.authenticate('google', async (error, user) => {
+        if (error) {
+          const reason = String(error.message || '').toLowerCase().includes('suspensa') ? 'account_suspended' : 'google_failed';
+          response.redirect(`/?auth=${reason}`);
+          return;
+        }
+
+        if (!user) {
+          response.redirect('/?auth=google_failed');
+          return;
+        }
+
+        try {
+          await this.login(request, user);
+          response.redirect('/');
+        } catch (_loginError) {
+          response.redirect('/?auth=google_failed');
+        }
+      })(request, response, next);
+    });
   }
 
   requireAuth() {
@@ -273,7 +286,7 @@ export class AuthService {
   }
 
   isAdminUser(user) {
-    return Boolean(user?.role === 'admin');
+    return isPrimaryAdminEmail(user?.email);
   }
 
   getClientSession(user) {

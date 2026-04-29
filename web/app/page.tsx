@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.40';
+const panelVersion = 'Versao 0.41';
 
 type AuthUser = {
   id: string;
@@ -2178,7 +2178,7 @@ function AdminPanel({
       <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Administracao</p>
-          <h2 className="mt-1 text-xl font-semibold">Contas e planos</h2>
+          <h2 className="mt-1 text-xl font-semibold">Contas e acesso</h2>
         </div>
         <div className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/10 px-3 py-2">
           <Search size={17} className="text-[var(--muted)]" />
@@ -2224,13 +2224,13 @@ function AdminPanel({
                 onChange={async (event) => {
                   await postJson(`/api/admin/users/${encodeURIComponent(user.id)}`, { accountStatus: event.target.value });
                   await refresh();
-                  setNotice('Status atualizado.');
-                }}
-              >
-                <option value="active">Ativa</option>
-                <option value="paused">Pausada</option>
-                <option value="blocked">Bloqueada</option>
-              </select>
+                    setNotice('Status da conta atualizado.');
+                  }}
+                >
+                  <option value="active">Ativa</option>
+                  <option value="trial">Em teste</option>
+                  <option value="suspended">Suspensa</option>
+                </select>
             </div>
           </article>
         ))}

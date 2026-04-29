@@ -6,12 +6,7 @@ import bcrypt from 'bcryptjs';
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
 const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
-const adminEmails = new Set(
-  String(process.env.ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((entry) => normalizeEmail(entry))
-    .filter(Boolean)
-);
+const primaryAdminEmail = normalizeEmail('rdamascenoferreira@gmail.com');
 
 export const userRoleOptions = ['admin', 'member'];
 export const userPlanOptions = ['beta', 'starter', 'pro', 'enterprise'];
@@ -49,6 +44,10 @@ async function saveUsers(users) {
 
 function normalizeEmail(email) {
   return String(email ?? '').trim().toLowerCase();
+}
+
+export function isPrimaryAdminEmail(email) {
+  return normalizeEmail(email) === primaryAdminEmail;
 }
 
 function buildProviders(user) {
@@ -106,19 +105,7 @@ function normalizeOption(value, validOptions, fallback) {
 }
 
 function resolveUserRole(role, email, index, users) {
-  const normalizedRole = String(role ?? '').trim().toLowerCase();
-
-  if (adminEmails.has(email)) {
-    return 'admin';
-  }
-
-  if (userRoleOptions.includes(normalizedRole)) {
-    return normalizedRole;
-  }
-
-  const hasAdmin = users.some((entry) => userRoleOptions.includes(String(entry?.role ?? '').trim().toLowerCase()));
-
-  if (!hasAdmin && index === 0) {
+  if (isPrimaryAdminEmail(email)) {
     return 'admin';
   }
 
@@ -208,17 +195,7 @@ export async function updateUserAdminSettings(userId, updates = {}) {
     throw new Error('Usuário não encontrado.');
   }
 
-  const nextRole = updates.role ? normalizeOption(updates.role, userRoleOptions, user.role) : user.role;
-
-  if (user.role === 'admin' && nextRole !== 'admin') {
-    const adminCount = users.filter((entry) => entry.role === 'admin').length;
-
-    if (adminCount <= 1) {
-      throw new Error('Mantenha pelo menos um administrador ativo no sistema.');
-    }
-  }
-
-  user.role = nextRole;
+  user.role = resolveUserRole(user.role, user.email, 0, users);
   user.plan = updates.plan ? normalizeOption(updates.plan, userPlanOptions, user.plan) : user.plan;
   user.accountStatus = updates.accountStatus
     ? normalizeOption(updates.accountStatus, userAccountStatusOptions, user.accountStatus)
@@ -298,6 +275,10 @@ export async function verifyPasswordUser({ email, password }) {
     return null;
   }
 
+  if (user.accountStatus === 'suspended') {
+    throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+  }
+
   const isValid = await bcrypt.compare(candidatePassword, user.passwordHash);
 
   if (!isValid) {
@@ -329,6 +310,10 @@ export async function upsertGoogleUser(profile) {
   const existingByGoogle = users.find((user) => user.googleId === googleId);
 
   if (existingByGoogle) {
+    if (existingByGoogle.accountStatus === 'suspended') {
+      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+    }
+
     existingByGoogle.name = name || existingByGoogle.name;
     existingByGoogle.email = email || existingByGoogle.email;
     existingByGoogle.avatarStorage = 'google';
@@ -344,6 +329,10 @@ export async function upsertGoogleUser(profile) {
   const existingByEmail = users.find((user) => user.email === email);
 
   if (existingByEmail) {
+    if (existingByEmail.accountStatus === 'suspended') {
+      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
+    }
+
     existingByEmail.googleId = googleId;
     existingByEmail.name = name || existingByEmail.name;
     existingByEmail.avatarStorage = 'google';
