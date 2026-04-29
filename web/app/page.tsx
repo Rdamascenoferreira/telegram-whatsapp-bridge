@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.33';
+const panelVersion = 'Versao 0.34';
 
 type AuthUser = {
   id: string;
@@ -174,6 +174,18 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setNotice('');
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   if (!state) {
     return <LoadingScreen />;
   }
@@ -293,6 +305,18 @@ function AuthScreen({
 }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setNotice('');
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [notice, setNotice]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
