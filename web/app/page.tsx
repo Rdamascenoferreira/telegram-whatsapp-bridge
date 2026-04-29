@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.39';
+const panelVersion = 'Versao 0.40';
 
 type AuthUser = {
   id: string;
@@ -667,7 +667,7 @@ function AuthScreen({
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(37,211,102,0.18)] bg-[rgba(37,211,102,0.08)]">
                   <ShieldCheck size={18} className="text-[#46E285]" />
                 </div>
-                <p className="text-base text-[#C5D4CD]">Ambiente seguro para gestao de automacoes.</p>
+                <p className="text-base text-[#C5D4CD]">Um oferecimento MC8MB e BAD MEME VIBES.</p>
               </div>
             </div>
 
