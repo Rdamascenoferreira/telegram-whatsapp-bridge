@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.31';
+const panelVersion = 'Versao 0.32';
 
 type AuthUser = {
   id: string;
@@ -1263,29 +1263,29 @@ function Groups({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_320px]">
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
           <div className="grid gap-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexao</p>
-                <p className="mt-2 text-lg font-semibold">{whatsAppReady ? 'Pronta' : hasQrCode ? 'Aguardando QR' : 'Nao conectada'}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                <p className="mt-1.5 text-base font-semibold">{whatsAppReady ? 'Pronta' : hasQrCode ? 'Aguardando QR' : 'Nao conectada'}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {whatsAppReady ? 'Sua sessao esta ativa para encaminhar mensagens.' : 'Finalize a autenticacao para liberar os envios.'}
                 </p>
               </div>
               <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos salvos</p>
-                <p className="mt-2 text-lg font-semibold">{selectedGroups.length}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Grupos prontos para receber as mensagens da ponte.</p>
+                <p className="mt-1.5 text-base font-semibold">{selectedGroups.length}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Grupos prontos para receber as mensagens da ponte.</p>
               </div>
               <div className="rounded-md border border-[var(--border)] bg-white/[0.03] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Leitura de grupos</p>
-                <p className="mt-2 text-lg font-semibold">
+                <p className="mt-1.5 text-base font-semibold">
                   {state.metrics.groupsRefreshing
                     ? `${state.metrics.groupRefreshProgress?.percent || 0}%`
                     : `${state.metrics.availableAdminGroupCount || 0}`}
                 </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {state.metrics.groupsRefreshing ? 'Sincronizacao em andamento.' : 'Grupos detectados com acesso administrativo.'}
                 </p>
               </div>
@@ -1297,7 +1297,7 @@ function Groups({
               </p>
             ) : null}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 disabled={busy === 'wa-reconnect'}
@@ -1353,14 +1353,21 @@ function Groups({
           </div>
 
           <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            <p className="text-sm font-semibold">QR Code do WhatsApp</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              {hasQrCode
-                ? 'Escaneie com o seu WhatsApp para concluir a autenticacao.'
-                : whatsAppReady
-                  ? 'Sua sessao ja esta conectada. O QR Code nao e mais necessario.'
-                  : 'Quando uma nova autenticacao for exigida, o QR Code sera exibido aqui automaticamente.'}
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">QR Code do WhatsApp</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  {hasQrCode
+                    ? 'Escaneie com o seu WhatsApp para concluir a autenticacao.'
+                    : whatsAppReady
+                      ? 'Sua sessao ja esta conectada. O QR Code nao e mais necessario.'
+                      : 'Quando uma nova autenticacao for exigida, o QR Code sera exibido aqui automaticamente.'}
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                {hasQrCode ? 'Disponivel' : whatsAppReady ? 'Conectado' : 'Aguardando'}
+              </span>
+            </div>
 
             <div className="mt-4 rounded-md border border-[var(--border)] bg-white/5 p-3">
               {state.qrDataUrl ? (
@@ -1368,7 +1375,7 @@ function Groups({
                   <img src={state.qrDataUrl} alt="QR Code do WhatsApp" className="mx-auto h-auto max-w-full" />
                 </div>
               ) : (
-                <div className="flex min-h-[260px] items-center justify-center rounded-md border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
+                <div className="flex min-h-[220px] items-center justify-center rounded-md border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
                   {whatsAppReady
                     ? 'Sessao autenticada com sucesso.'
                     : 'Nenhum QR Code disponivel no momento.'}
