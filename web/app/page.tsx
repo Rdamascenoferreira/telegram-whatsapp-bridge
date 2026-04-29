@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Smartphone,
   TrendingUp,
+  Trash2,
   User,
   Users,
   X,
@@ -33,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.43';
+const panelVersion = 'Versao 0.44';
 
 type AuthUser = {
   id: string;
@@ -74,6 +75,7 @@ type TelegramChat = {
 
 type AdminUser = AuthUser & {
   providers?: string[];
+  isOnline?: boolean;
   workspace?: {
     bridgeEnabled: boolean;
     selectedGroupCount: number;
@@ -2195,7 +2197,20 @@ function AdminPanel({
         {users.map((user) => (
           <article key={user.id} className="grid grid-cols-[1fr_auto] gap-4 rounded-md border border-[var(--border)] bg-black/10 p-4 max-lg:grid-cols-1">
             <div>
-              <p className="font-semibold">{user.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">{user.name}</p>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                    user.isOnline
+                      ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                      : 'border-red-400/20 bg-red-400/10 text-red-100'
+                  )}
+                >
+                  <span className={cn('h-2 w-2 rounded-full', user.isOnline ? 'bg-emerald-400' : 'bg-red-400')} />
+                  {user.isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
               <p className="mt-1 text-sm text-[var(--muted)]">{user.email}</p>
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 <span className="rounded bg-white/5 px-2 py-1">Plano {humanize(user.plan || 'beta')}</span>
@@ -2224,13 +2239,43 @@ function AdminPanel({
                 onChange={async (event) => {
                   await postJson(`/api/admin/users/${encodeURIComponent(user.id)}`, { accountStatus: event.target.value });
                   await refresh();
-                    setNotice('Status da conta atualizado.');
-                  }}
-                >
-                  <option value="active">Ativa</option>
-                  <option value="trial">Em teste</option>
-                  <option value="suspended">Suspensa</option>
-                </select>
+                  setNotice(
+                    event.target.value === 'suspended'
+                      ? 'Conta suspensa e sessao encerrada imediatamente.'
+                      : 'Status da conta atualizado.'
+                  );
+                }}
+              >
+                <option value="active">Ativa</option>
+                <option value="trial">Em teste</option>
+                <option value="suspended">Suspensa</option>
+              </select>
+              <button
+                type="button"
+                className="col-span-2 inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-400/15"
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `Deseja realmente excluir a conta de ${user.name}? Essa acao remove o acesso, o perfil e os dados locais dessa conta.`
+                  );
+
+                  if (!confirmed) {
+                    return;
+                  }
+
+                  try {
+                    await requestJson(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+                      method: 'DELETE'
+                    });
+                    await refresh();
+                    setNotice('Conta excluida com sucesso.');
+                  } catch (error) {
+                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel excluir a conta.');
+                  }
+                }}
+              >
+                <Trash2 size={16} />
+                Excluir conta
+              </button>
             </div>
           </article>
         ))}

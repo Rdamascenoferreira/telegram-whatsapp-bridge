@@ -3,6 +3,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import {
   createPasswordUser,
+  deleteUserAccount,
   findUserById,
   getUserAvatarFile,
   isPrimaryAdminEmail,
@@ -21,12 +22,18 @@ export class AuthService {
     this.googleClientSecret = options.googleClientSecret || '';
     this.googleCallbackUrl = options.googleCallbackUrl || '';
     this.googleEnabled = Boolean(this.googleClientId && this.googleClientSecret && this.googleCallbackUrl);
+    this.onlineWindowMs = 1000 * 20;
+    this.sessionStore = new session.MemoryStore();
+    this.onlineSessionsByUserId = new Map();
+    this.sessionUserBySessionId = new Map();
+    this.sessionSeenAt = new Map();
   }
 
   configure(app) {
     app.use(
       session({
         secret: this.sessionSecret,
+        store: this.sessionStore,
         resave: false,
         saveUninitialized: false,
         cookie: {
@@ -72,6 +79,14 @@ export class AuthService {
 
     app.use(passport.initialize());
     app.use(passport.session());
+    app.use((request, _response, next) => {
+      if (request.user?.id && request.sessionID) {
+        this.registerSession(request.sessionID, request.user.id);
+        this.touchSessionActivity(request.sessionID);
+      }
+
+      next();
+    });
 
     app.get('/api/auth/session', (request, response) => {
       response.json(this.getClientSession(request.user));
@@ -125,6 +140,7 @@ export class AuthService {
     });
 
     app.post('/api/auth/logout', (request, response) => {
+      const activeSessionId = request.sessionID;
       request.logout((error) => {
         if (error) {
           response.status(500).json({
@@ -136,6 +152,7 @@ export class AuthService {
         }
 
         request.session.destroy(() => {
+          this.unregisterSession(activeSessionId);
           response.clearCookie('connect.sid');
           response.json(this.getClientSession(null));
         });
@@ -246,6 +263,48 @@ export class AuthService {
     });
   }
 
+  getOnlineUserIds() {
+    return new Set(this.onlineSessionsByUserId.keys());
+  }
+
+  isUserOnline(userId) {
+    const normalizedUserId = String(userId ?? '').trim();
+    const sessions = this.onlineSessionsByUserId.get(normalizedUserId);
+
+    if (!normalizedUserId || !sessions?.size) {
+      return false;
+    }
+
+    const now = Date.now();
+
+    for (const sessionId of sessions) {
+      const lastSeenAt = this.sessionSeenAt.get(sessionId) ?? 0;
+
+      if (now - lastSeenAt <= this.onlineWindowMs) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  async forceLogoutUser(userId) {
+    const normalizedUserId = String(userId ?? '').trim();
+    const sessionIds = [...(this.onlineSessionsByUserId.get(normalizedUserId) ?? [])];
+
+    await Promise.all(
+      sessionIds.map(
+        (sessionId) =>
+          new Promise((resolve) => {
+            this.sessionStore.destroy(sessionId, () => {
+              this.unregisterSession(sessionId);
+              resolve();
+            });
+          })
+      )
+    );
+  }
+
   requireAuth() {
     return (request, response, next) => {
       if (!request.user) {
@@ -308,5 +367,71 @@ export class AuthService {
         resolve();
       });
     });
+
+    if (request.sessionID && user?.id) {
+      this.registerSession(request.sessionID, user.id);
+    }
+  }
+
+  async deleteAccount(userId) {
+    await this.forceLogoutUser(userId);
+    return await deleteUserAccount(userId);
+  }
+
+  registerSession(sessionId, userId) {
+    const normalizedSessionId = String(sessionId ?? '').trim();
+    const normalizedUserId = String(userId ?? '').trim();
+
+    if (!normalizedSessionId || !normalizedUserId) {
+      return;
+    }
+
+    const previousUserId = this.sessionUserBySessionId.get(normalizedSessionId);
+
+    if (previousUserId && previousUserId !== normalizedUserId) {
+      this.unregisterSession(normalizedSessionId);
+    }
+
+    this.sessionUserBySessionId.set(normalizedSessionId, normalizedUserId);
+    this.sessionSeenAt.set(normalizedSessionId, Date.now());
+
+    if (!this.onlineSessionsByUserId.has(normalizedUserId)) {
+      this.onlineSessionsByUserId.set(normalizedUserId, new Set());
+    }
+
+    this.onlineSessionsByUserId.get(normalizedUserId)?.add(normalizedSessionId);
+  }
+
+  unregisterSession(sessionId) {
+    const normalizedSessionId = String(sessionId ?? '').trim();
+    const userId = this.sessionUserBySessionId.get(normalizedSessionId);
+
+    if (!userId) {
+      return;
+    }
+
+    this.sessionUserBySessionId.delete(normalizedSessionId);
+    this.sessionSeenAt.delete(normalizedSessionId);
+    const sessions = this.onlineSessionsByUserId.get(userId);
+
+    if (!sessions) {
+      return;
+    }
+
+    sessions.delete(normalizedSessionId);
+
+    if (!sessions.size) {
+      this.onlineSessionsByUserId.delete(userId);
+    }
+  }
+
+  touchSessionActivity(sessionId) {
+    const normalizedSessionId = String(sessionId ?? '').trim();
+
+    if (!normalizedSessionId || !this.sessionUserBySessionId.has(normalizedSessionId)) {
+      return;
+    }
+
+    this.sessionSeenAt.set(normalizedSessionId, Date.now());
   }
 }

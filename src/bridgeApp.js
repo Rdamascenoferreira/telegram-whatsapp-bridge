@@ -4,6 +4,8 @@ import TelegramBot from 'node-telegram-bot-api';
 import pkg from 'whatsapp-web.js';
 import { loadActivityForUser } from './activityStore.js';
 import {
+  deleteUserAccount,
+  findUserById,
   listUsersForAdmin,
   updateUserAdminSettings,
   userAccountStatusOptions,
@@ -186,6 +188,37 @@ export class BridgeApp {
         Object.assign(request.user, updatedUser);
       }
 
+      if (updatedUser.accountStatus === 'suspended') {
+        await this.auth?.forceLogoutUser(updatedUser.id);
+      }
+
+      await respondWithState(request, response);
+    });
+
+    app.delete('/api/admin/users/:userId', requireAdmin, async (request, response) => {
+      const targetUserId = String(request.params.userId ?? '').trim();
+      const targetUser = await findUserById(targetUserId);
+
+      if (!targetUser) {
+        response.status(404).json({
+          authenticated: true,
+          googleEnabled: this.auth?.googleEnabled ?? false,
+          error: 'Usuario nao encontrado.'
+        });
+        return;
+      }
+
+      if (request.user?.id === targetUserId) {
+        response.status(400).json({
+          authenticated: true,
+          googleEnabled: this.auth?.googleEnabled ?? false,
+          error: 'Voce nao pode excluir a propria conta pelo painel admin.'
+        });
+        return;
+      }
+
+      await this.manager.destroyRuntimeForUserId(targetUserId);
+      await (this.auth ? this.auth.deleteAccount(targetUserId) : deleteUserAccount(targetUserId));
       await respondWithState(request, response);
     });
   }
@@ -201,6 +234,7 @@ export class BridgeApp {
 
       return {
         ...user,
+        isOnline: this.auth?.isUserOnline(user.id) ?? false,
         workspace: {
           bridgeEnabled: Boolean(config.bridgeEnabled),
           telegramConfigured: Boolean(config.telegramBotToken && config.telegramChannel),
@@ -716,7 +750,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-const currentPanelVersion = 'Versao 0.43';
+const currentPanelVersion = 'Versao 0.44';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

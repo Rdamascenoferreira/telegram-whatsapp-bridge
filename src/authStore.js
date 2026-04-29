@@ -4,6 +4,7 @@ import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import {
   createCloudPasswordUser,
+  deleteCloudUser,
   ensureCloudUsersSeeded,
   findCloudUserByEmail,
   findCloudUserByGoogleId,
@@ -17,6 +18,7 @@ import {
   updateCloudUserProfile,
   upsertCloudGoogleUser
 } from './cloudAuthStore.js';
+import { getWorkspacePaths } from './configStore.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
@@ -265,6 +267,35 @@ export async function updateUserAdminSettings(userId, updates = {}) {
 
   await saveUsers(users);
   return user;
+}
+
+export async function deleteUserAccount(userId) {
+  const normalizedUserId = String(userId ?? '').trim();
+
+  if (!normalizedUserId) {
+    throw new Error('Usuario nao encontrado.');
+  }
+
+  const user = await findUserById(normalizedUserId);
+
+  if (!user) {
+    throw new Error('Usuario nao encontrado.');
+  }
+
+  if (isPrimaryAdminEmail(user.email)) {
+    throw new Error('A conta principal de administrador nao pode ser excluida.');
+  }
+
+  if (isCloudAuthEnabled()) {
+    await ensureCloudSeeded();
+    await deleteCloudUser(normalizedUserId);
+  } else {
+    const users = await loadUsers();
+    await saveUsers(users.filter((entry) => entry.id !== normalizedUserId));
+  }
+
+  await removeUserWorkspaceArtifacts(user);
+  return true;
 }
 
 export async function findUserById(userId) {
@@ -760,4 +791,16 @@ export async function getUserAvatarFile(userId) {
     bytes,
     mimeType: `image/${user.avatarFileExt === 'jpg' ? 'jpeg' : user.avatarFileExt}`
   };
+}
+
+async function removeUserWorkspaceArtifacts(user) {
+  const paths = getWorkspacePaths(user.id);
+  const avatarFilePath = getAvatarFilePath(user);
+
+  await Promise.all([
+    avatarFilePath ? fs.rm(avatarFilePath, { force: true }).catch(() => {}) : Promise.resolve(),
+    fs.rm(paths.workspaceDir, { recursive: true, force: true }).catch(() => {}),
+    fs.rm(paths.authSessionDir, { recursive: true, force: true }).catch(() => {}),
+    fs.rm(paths.previousAuthSessionDir, { recursive: true, force: true }).catch(() => {})
+  ]);
 }

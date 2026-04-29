@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const supabaseUrl = String(process.env.SUPABASE_URL ?? '').trim().replace(/\/$/, '');
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
@@ -173,6 +173,40 @@ export async function updateCloudUserAdminSettings(userId, updates = {}) {
 
   const row = await patchUserRow(userId, payload);
   return row ? mapCloudUser(row) : null;
+}
+
+export async function deleteCloudUser(userId) {
+  const user = await findCloudUserById(userId);
+
+  if (!user) {
+    return null;
+  }
+
+  if (r2Client && user.avatarStorage === 'upload') {
+    try {
+      await r2Client.send(
+        new DeleteObjectCommand({
+          Bucket: r2BucketName,
+          Key: `avatars/${user.id}.${extractAvatarFileExt(user.avatarUrl)}`
+        })
+      );
+    } catch {
+      // Keep deletion resilient even if avatar cleanup fails.
+    }
+  }
+
+  const rows = await supabaseRequest('/rest/v1/users', {
+    method: 'DELETE',
+    searchParams: {
+      id: `eq.${String(userId ?? '').trim()}`,
+      select: 'id,email'
+    },
+    headers: {
+      Prefer: 'return=representation'
+    }
+  });
+
+  return Array.isArray(rows) && rows.length ? user : null;
 }
 
 export async function updateCloudUserAvatar(userId, { buffer, fileExt, mimeType }) {
@@ -421,4 +455,10 @@ function mapCloudUser(row) {
 
 function normalizeEmail(email) {
   return String(email ?? '').trim().toLowerCase();
+}
+
+function extractAvatarFileExt(avatarUrl) {
+  const cleanUrl = String(avatarUrl ?? '').split('?')[0];
+  const match = cleanUrl.match(/\.([a-z0-9]+)$/i);
+  return String(match?.[1] ?? 'jpg').toLowerCase();
 }

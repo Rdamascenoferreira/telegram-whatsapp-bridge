@@ -44,4 +44,25 @@ export class BridgeManager {
     this.runtimePromises.set(normalizedUserId, runtimePromise);
     return runtimePromise;
   }
+
+  async destroyRuntimeForUserId(userId) {
+    const normalizedUserId = String(userId ?? '').trim();
+    const runtime = this.runtimes.get(normalizedUserId);
+
+    this.runtimePromises.delete(normalizedUserId);
+
+    if (!runtime) {
+      this.runtimes.delete(normalizedUserId);
+      return;
+    }
+
+    try {
+      runtime.clearWhatsAppRestart?.();
+      runtime.clearWhatsAppAutoReconnect?.();
+      await runtime.stopTelegramTransport?.();
+      await runtime.stopWhatsAppClient?.();
+    } finally {
+      this.runtimes.delete(normalizedUserId);
+    }
+  }
 }
