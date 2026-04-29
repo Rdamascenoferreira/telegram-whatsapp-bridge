@@ -3,26 +3,35 @@
 import {
   Activity,
   AlertCircle,
+  ArrowRight,
   Bot,
   CheckCircle2,
+  Clock3,
   CreditCard,
+  Eye,
   Gauge,
+  LockKeyhole,
   LogOut,
+  Mail,
   MessageSquare,
   Power,
   RefreshCcw,
+  Rocket,
   Search,
   Send,
   Settings2,
   Shield,
+  ShieldCheck,
   Smartphone,
+  TrendingUp,
   Users,
-  X
+  X,
+  Zap
 } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 0.25';
+const panelVersion = 'Versao 0.26';
 
 type AuthUser = {
   id: string;
@@ -304,240 +313,405 @@ function AuthScreen({
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,158,217,0.1),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(37,211,102,0.1),transparent_28%),#03130D] px-6 py-8 text-[var(--foreground)] max-sm:px-4">
-      <div className="mx-auto max-w-6xl">
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_400px]">
-          <section className="relative overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.96),rgba(3,19,13,0.98))] p-6 shadow-[0_16px_42px_rgba(0,0,0,0.24)] max-sm:p-5">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,158,217,0.07),transparent_28%),radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%)]" />
+    <main className="min-h-screen overflow-hidden bg-[#03130D] px-6 py-8 text-[var(--foreground)] max-sm:px-4">
+      <div className="mx-auto max-w-[1480px]">
+        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.16fr)_460px] lg:items-start">
+          <div className="pointer-events-none absolute inset-x-[12%] top-8 hidden h-[420px] rounded-full bg-[radial-gradient(circle,rgba(37,211,102,0.1),transparent_58%)] blur-3xl lg:block" />
+          <div className="pointer-events-none absolute right-[24%] top-20 hidden h-[320px] w-[320px] rounded-full bg-[radial-gradient(circle,rgba(34,158,217,0.08),transparent_60%)] blur-3xl lg:block" />
+
+          <section className="relative z-10 overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(6,24,17,0.96),rgba(3,19,13,0.98))] p-7 shadow-[0_24px_64px_rgba(0,0,0,0.34)] max-xl:p-6 max-sm:rounded-[22px] max-sm:p-5">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_24%),radial-gradient(circle_at_right,rgba(34,158,217,0.08),transparent_22%)]" />
             <div className="relative">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.26)] bg-[rgba(34,158,217,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#7ED4FF]">
-                <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
-                Automação SaaS
+              <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
+                <Zap size={14} className="text-[#25D366]" />
+                Automacao para <span className="text-[#25D366]">WhatsApp</span> e <span className="text-[#229ED9]">Telegram</span>
               </span>
 
-              <div className="mt-5 flex items-start gap-4 max-sm:flex-col">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[rgba(37,211,102,0.18)] bg-[linear-gradient(180deg,rgba(5,22,15,0.9),rgba(8,28,20,0.9))] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_12px_20px_rgba(0,0,0,0.18)]">
-                  <img src="/brand/portal-icon.svg" alt="" className="h-10 w-10 object-contain" />
+              <div className="mt-6 flex items-start gap-5 max-sm:flex-col">
+                <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[22px] border border-[rgba(37,211,102,0.24)] bg-[linear-gradient(180deg,rgba(6,22,16,0.95),rgba(8,30,22,0.92))] shadow-[0_14px_28px_rgba(0,0,0,0.24),0_0_0_1px_rgba(255,255,255,0.03)] max-sm:h-16 max-sm:w-16">
+                  <img src="/brand/portal-icon.svg" alt="" className="h-11 w-11 object-contain max-sm:h-9 max-sm:w-9" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--muted)]">Portal do Afiliado</p>
-                  <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-[1.08] text-[#F8FAFC] max-xl:text-[2.45rem] max-sm:text-3xl">
-                    Central inteligente para automação no WhatsApp e Telegram
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold uppercase tracking-[0.34em] text-[#9FD0B7]">Portal do</span>
+                    <span className="text-[3.25rem] font-semibold leading-none text-[#F8FAFC] max-xl:text-[2.8rem] max-sm:text-[2.35rem]">
+                      Afiliado
+                    </span>
+                  </div>
+
+                  <h1 className="mt-5 max-w-4xl text-[4rem] font-semibold leading-[0.98] text-[#F8FAFC] max-xl:max-w-3xl max-xl:text-[3.4rem] max-lg:text-[3rem] max-sm:text-[2.5rem]">
+                    Automatize atendimentos,
+                    <br />
+                    campanhas e operacoes
+                    <br />
+                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">em um so painel</span>
                   </h1>
-                  <p className="mt-3 max-w-2xl text-base leading-7 text-[#AAB8B0]">
-                    Gerencie conexões, sessões, grupos e entregas em uma plataforma segura, rápida e pronta para escalar.
+
+                  <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
+                    Centralize conexoes, sessoes, grupos, disparos e fluxos automaticos em uma plataforma segura, estavel e pronta para escalar sua operacao.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-7 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(6,30,21,0.88),rgba(7,26,18,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[rgba(37,211,102,0.18)] bg-[rgba(3,19,13,0.72)]">
-                    <img src="/brand/portal-icon.svg" alt="" className="h-8 w-8 object-contain" />
+              <div className="mt-6 rounded-[22px] border border-[rgba(37,211,102,0.18)] bg-[linear-gradient(135deg,rgba(8,34,24,0.9),rgba(6,24,17,0.84))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[rgba(37,211,102,0.18)] bg-[rgba(37,211,102,0.08)]">
+                    <Rocket size={19} className="text-[#25D366]" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#AAB8B0]">Plataforma de automação</p>
-                    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <h2 className="text-2xl font-semibold text-[#F8FAFC] max-sm:text-xl">Portal do</h2>
-                      <h2 className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-2xl font-semibold text-transparent max-sm:text-xl">
-                        Afiliado
-                      </h2>
-                    </div>
-                    <p className="mt-1.5 max-w-xl text-sm leading-6 text-[#AAB8B0]">
-                      Um ambiente profissional para operar integrações, conexões e fluxos com mais previsibilidade.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <AuthStatusMiniCard
-                    icon={Smartphone}
-                    iconClassName="text-[#25D366]"
-                    title="WhatsApp"
-                    detail="Conectado"
-                    badgeClassName="border-[rgba(37,211,102,0.22)] bg-[rgba(37,211,102,0.12)] text-[#A7F3C0]"
-                  />
-                  <AuthStatusMiniCard
-                    icon={Send}
-                    iconClassName="text-[#229ED9]"
-                    title="Telegram"
-                    detail="Ativo"
-                    badgeClassName="border-[rgba(34,158,217,0.24)] bg-[rgba(34,158,217,0.12)] text-[#A7E5FF]"
-                  />
-                  <AuthStatusMiniCard
-                    icon={Shield}
-                    iconClassName="text-[#25D366]"
-                    title="Sessões"
-                    detail="Online"
-                    badgeClassName="border-[rgba(37,211,102,0.18)] bg-[rgba(37,211,102,0.08)] text-[#C3F7D8]"
-                  />
-                  <AuthStatusMiniCard
-                    icon={Activity}
-                    iconClassName="text-[#229ED9]"
-                    title="Entregas"
-                    detail="Automáticas"
-                    badgeClassName="border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] text-[#BEEBFF]"
-                  />
+                  <p className="text-base leading-7 text-[#DBEAE1]">
+                    Ganhe tempo todos os dias, elimine tarefas manuais e acompanhe tudo em tempo real com uma operacao mais organizada e produtiva.
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-5 grid items-stretch gap-3 md:grid-cols-3">
+              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+                <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Plataforma de automacao</p>
+                  <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
+                    Mais produtividade para equipes que querem crescer
+                  </h2>
+                  <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
+                    Tenha controle total sobre sessoes, integracoes, mensagens e entregas automaticas. Automatize processos repetitivos, organize sua operacao e libere sua equipe para focar no que realmente gera resultado.
+                  </p>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                    <AuthStatusPill
+                      icon={Smartphone}
+                      title="WhatsApp"
+                      detail="Conectado"
+                      accentClassName="text-[#25D366]"
+                      dotClassName="bg-[#25D366]"
+                    />
+                    <AuthStatusPill
+                      icon={Send}
+                      title="Telegram"
+                      detail="Ativo"
+                      accentClassName="text-[#229ED9]"
+                      dotClassName="bg-[#229ED9]"
+                    />
+                    <AuthStatusPill
+                      icon={ShieldCheck}
+                      title="Sessoes"
+                      detail="12 online"
+                      accentClassName="text-[#5BD993]"
+                      dotClassName="bg-[#5BD993]"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[radial-gradient(circle_at_top,rgba(34,158,217,0.08),transparent_32%),linear-gradient(180deg,rgba(8,29,21,0.82),rgba(4,18,13,0.92))] p-6">
+                  <div className="pointer-events-none absolute inset-y-5 left-[14%] w-px bg-[linear-gradient(180deg,transparent,rgba(37,211,102,0.38),transparent)]" />
+                  <div className="pointer-events-none absolute inset-y-8 right-[18%] w-px bg-[linear-gradient(180deg,transparent,rgba(34,158,217,0.34),transparent)]" />
+                  <div className="pointer-events-none absolute left-14 top-10 h-2 w-2 rounded-full bg-[#25D366] shadow-[0_0_18px_rgba(37,211,102,0.9)]" />
+                  <div className="pointer-events-none absolute right-20 top-16 h-2 w-2 rounded-full bg-[#229ED9] shadow-[0_0_18px_rgba(34,158,217,0.9)]" />
+                  <div className="pointer-events-none absolute right-14 bottom-12 h-2 w-2 rounded-full bg-[#25D366] shadow-[0_0_18px_rgba(37,211,102,0.8)]" />
+
+                  <div className="relative w-full max-w-[360px] rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(18,32,28,0.95),rgba(7,20,16,0.92))] p-4 shadow-[0_30px_60px_rgba(0,0,0,0.35)]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Visao geral</p>
+                        <p className="mt-1 text-sm text-[#DCE9E2]">Operacao ao vivo</p>
+                      </div>
+                      <div className="rounded-full border border-[rgba(37,211,102,0.2)] bg-[rgba(37,211,102,0.08)] px-2.5 py-1 text-[11px] font-semibold text-[#9CF0BF]">
+                        Online
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2.5">
+                      <AuthDashboardStat label="Mensagens" value="2,4M" />
+                      <AuthDashboardStat label="Entregas" value="98,7%" />
+                      <AuthDashboardStat label="Sessoes" value="12" />
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
+                      <div className="flex items-end gap-2">
+                        {[34, 46, 42, 58, 74, 68, 82].map((height, index) => (
+                          <div key={index} className="flex-1">
+                            <div
+                              className="rounded-t-full bg-[linear-gradient(180deg,rgba(37,211,102,0.95),rgba(34,158,217,0.88))]"
+                              style={{ height }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-[11px] text-[#7E9088]">
+                        <span>Fluxo automatizado</span>
+                        <span>Tempo real</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      <AuthDashboardRow label="Atividade recente" value="29.300" />
+                      <AuthDashboardRow label="Entregas por hora" value="4.190" />
+                      <AuthDashboardRow label="Conversoes" value="+18,4%" />
+                    </div>
+                  </div>
+
+                  <div className="absolute left-3 top-[42%] rounded-[20px] border border-[rgba(37,211,102,0.22)] bg-[linear-gradient(180deg,rgba(37,211,102,0.14),rgba(8,28,20,0.95))] px-4 py-3 shadow-[0_18px_28px_rgba(0,0,0,0.24)]">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(37,211,102,0.14)]">
+                        <Smartphone size={26} className="text-[#25D366]" />
+                      </div>
+                      <div>
+                        <p className="text-base font-semibold text-[#F8FAFC]">WhatsApp</p>
+                        <p className="text-sm text-[#A9DDBF]">Conectado</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-[22%] right-2 rounded-[20px] border border-[rgba(34,158,217,0.22)] bg-[linear-gradient(180deg,rgba(34,158,217,0.14),rgba(6,22,18,0.96))] px-4 py-3 shadow-[0_18px_28px_rgba(0,0,0,0.24)]">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(34,158,217,0.14)]">
+                        <Send size={25} className="text-[#229ED9]" />
+                      </div>
+                      <div>
+                        <p className="text-base font-semibold text-[#F8FAFC]">Telegram</p>
+                        <p className="text-sm text-[#B3E8FF]">Ativo</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <AuthBenefitCard
-                  title="Operação centralizada"
-                  text="Controle conexões, grupos e entregas em uma única visão."
+                  icon={Gauge}
+                  iconClassName="text-[#25D366]"
+                  title="Operacao centralizada"
+                  text="Gerencie mensagens, grupos, sessoes, contas e automacoes em uma unica plataforma."
                 />
                 <AuthBenefitCard
-                  title="Gestão por conta"
-                  text="Separe sessões, regras e configurações por utilizador."
+                  icon={Clock3}
+                  iconClassName="text-[#229ED9]"
+                  title="Economia de tempo"
+                  text="Automatize tarefas repetitivas e reduza horas de trabalho manual com fluxos inteligentes."
                 />
                 <AuthBenefitCard
-                  title="Estrutura escalável"
-                  text="Prepare a operação para planos, clientes e novas automações."
+                  icon={ShieldCheck}
+                  iconClassName="text-[#76E599]"
+                  title="Escala com seguranca"
+                  text="Estruture sua operacao para crescer com estabilidade, controle e previsibilidade."
                 />
+              </div>
+
+              <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] md:grid-cols-3">
+                <AuthStatFooter icon={TrendingUp} value="+2,4M" label="mensagens processadas" accentClassName="text-[#25D366]" />
+                <AuthStatFooter icon={ShieldCheck} value="99,9%" label="de estabilidade" accentClassName="text-[#77E6A0]" />
+                <AuthStatFooter icon={Users} value="Gestao multicanal" label="com total controle" accentClassName="text-[#51CFFF]" />
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.98),rgba(4,18,13,0.98))] p-5 shadow-[0_16px_42px_rgba(0,0,0,0.24)] max-sm:p-4">
-            <div>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-semibold text-[#F8FAFC]">Entrar na plataforma</h2>
-                  <p className="mt-1 text-sm text-[#AAB8B0]">Acesse o seu painel de automação.</p>
-                </div>
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)]">
-                  <Bot size={18} className="text-[#7ED4FF]" />
-                </div>
-              </div>
-
-              <div className="mt-5 inline-grid w-full grid-cols-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(0,0,0,0.16)] p-1">
-                <button
-                  type="button"
-                  onClick={() => setMode('login')}
-                  className={cn(
-                    'rounded-md px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.18)]',
-                    mode === 'login'
-                      ? 'bg-[linear-gradient(90deg,#25D366,#128C7E)] text-[#03130D] shadow-[0_8px_18px_rgba(37,211,102,0.18)]'
-                      : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
-                  )}
-                >
-                  Entrar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode('register')}
-                  className={cn(
-                    'rounded-md px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.18)]',
-                    mode === 'register'
-                      ? 'bg-[linear-gradient(90deg,#25D366,#128C7E)] text-[#03130D] shadow-[0_8px_18px_rgba(37,211,102,0.18)]'
-                      : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
-                  )}
-                >
-                  Criar conta
-                </button>
-              </div>
-
-              <form onSubmit={submit} className="mt-5 grid gap-3.5">
-                {mode === 'register' ? (
-                  <Field label="Nome" name="name" placeholder="Seu nome" autoComplete="name" />
-                ) : null}
-                <Field label="E-mail" name="email" placeholder="email@empresa.com" autoComplete="email" />
-                <Field
-                  label="Senha"
-                  name="password"
-                  type="password"
-                  placeholder="Digite sua senha"
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                />
-
-                <div className="-mt-1 flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setNotice('Recuperação de senha estará disponível em breve.')}
-                    className="text-sm font-medium text-[#AAB8B0] transition hover:text-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.18)]"
-                  >
-                    Esqueci minha senha
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-lg bg-[linear-gradient(90deg,#25D366,#128C7E)] px-4 py-3 text-sm font-bold text-[#03130D] transition hover:translate-y-[-1px] hover:shadow-[0_12px_22px_rgba(37,211,102,0.16)] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.22)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-60"
-                >
-                  {busy ? 'Aguarde...' : mode === 'login' ? 'Entrar no painel' : 'Criar conta'}
-                </button>
-              </form>
-
-              <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-[#6F7E77]">
-                <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
-                ou continue com
-                <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
-              </div>
-
-              {googleEnabled ? (
-                <a
-                  href="/auth/google"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-sm font-semibold transition hover:border-[rgba(34,158,217,0.22)] hover:bg-[rgba(34,158,217,0.06)] focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.18)]"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-black">G</span>
-                  Continuar com Google
-                </a>
-              ) : (
-                <p className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#AAB8B0]">
-                  Login com Google estará disponível em breve.
+          <section className="relative z-10 rounded-[30px] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(180deg,rgba(7,26,18,0.98),rgba(4,18,13,0.99))] p-6 shadow-[0_24px_72px_rgba(0,0,0,0.36)] max-sm:rounded-[24px] max-sm:p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
+                <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
+                  Acesse seu painel de automacao e acompanhe toda a operacao em tempo real.
                 </p>
-              )}
-
-              {notice ? (
-                <p className="mt-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-3 text-sm text-[#F8FAFC]">
-                  {notice}
-                </p>
-              ) : null}
-
-              <p className="mt-4 text-center text-xs text-[#6F7E77]">Ambiente seguro para gestão de automações.</p>
+              </div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
+                <LockKeyhole size={22} className="text-[#7ED4FF]" />
+              </div>
             </div>
+
+            <div className="mt-7 grid w-full grid-cols-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-1.5">
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className={cn(
+                  'rounded-xl px-4 py-3 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.16)]',
+                  mode === 'login'
+                    ? 'bg-[linear-gradient(90deg,#25D366,#21C0B7)] text-[#03130D] shadow-[0_10px_26px_rgba(37,211,102,0.2)]'
+                    : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
+                )}
+              >
+                Entrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('register')}
+                className={cn(
+                  'rounded-xl px-4 py-3 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.14)]',
+                  mode === 'register'
+                    ? 'bg-[linear-gradient(90deg,#25D366,#21C0B7)] text-[#03130D] shadow-[0_10px_26px_rgba(37,211,102,0.2)]'
+                    : 'text-[#AAB8B0] hover:bg-white/[0.03] hover:text-[#F8FAFC]'
+                )}
+              >
+                Criar conta
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="mt-7 grid gap-5">
+              {mode === 'register' ? (
+                <Field label="Nome" name="name" placeholder="Seu nome" autoComplete="name" icon={Users} />
+              ) : null}
+              <Field label="E-mail" name="email" placeholder="voce@empresa.com" autoComplete="email" icon={Mail} />
+              <Field
+                label="Senha"
+                name="password"
+                type="password"
+                placeholder="********"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                icon={LockKeyhole}
+                rightSlot={<Eye size={18} className="text-[#7D8D86]" />}
+              />
+
+              <div className="-mt-1 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setNotice('Recuperacao de senha estara disponivel em breve.')}
+                  className="text-sm font-semibold text-[#32D07C] transition hover:text-[#5EE19C] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.16)]"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="inline-flex items-center justify-center gap-3 rounded-[18px] bg-[linear-gradient(90deg,#25D366,#21C0B7)] px-5 py-4 text-xl font-semibold text-[#03130D] transition hover:translate-y-[-1px] hover:shadow-[0_18px_34px_rgba(37,211,102,0.18)] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.2)] active:translate-y-0 disabled:translate-y-0 disabled:opacity-60"
+              >
+                {busy ? 'Aguarde...' : mode === 'login' ? 'Entrar no painel' : 'Criar conta'}
+                {!busy ? <ArrowRight size={22} /> : null}
+              </button>
+            </form>
+
+            <div className="my-8 flex items-center gap-4 text-sm text-[#7A8B83]">
+              <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
+              ou continue com
+              <span className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
+            </div>
+
+            {googleEnabled ? (
+              <a
+                href="/auth/google"
+                className="flex items-center justify-center gap-3 rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-lg font-medium transition hover:border-[rgba(34,158,217,0.22)] hover:bg-[rgba(34,158,217,0.06)] focus:outline-none focus:ring-2 focus:ring-[rgba(34,158,217,0.18)]"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-bold text-black">G</span>
+                Continuar com Google
+              </a>
+            ) : (
+              <p className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[#AAB8B0]">
+                Login com Google estara disponivel em breve.
+              </p>
+            )}
+
+            <div className="mt-8 rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[rgba(37,211,102,0.18)] bg-[rgba(37,211,102,0.08)]">
+                  <ShieldCheck size={18} className="text-[#46E285]" />
+                </div>
+                <p className="text-base text-[#C5D4CD]">Ambiente seguro para gestao de automacoes.</p>
+              </div>
+            </div>
+
+            {notice ? (
+              <p className="mt-5 rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-3.5 text-sm text-[#F8FAFC]">
+                {notice}
+              </p>
+            ) : null}
           </section>
         </div>
+
+        <footer className="mt-6 text-center text-xs leading-6 text-[#6F8178]">
+          Copyright 2026 Portal do Afiliado. Todos os direitos reservados. Proibida a copia, distribuicao ou reproducao sem autorizacao. Criado por Rodrigo Damasceno.
+        </footer>
       </div>
     </main>
   );
 }
 
-function AuthStatusMiniCard({
+function AuthStatusPill({
   icon: Icon,
-  iconClassName,
   title,
   detail,
-  badgeClassName
+  accentClassName,
+  dotClassName
 }: {
   icon: typeof Smartphone;
-  iconClassName: string;
   title: string;
   detail: string;
-  badgeClassName: string;
+  accentClassName: string;
+  dotClassName: string;
 }) {
   return (
-    <div className="min-h-[72px] rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.025)] p-3 transition hover:border-[rgba(255,255,255,0.12)] hover:bg-[rgba(255,255,255,0.04)]">
-      <div className="flex items-center gap-3">
-        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/5 bg-black/15', badgeClassName)}>
-          <Icon size={15} className={iconClassName} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold leading-5 text-[#F8FAFC]">{title}</p>
-          <p className="text-xs leading-5 text-[#AAB8B0]">{detail}</p>
+    <div className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+        <Icon size={20} className={accentClassName} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-base font-semibold leading-5 text-[#F8FAFC]">{title}</p>
+        <div className="mt-1 flex items-center gap-2">
+          <span className={cn('h-2 w-2 rounded-full', dotClassName)} />
+          <p className="text-sm leading-5 text-[#AAB8B0]">{detail}</p>
         </div>
       </div>
     </div>
   );
 }
 
-function AuthBenefitCard({ title, text }: { title: string; text: string }) {
+function AuthDashboardStat({ label, value }: { label: string; value: string }) {
   return (
-    <article className="flex min-h-[132px] flex-col rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition hover:border-[rgba(37,211,102,0.18)] hover:bg-[rgba(255,255,255,0.04)]">
-      <p className="text-sm font-semibold text-[#F8FAFC]">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-[#AAB8B0]">{text}</p>
+    <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-[#7B8D85]">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-[#F8FAFC]">{value}</p>
+    </div>
+  );
+}
+
+function AuthDashboardRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.025)] px-3 py-2.5">
+      <p className="text-sm text-[#B8C7C0]">{label}</p>
+      <p className="text-sm font-semibold text-[#F8FAFC]">{value}</p>
+    </div>
+  );
+}
+
+function AuthBenefitCard({
+  icon: Icon,
+  iconClassName,
+  title,
+  text
+}: {
+  icon: typeof Smartphone;
+  iconClassName: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <article className="flex min-h-[152px] flex-col rounded-[22px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.025)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition hover:border-[rgba(37,211,102,0.18)] hover:bg-[rgba(255,255,255,0.04)]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+        <Icon size={20} className={iconClassName} />
+      </div>
+      <p className="mt-4 text-[1.05rem] font-semibold leading-6 text-[#F8FAFC]">{title}</p>
+      <p className="mt-2 text-[0.95rem] leading-7 text-[#AAB8B0]">{text}</p>
     </article>
+  );
+}
+
+function AuthStatFooter({
+  icon: Icon,
+  value,
+  label,
+  accentClassName
+}: {
+  icon: typeof TrendingUp;
+  value: string;
+  label: string;
+  accentClassName: string;
+}) {
+  return (
+    <div className="flex items-center gap-4 max-sm:flex-col max-sm:items-start">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
+        <Icon size={26} className={accentClassName} />
+      </div>
+      <div>
+        <p className="text-[1.15rem] font-semibold text-[#F8FAFC]">{value}</p>
+        <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">{label}</p>
+      </div>
+    </div>
   );
 }
 
@@ -1562,7 +1736,9 @@ function Field({
   placeholder,
   autoComplete,
   value,
-  onChange
+  onChange,
+  icon: Icon,
+  rightSlot
 }: {
   label: string;
   name?: string;
@@ -1571,19 +1747,31 @@ function Field({
   autoComplete?: string;
   value?: string;
   onChange?: (value: string) => void;
+  icon?: typeof Mail;
+  rightSlot?: ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold">
+    <label className="grid gap-2.5 text-sm font-semibold text-[#F8FAFC]">
       {label}
-      <input
-        name={name}
-        type={type}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-        className={inputClass}
-      />
+      <span className="relative block">
+        {Icon ? (
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7D8D86]">
+            <Icon size={20} />
+          </span>
+        ) : null}
+        <input
+          name={name}
+          type={type}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          value={value}
+          onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+          className={cn(inputClass, Icon ? 'pl-12' : '', rightSlot ? 'pr-12' : '')}
+        />
+        {rightSlot ? (
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">{rightSlot}</span>
+        ) : null}
+      </span>
     </label>
   );
 }
@@ -1652,7 +1840,7 @@ function ConnectionRow({
 }
 
 const inputClass =
-  'h-11 w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.045)] px-3.5 text-sm text-[#F8FAFC] outline-none transition placeholder:text-[#697A72] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.06)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
+  'h-[58px] w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 text-base text-[#F8FAFC] outline-none transition placeholder:text-[#6D7C75] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.05)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
 
 const primaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
