@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
+const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
 const adminEmails = new Set(
   String(process.env.ADMIN_EMAILS ?? '')
     .split(',')
@@ -67,6 +68,10 @@ function buildProviders(user) {
 function normalizeStoredUser(user, index, users) {
   const normalizedEmail = normalizeEmail(user?.email);
   const normalizedRole = resolveUserRole(user?.role, normalizedEmail, index, users);
+  const avatarStorage = normalizeAvatarStorage(user?.avatarStorage, Boolean(user?.googleId));
+  const avatarFileExt = String(user?.avatarFileExt ?? '').trim().toLowerCase();
+  const avatarUpdatedAt = user?.avatarUpdatedAt ? String(user.avatarUpdatedAt) : null;
+  const rawAvatarUrl = String(user?.avatarUrl ?? '').trim();
 
   return {
     id: String(user?.id ?? crypto.randomUUID()),
@@ -74,7 +79,16 @@ function normalizeStoredUser(user, index, users) {
     email: normalizedEmail,
     passwordHash: String(user?.passwordHash ?? ''),
     googleId: String(user?.googleId ?? '').trim(),
-    avatarUrl: String(user?.avatarUrl ?? '').trim(),
+    avatarStorage,
+    avatarFileExt,
+    avatarUpdatedAt,
+    avatarUrl: resolveAvatarUrl({
+      id: String(user?.id ?? ''),
+      avatarStorage,
+      avatarFileExt,
+      avatarUpdatedAt,
+      rawAvatarUrl
+    }),
     role: normalizedRole,
     plan: normalizeOption(user?.plan, userPlanOptions, 'beta'),
     accountStatus: normalizeOption(user?.accountStatus, userAccountStatusOptions, 'active'),
@@ -111,6 +125,47 @@ function resolveUserRole(role, email, index, users) {
   return 'member';
 }
 
+function normalizeAvatarStorage(value, hasGoogleId) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+
+  if (normalized === 'google' || normalized === 'upload' || normalized === 'none') {
+    return normalized;
+  }
+
+  return hasGoogleId ? 'google' : 'none';
+}
+
+function resolveAvatarUrl({ id, avatarStorage, avatarFileExt, avatarUpdatedAt, rawAvatarUrl }) {
+  if (avatarStorage === 'upload' && id && avatarFileExt) {
+    return `/api/account/avatar/${encodeURIComponent(id)}?v=${encodeURIComponent(avatarUpdatedAt || '1')}`;
+  }
+
+  if (avatarStorage === 'google') {
+    return rawAvatarUrl;
+  }
+
+  return '';
+}
+
+function inferAvatarFileExtFromDataUrl(dataUrl) {
+  const match = String(dataUrl ?? '').match(/^data:image\/(png|jpeg|jpg|webp);base64,/i);
+  const subtype = match?.[1]?.toLowerCase();
+
+  if (!subtype) {
+    return '';
+  }
+
+  return subtype === 'jpeg' ? 'jpg' : subtype;
+}
+
+function getAvatarFilePath(user) {
+  if (!user?.id || !user?.avatarFileExt) {
+    return '';
+  }
+
+  return path.join(avatarUploadsDir, `${user.id}.${user.avatarFileExt}`);
+}
+
 export function sanitizeUser(user) {
   if (!user) {
     return null;
@@ -121,6 +176,7 @@ export function sanitizeUser(user) {
     name: user.name,
     email: user.email,
     avatarUrl: user.avatarUrl || '',
+    avatarStorage: user.avatarStorage || 'none',
     providers: buildProviders(user),
     role: user.role || 'member',
     plan: user.plan || 'beta',
@@ -214,6 +270,9 @@ export async function createPasswordUser({ name, email, password }) {
     passwordHash: await bcrypt.hash(normalizedPassword, 10),
     googleId: '',
     avatarUrl: '',
+    avatarStorage: 'none',
+    avatarFileExt: '',
+    avatarUpdatedAt: null,
     role: resolveUserRole('', normalizedEmail, users.length, users),
     plan: 'beta',
     accountStatus: 'active',
@@ -272,7 +331,10 @@ export async function upsertGoogleUser(profile) {
   if (existingByGoogle) {
     existingByGoogle.name = name || existingByGoogle.name;
     existingByGoogle.email = email || existingByGoogle.email;
+    existingByGoogle.avatarStorage = 'google';
     existingByGoogle.avatarUrl = avatarUrl || existingByGoogle.avatarUrl;
+    existingByGoogle.avatarFileExt = '';
+    existingByGoogle.avatarUpdatedAt = now;
     existingByGoogle.updatedAt = now;
     existingByGoogle.lastLoginAt = now;
     await saveUsers(users);
@@ -284,7 +346,10 @@ export async function upsertGoogleUser(profile) {
   if (existingByEmail) {
     existingByEmail.googleId = googleId;
     existingByEmail.name = name || existingByEmail.name;
+    existingByEmail.avatarStorage = 'google';
     existingByEmail.avatarUrl = avatarUrl || existingByEmail.avatarUrl;
+    existingByEmail.avatarFileExt = '';
+    existingByEmail.avatarUpdatedAt = now;
     existingByEmail.updatedAt = now;
     existingByEmail.lastLoginAt = now;
     await saveUsers(users);
@@ -298,6 +363,9 @@ export async function upsertGoogleUser(profile) {
     passwordHash: '',
     googleId,
     avatarUrl,
+    avatarStorage: 'google',
+    avatarFileExt: '',
+    avatarUpdatedAt: now,
     role: resolveUserRole('', email, users.length, users),
     plan: 'beta',
     accountStatus: 'active',
@@ -325,4 +393,130 @@ export async function touchUserLogin(userId) {
   user.updatedAt = user.lastLoginAt;
   await saveUsers(users);
   return user;
+}
+
+export async function updateUserProfile(userId, updates = {}) {
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  const nextName = String(updates.name ?? '').trim();
+
+  if (!nextName) {
+    throw new Error('Informe seu nome.');
+  }
+
+  user.name = nextName;
+  user.updatedAt = new Date().toISOString();
+  await saveUsers(users);
+  return user;
+}
+
+export async function updateUserPassword(userId, updates = {}) {
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  if (!user.passwordHash) {
+    throw new Error('Essa conta usa login externo e não permite trocar senha por aqui.');
+  }
+
+  const currentPassword = String(updates.currentPassword ?? '');
+  const nextPassword = String(updates.nextPassword ?? '');
+  const confirmPassword = String(updates.confirmPassword ?? '');
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+
+  if (!isValid) {
+    throw new Error('A senha atual está incorreta.');
+  }
+
+  if (nextPassword.length < 8) {
+    throw new Error('A nova senha precisa ter pelo menos 8 caracteres.');
+  }
+
+  if (nextPassword !== confirmPassword) {
+    throw new Error('A confirmação da nova senha não confere.');
+  }
+
+  user.passwordHash = await bcrypt.hash(nextPassword, 10);
+  user.updatedAt = new Date().toISOString();
+  await saveUsers(users);
+  return user;
+}
+
+export async function updateUserAvatar(userId, input = {}) {
+  const users = await loadUsers();
+  const user = users.find((entry) => entry.id === userId);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  if (user.googleId) {
+    throw new Error('Contas conectadas com Google usam automaticamente a foto do perfil do Google.');
+  }
+
+  const dataUrl = String(input.avatarDataUrl ?? '').trim();
+  const fileExt = inferAvatarFileExtFromDataUrl(dataUrl);
+
+  if (!fileExt) {
+    throw new Error('Envie uma imagem PNG, JPG ou WEBP.');
+  }
+
+  const base64Payload = dataUrl.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/i, '');
+  const buffer = Buffer.from(base64Payload, 'base64');
+
+  if (!buffer.length) {
+    throw new Error('Não foi possível processar a imagem enviada.');
+  }
+
+  if (buffer.byteLength > 1024 * 1024) {
+    throw new Error('A imagem deve ter no máximo 1 MB.');
+  }
+
+  await fs.mkdir(avatarUploadsDir, { recursive: true });
+
+  const previousAvatarPath = getAvatarFilePath(user);
+  const nextAvatarPath = path.join(avatarUploadsDir, `${user.id}.${fileExt}`);
+  await fs.writeFile(nextAvatarPath, buffer);
+
+  if (previousAvatarPath && previousAvatarPath !== nextAvatarPath) {
+    await fs.rm(previousAvatarPath, { force: true });
+  }
+
+  user.avatarStorage = 'upload';
+  user.avatarFileExt = fileExt;
+  user.avatarUpdatedAt = new Date().toISOString();
+  user.avatarUrl = resolveAvatarUrl({
+    id: user.id,
+    avatarStorage: user.avatarStorage,
+    avatarFileExt: user.avatarFileExt,
+    avatarUpdatedAt: user.avatarUpdatedAt,
+    rawAvatarUrl: ''
+  });
+  user.updatedAt = user.avatarUpdatedAt;
+  await saveUsers(users);
+  return user;
+}
+
+export async function getUserAvatarFile(userId) {
+  const user = await findUserById(userId);
+
+  if (!user || user.avatarStorage !== 'upload' || !user.avatarFileExt) {
+    return null;
+  }
+
+  const filePath = getAvatarFilePath(user);
+  const bytes = await fs.readFile(filePath);
+
+  return {
+    bytes,
+    mimeType: `image/${user.avatarFileExt === 'jpg' ? 'jpeg' : user.avatarFileExt}`
+  };
 }

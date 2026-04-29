@@ -4,7 +4,11 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import {
   createPasswordUser,
   findUserById,
+  getUserAvatarFile,
   sanitizeUser,
+  updateUserAvatar,
+  updateUserPassword,
+  updateUserProfile,
   upsertGoogleUser,
   verifyPasswordUser
 } from './authStore.js';
@@ -134,6 +138,78 @@ export class AuthService {
           response.json(this.getClientSession(null));
         });
       });
+    });
+
+    app.post('/api/account/profile', this.requireAuth(), async (request, response) => {
+      try {
+        const user = await updateUserProfile(request.user.id, {
+          name: request.body?.name
+        });
+        Object.assign(request.user, user);
+        response.json(this.getClientSession(user));
+      } catch (error) {
+        response.status(400).json({
+          authenticated: true,
+          googleEnabled: this.googleEnabled,
+          error: error.message || 'Não foi possível atualizar o perfil.'
+        });
+      }
+    });
+
+    app.post('/api/account/password', this.requireAuth(), async (request, response) => {
+      try {
+        const user = await updateUserPassword(request.user.id, {
+          currentPassword: request.body?.currentPassword,
+          nextPassword: request.body?.nextPassword,
+          confirmPassword: request.body?.confirmPassword
+        });
+        Object.assign(request.user, user);
+        response.json(this.getClientSession(user));
+      } catch (error) {
+        response.status(400).json({
+          authenticated: true,
+          googleEnabled: this.googleEnabled,
+          error: error.message || 'Não foi possível atualizar a senha.'
+        });
+      }
+    });
+
+    app.post('/api/account/avatar', this.requireAuth(), async (request, response) => {
+      try {
+        const user = await updateUserAvatar(request.user.id, {
+          avatarDataUrl: request.body?.avatarDataUrl
+        });
+        Object.assign(request.user, user);
+        response.json(this.getClientSession(user));
+      } catch (error) {
+        response.status(400).json({
+          authenticated: true,
+          googleEnabled: this.googleEnabled,
+          error: error.message || 'Não foi possível atualizar a foto do perfil.'
+        });
+      }
+    });
+
+    app.get('/api/account/avatar/:userId', this.requireAuth(), async (request, response) => {
+      const targetUserId = String(request.params.userId ?? '').trim();
+      const isSelf = request.user?.id === targetUserId;
+      const isAdmin = this.isAdminUser(request.user);
+
+      if (!isSelf && !isAdmin) {
+        response.status(403).end();
+        return;
+      }
+
+      const avatar = await getUserAvatarFile(targetUserId);
+
+      if (!avatar) {
+        response.status(404).end();
+        return;
+      }
+
+      response.setHeader('content-type', avatar.mimeType);
+      response.setHeader('cache-control', 'private, max-age=300');
+      response.send(avatar.bytes);
     });
 
     app.get('/auth/google', (request, response, next) => {

@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowRight,
   Bot,
+  Camera,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -24,6 +25,7 @@ import {
   ShieldCheck,
   Smartphone,
   TrendingUp,
+  User,
   Users,
   X,
   Zap
@@ -31,12 +33,15 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.35';
+const panelVersion = 'Versao 0.36';
 
 type AuthUser = {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string;
+  avatarStorage?: 'none' | 'google' | 'upload';
+  providers?: string[];
   role?: 'admin' | 'member';
   plan?: string;
   accountStatus?: string;
@@ -144,13 +149,14 @@ type AppState = {
   } | null;
 };
 
-type ViewKey = 'overview' | 'connections' | 'groups' | 'activity' | 'admin';
+type ViewKey = 'overview' | 'connections' | 'groups' | 'activity' | 'account' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
   { key: 'connections', label: 'Telegram', icon: Settings2 },
   { key: 'groups', label: 'WhatsApp', icon: Users },
   { key: 'activity', label: 'Historico', icon: Activity },
+  { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
 ];
 
@@ -208,12 +214,12 @@ export default function Home() {
       <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
         <aside className="border-r border-[var(--border)] bg-black/15 px-4 py-5 max-lg:border-b max-lg:border-r-0">
           <div className="mb-7 flex items-center gap-3 px-2">
-            <div className="h-10 w-10 overflow-hidden rounded-2xl border border-emerald-400/20 bg-black/25 shadow-[0_0_24px_rgba(43,214,140,0.15)]">
-              <img src="/brand/portal-icon.svg" alt="" className="h-full w-full object-cover" />
-            </div>
-            <div>
+            <AvatarBadge user={state.auth.user} size="md" />
+            <div className="min-w-0">
               <p className="text-sm font-semibold">Portal do Afiliado</p>
-              <p className="text-xs text-[var(--muted)]">{panelVersion}</p>
+              <p className="truncate text-xs text-[var(--muted)]">
+                {state.auth.user?.name || panelVersion}
+              </p>
             </div>
           </div>
 
@@ -275,6 +281,7 @@ export default function Home() {
             />
           ) : null}
           {view === 'activity' ? <ActivityLog state={state} /> : null}
+          {view === 'account' ? <AccountPanel state={state} refresh={loadState} setNotice={setNotice} /> : null}
           {view === 'admin' && isAdmin ? <AdminPanel state={state} refresh={loadState} setNotice={setNotice} /> : null}
         </section>
       </div>
@@ -289,6 +296,45 @@ function LoadingScreen() {
         Carregando painel...
       </div>
     </main>
+  );
+}
+
+function AvatarBadge({
+  user,
+  size = 'lg'
+}: {
+  user: Partial<Pick<AuthUser, 'name' | 'email' | 'avatarUrl'>> | null;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const sizeClass =
+    size === 'sm'
+      ? 'h-10 w-10 rounded-xl'
+      : size === 'md'
+        ? 'h-10 w-10 rounded-2xl'
+        : 'h-20 w-20 rounded-[24px]';
+  const iconClass = size === 'lg' ? 'h-10 w-10' : 'h-5 w-5';
+  const initials = String(user?.name || user?.email || 'PA')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
+
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden border border-emerald-400/20 bg-black/25 text-sm font-semibold text-emerald-50 shadow-[0_0_24px_rgba(43,214,140,0.15)]',
+        sizeClass
+      )}
+    >
+      {user?.avatarUrl ? (
+        <img src={user.avatarUrl} alt={user.name || 'Avatar'} className="h-full w-full object-cover" />
+      ) : (
+        <span className="flex items-center justify-center">
+          {initials || <User className={iconClass} />}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1840,6 +1886,235 @@ function ActivityLog({ state, compact = false }: { state: AppState; compact?: bo
   );
 }
 
+function AccountPanel({
+  state,
+  refresh,
+  setNotice
+}: {
+  state: AppState;
+  refresh: () => Promise<void>;
+  setNotice: (message: string) => void;
+}) {
+  const user = state.auth.user;
+  const [name, setName] = useState(user?.name || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState('');
+  const [previewAvatar, setPreviewAvatar] = useState('');
+
+  useEffect(() => {
+    setName(user?.name || '');
+    setPreviewAvatar(user?.avatarUrl || '');
+  }, [user?.name, user?.avatarUrl]);
+
+  const providers = user?.providers || [];
+  const usesGoogleAvatar = providers.includes('google');
+  const canChangePassword = providers.includes('password');
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_380px]">
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+        <div className="mb-5">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conta</p>
+          <h2 className="mt-1 text-2xl font-semibold">Perfil e acesso</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            Atualize seu nome, gerencie a senha e personalize a foto do perfil quando a conta usar login por e-mail.
+          </p>
+        </div>
+
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <p className="text-sm font-semibold">Dados do perfil</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              Essas informações aparecem no seu painel e ajudam a identificar a conta conectada.
+            </p>
+
+            <form
+              className="mt-4 grid gap-4"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setBusy('profile');
+
+                try {
+                  await postJson('/api/account/profile', { name });
+                  await refresh();
+                  setNotice('Perfil atualizado com sucesso.');
+                } catch (error) {
+                  setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar o perfil.');
+                } finally {
+                  setBusy('');
+                }
+              }}
+            >
+              <Field label="Nome" value={name} onChange={setName} icon={User} />
+              <Field label="E-mail" value={user?.email || ''} disabled icon={Mail} />
+              <div className="flex justify-end">
+                <button type="submit" className={primaryButton} disabled={busy === 'profile'}>
+                  Salvar perfil
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Seguranca da conta</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  {canChangePassword
+                    ? 'Use uma senha forte e atualize o acesso sempre que necessario.'
+                    : 'Esta conta usa autenticacao externa e a senha e gerenciada fora do Portal do Afiliado.'}
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                {canChangePassword ? 'Senha local' : 'Login externo'}
+              </span>
+            </div>
+
+            {canChangePassword ? (
+              <form
+                className="mt-4 grid gap-4 md:grid-cols-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setBusy('password');
+
+                  try {
+                    await postJson('/api/account/password', {
+                      currentPassword,
+                      nextPassword,
+                      confirmPassword
+                    });
+                    setCurrentPassword('');
+                    setNextPassword('');
+                    setConfirmPassword('');
+                    await refresh();
+                    setNotice('Senha atualizada com sucesso.');
+                  } catch (error) {
+                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar a senha.');
+                  } finally {
+                    setBusy('');
+                  }
+                }}
+              >
+                <Field
+                  label="Senha atual"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  icon={LockKeyhole}
+                />
+                <div className="hidden md:block" />
+                <Field
+                  label="Nova senha"
+                  type="password"
+                  autoComplete="new-password"
+                  value={nextPassword}
+                  onChange={setNextPassword}
+                  icon={Shield}
+                />
+                <Field
+                  label="Confirmar nova senha"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  icon={ShieldCheck}
+                />
+                <div className="md:col-span-2 flex justify-end">
+                  <button type="submit" className={primaryButton} disabled={busy === 'password'}>
+                    Alterar senha
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 rounded-md border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-50">
+                A senha desta conta e gerenciada pelo provedor de login conectado.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Foto do perfil</p>
+        <h2 className="mt-1 text-xl font-semibold">Identidade da conta</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          {usesGoogleAvatar
+            ? 'Sua foto esta sincronizada com o Google e e atualizada automaticamente.'
+            : 'Envie uma foto clara para identificar esta conta dentro do painel.'}
+        </p>
+
+        <div className="mt-5 flex flex-col items-center rounded-2xl border border-[var(--border)] bg-black/10 px-5 py-6 text-center">
+          <AvatarBadge
+            user={{
+              ...(user || {}),
+              avatarUrl: previewAvatar || user?.avatarUrl || ''
+            }}
+            size="lg"
+          />
+          <p className="mt-4 text-lg font-semibold">{user?.name || 'Usuario'}</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">{user?.email}</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {providers.map((provider) => (
+              <span key={provider} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                {provider === 'google' ? 'Google' : 'Email e senha'}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {usesGoogleAvatar ? (
+          <div className="mt-4 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-50">
+            Como esta conta usa Google, a foto de perfil vem diretamente do Google do usuario.
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <p className="text-sm font-semibold">Enviar nova foto</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              Aceitamos PNG, JPG ou WEBP com ate 1 MB.
+            </p>
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 px-4 py-6 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10">
+              <Camera size={18} />
+              Selecionar imagem
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+
+                  if (!file) {
+                    return;
+                  }
+
+                  try {
+                    const avatarDataUrl = await readFileAsDataUrl(file);
+                    setBusy('avatar');
+                    setPreviewAvatar(avatarDataUrl);
+                    await postJson('/api/account/avatar', { avatarDataUrl });
+                    await refresh();
+                    setNotice('Foto do perfil atualizada com sucesso.');
+                  } catch (error) {
+                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar a foto do perfil.');
+                  } finally {
+                    event.currentTarget.value = '';
+                    setBusy('');
+                  }
+                }}
+              />
+            </label>
+            {busy === 'avatar' ? (
+              <p className="mt-3 text-xs font-semibold text-emerald-100">Enviando nova foto...</p>
+            ) : null}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function AdminPanel({
   state,
   refresh,
@@ -1926,6 +2201,7 @@ function Field({
   type = 'text',
   placeholder,
   autoComplete,
+  disabled,
   value,
   onChange,
   icon: Icon,
@@ -1936,6 +2212,7 @@ function Field({
   type?: string;
   placeholder?: string;
   autoComplete?: string;
+  disabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
   icon?: typeof Mail;
@@ -1955,6 +2232,7 @@ function Field({
           type={type}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          disabled={disabled}
           value={value}
           onChange={onChange ? (event) => onChange(event.target.value) : undefined}
           className={cn(inputClass, Icon ? 'pl-12' : '', rightSlot ? 'pr-12' : '')}
@@ -2038,6 +2316,29 @@ const primaryButton =
 
 const secondaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60';
+
+async function readFileAsDataUrl(file: File) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+
+      if (!result) {
+        reject(new Error('Nao foi possivel ler a imagem selecionada.'));
+        return;
+      }
+
+      resolve(result);
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Nao foi possivel ler a imagem selecionada.'));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
