@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.36';
+const panelVersion = 'Versao 0.37';
 
 type AuthUser = {
   id: string;
@@ -1902,10 +1902,12 @@ function AccountPanel({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState('');
   const [previewAvatar, setPreviewAvatar] = useState('');
+  const [profileEditing, setProfileEditing] = useState(false);
 
   useEffect(() => {
     setName(user?.name || '');
     setPreviewAvatar(user?.avatarUrl || '');
+    setProfileEditing(false);
   }, [user?.name, user?.avatarUrl]);
 
   const providers = user?.providers || [];
@@ -1925,20 +1927,56 @@ function AccountPanel({
 
         <div className="grid gap-4">
           <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            <p className="text-sm font-semibold">Dados do perfil</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              Essas informações aparecem no seu painel e ajudam a identificar a conta conectada.
-            </p>
+            <div className="flex items-start justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+              <div>
+                <p className="text-sm font-semibold">Dados do perfil</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Essas informações aparecem no seu painel e ajudam a identificar a conta conectada.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 max-sm:w-full">
+                {profileEditing ? (
+                  <button
+                    type="button"
+                    className={secondaryButton}
+                    onClick={() => {
+                      setName(user?.name || '');
+                      setProfileEditing(false);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={profileEditing ? secondaryButton : primaryButton}
+                  onClick={() => {
+                    if (!profileEditing) {
+                      setProfileEditing(true);
+                    }
+                  }}
+                >
+                  {profileEditing ? 'Editando perfil' : 'Editar'}
+                </button>
+              </div>
+            </div>
 
             <form
               className="mt-4 grid gap-4"
               onSubmit={async (event) => {
                 event.preventDefault();
+
+                if (!profileEditing) {
+                  return;
+                }
+
                 setBusy('profile');
 
                 try {
                   await postJson('/api/account/profile', { name });
                   await refresh();
+                  setProfileEditing(false);
                   setNotice('Perfil atualizado com sucesso.');
                 } catch (error) {
                   setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar o perfil.');
@@ -1947,13 +1985,15 @@ function AccountPanel({
                 }
               }}
             >
-              <Field label="Nome" value={name} onChange={setName} icon={User} />
+              <Field label="Nome" value={name} onChange={setName} disabled={!profileEditing} icon={User} />
               <Field label="E-mail" value={user?.email || ''} disabled icon={Mail} />
-              <div className="flex justify-end">
-                <button type="submit" className={primaryButton} disabled={busy === 'profile'}>
-                  Salvar perfil
-                </button>
-              </div>
+              {profileEditing ? (
+                <div className="flex justify-end">
+                  <button type="submit" className={primaryButton} disabled={busy === 'profile'}>
+                    Salvar perfil
+                  </button>
+                </div>
+              ) : null}
             </form>
           </div>
 
