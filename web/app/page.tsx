@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.27';
+const panelVersion = 'Versao 0.28';
 
 type AuthUser = {
   id: string;
@@ -374,28 +374,16 @@ function AuthScreen({
                     Tenha controle total sobre sessoes, integracoes, mensagens e entregas automaticas. Automatize processos repetitivos, organize sua operacao e libere sua equipe para focar no que realmente gera resultado.
                   </p>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                    <AuthStatusPill
-                      icon={Smartphone}
-                      title="WhatsApp"
-                      detail="Conectado"
-                      accentClassName="text-[#25D366]"
-                      dotClassName="bg-[#25D366]"
-                    />
-                    <AuthStatusPill
-                      icon={Send}
-                      title="Telegram"
-                      detail="Ativo"
-                      accentClassName="text-[#229ED9]"
-                      dotClassName="bg-[#229ED9]"
-                    />
-                    <AuthStatusPill
-                      icon={ShieldCheck}
-                      title="Sessoes"
-                      detail="12 online"
-                      accentClassName="text-[#5BD993]"
-                      dotClassName="bg-[#5BD993]"
-                    />
+                  <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.16)] bg-[rgba(37,211,102,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7F3C0]">
+                      <span className="h-2 w-2 rounded-full bg-[#25D366]" />
+                      WhatsApp conectado
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.16)] bg-[rgba(34,158,217,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7E5FF]">
+                      <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
+                      Telegram ativo
+                    </span>
+                    <span className="text-[#8FA69C]">Fluxos e sessoes monitorados em uma unica operacao.</span>
                   </div>
                 </div>
 
@@ -487,9 +475,9 @@ function AuthScreen({
               </div>
 
               <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] md:grid-cols-3">
-                <AuthStatFooter icon={TrendingUp} value="+2,4M" label="mensagens processadas" accentClassName="text-[#25D366]" />
-                <AuthStatFooter icon={ShieldCheck} value="99,9%" label="de estabilidade" accentClassName="text-[#77E6A0]" />
-                <AuthStatFooter icon={Users} value="Gestao multicanal" label="com total controle" accentClassName="text-[#51CFFF]" />
+                <AuthTrustItem icon={TrendingUp} title="Operacao organizada" label="mais visibilidade em cada entrega" accentClassName="text-[#25D366]" />
+                <AuthTrustItem icon={ShieldCheck} title="Sessoes protegidas" label="estabilidade para rodar todos os dias" accentClassName="text-[#77E6A0]" />
+                <AuthTrustItem icon={Users} title="Gestao multicanal" label="controle total de contas e fluxos" accentClassName="text-[#51CFFF]" />
               </div>
             </div>
           </section>
@@ -614,35 +602,6 @@ function AuthScreen({
   );
 }
 
-function AuthStatusPill({
-  icon: Icon,
-  title,
-  detail,
-  accentClassName,
-  dotClassName
-}: {
-  icon: typeof Smartphone;
-  title: string;
-  detail: string;
-  accentClassName: string;
-  dotClassName: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]">
-        <Icon size={20} className={accentClassName} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-base font-semibold leading-5 text-[#F8FAFC]">{title}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <span className={cn('h-2 w-2 rounded-full', dotClassName)} />
-          <p className="text-sm leading-5 text-[#AAB8B0]">{detail}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AuthDashboardStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
@@ -711,14 +670,14 @@ function AuthBenefitCard({
   );
 }
 
-function AuthStatFooter({
+function AuthTrustItem({
   icon: Icon,
-  value,
+  title,
   label,
   accentClassName
 }: {
   icon: typeof TrendingUp;
-  value: string;
+  title: string;
   label: string;
   accentClassName: string;
 }) {
@@ -728,7 +687,7 @@ function AuthStatFooter({
         <Icon size={26} className={accentClassName} />
       </div>
       <div>
-        <p className="text-[1.15rem] font-semibold text-[#F8FAFC]">{value}</p>
+        <p className="text-[1.15rem] font-semibold text-[#F8FAFC]">{title}</p>
         <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">{label}</p>
       </div>
     </div>
