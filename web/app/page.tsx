@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.38';
+const panelVersion = 'Versao 0.39';
 
 type AuthUser = {
   id: string;
@@ -394,7 +394,7 @@ function AuthScreen({
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
                 <Zap size={14} className="text-[#25D366]" />
-                Automacao para <span className="text-[#25D366]">WhatsApp</span> e <span className="text-[#229ED9]">Telegram</span>
+                Vendas automaticas com <span className="text-[#25D366]">WhatsApp</span> e <span className="text-[#229ED9]">Telegram</span>
               </span>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
@@ -410,15 +410,15 @@ function AuthScreen({
                   </div>
 
                   <h1 className="mt-5 max-w-4xl text-[4rem] font-semibold leading-[0.98] text-[#F8FAFC] max-xl:max-w-3xl max-xl:text-[3.4rem] max-lg:text-[3rem] max-sm:text-[2.5rem]">
-                    Automatize atendimentos,
+                    Venda no automatico,
                     <br />
-                    campanhas e operacoes
+                    lance campanhas e
                     <br />
-                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">em um so painel</span>
+                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">ganhe tempo para crescer</span>
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Centralize conexoes, sessoes, grupos, disparos e fluxos automaticos em uma plataforma segura, estavel e pronta para escalar sua operacao.
+                    Centralize conexoes, sessoes, grupos, ofertas e disparos automaticos em uma plataforma segura, estavel e pronta para escalar sua operacao sem depender de trabalho manual o dia inteiro.
                   </p>
                 </div>
               </div>
@@ -429,31 +429,31 @@ function AuthScreen({
                     <Rocket size={19} className="text-[#25D366]" />
                   </div>
                   <p className="text-base leading-7 text-[#DBEAE1]">
-                    Ganhe tempo todos os dias, elimine tarefas manuais e acompanhe tudo em tempo real com uma operacao mais organizada e produtiva.
+                    Programe campanhas, reaproveite sessoes ativas e deixe a entrega rodando quando voce quiser, com muito menos operacao manual e mais previsibilidade nas vendas.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Plataforma de automacao</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Motor comercial automatizado</p>
                   <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
-                    Mais produtividade para equipes que querem crescer
+                    Seu time define a oferta. O Portal executa a rotina.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    Tenha controle total sobre sessoes, integracoes, mensagens e entregas automaticas. Automatize processos repetitivos, organize sua operacao e libere sua equipe para focar no que realmente gera resultado.
+                    Conecte WhatsApp e Telegram, organize grupos, mantenha sessoes protegidas e dispare campanhas quantas vezes quiser. Assim voce economiza horas por semana e mantem a operacao pronta para vender sempre.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.16)] bg-[rgba(37,211,102,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7F3C0]">
                       <span className="h-2 w-2 rounded-full bg-[#25D366]" />
-                      WhatsApp conectado
+                      Campanhas recorrentes
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.16)] bg-[rgba(34,158,217,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7E5FF]">
                       <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
-                      Telegram ativo
+                      Disparos agendados
                     </span>
-                    <span className="text-[#8FA69C]">Fluxos e sessoes monitorados em uma unica operacao.</span>
+                    <span className="text-[#8FA69C]">Fluxos acionados em minutos, sem depender de rotina manual repetitiva.</span>
                   </div>
                 </div>
 
@@ -467,8 +467,8 @@ function AuthScreen({
                   <div className="relative w-full max-w-[360px] rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(18,32,28,0.95),rgba(7,20,16,0.92))] p-4 shadow-[0_30px_60px_rgba(0,0,0,0.35)]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Visao geral</p>
-                        <p className="mt-1 text-sm text-[#DCE9E2]">Operacao ao vivo</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Motor de vendas</p>
+                        <p className="mt-1 text-sm text-[#DCE9E2]">Campanhas em execucao</p>
                       </div>
                       <div className="rounded-full border border-[rgba(37,211,102,0.2)] bg-[rgba(37,211,102,0.08)] px-2.5 py-1 text-[11px] font-semibold text-[#9CF0BF]">
                         Online
@@ -476,9 +476,9 @@ function AuthScreen({
                     </div>
 
                     <div className="mt-4 grid grid-cols-3 gap-2.5">
-                      <AuthDashboardStat label="Mensagens" value="2,4M" />
-                      <AuthDashboardStat label="Entregas" value="98,7%" />
-                      <AuthDashboardStat label="Sessoes" value="12" />
+                      <AuthDashboardStat label="Campanhas" value="124" />
+                      <AuthDashboardStat label="Cliques" value="98,7%" />
+                      <AuthDashboardStat label="Conversoes" value="12x" />
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
@@ -493,28 +493,28 @@ function AuthScreen({
                         ))}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px] text-[#7E9088]">
-                        <span>Fluxo automatizado</span>
-                        <span>Tempo real</span>
+                        <span>Operacao sempre ligada</span>
+                        <span>Sem trabalho manual</span>
                       </div>
                     </div>
 
                     <div className="mt-4 grid gap-2">
-                      <AuthDashboardRow label="Atividade recente" value="29.300" />
+                      <AuthDashboardRow label="Ofertas disparadas" value="29.300" />
                       <AuthDashboardRow label="Entregas por hora" value="4.190" />
-                      <AuthDashboardRow label="Conversoes" value="+18,4%" />
+                      <AuthDashboardRow label="Tempo poupado" value="+18,4%" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <AuthMiniSignal
                         icon={Smartphone}
                         title="WhatsApp"
-                        detail="Conectado"
+                        detail="Pronto"
                         accentClassName="text-[#25D366]"
                         panelClassName="border-[rgba(37,211,102,0.14)] bg-[rgba(37,211,102,0.06)]"
                       />
                       <AuthMiniSignal
                         icon={Send}
                         title="Telegram"
-                        detail="Ativo"
+                        detail="Canal ativo"
                         accentClassName="text-[#229ED9]"
                         panelClassName="border-[rgba(34,158,217,0.14)] bg-[rgba(34,158,217,0.06)]"
                       />
@@ -527,20 +527,20 @@ function AuthScreen({
                 <AuthBenefitCard
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
-                  title="Operacao centralizada"
-                  text="Gerencie mensagens, grupos, sessoes, contas e automacoes em uma unica plataforma."
+                  title="Venda quando quiser"
+                  text="Lance campanhas e reaproveite sua estrutura sempre que surgir uma nova oferta."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
-                  title="Economia de tempo"
-                  text="Automatize tarefas repetitivas e reduza horas de trabalho manual com fluxos inteligentes."
+                  title="Tempo de volta"
+                  text="Automatize tarefas repetitivas e recupere horas do dia para focar no comercial."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
-                  title="Escala com seguranca"
-                  text="Estruture sua operacao para crescer com estabilidade, controle e previsibilidade."
+                  title="Escala previsivel"
+                  text="Estruture sessoes, grupos e entregas para crescer com constancia e menos atrito."
                 />
               </div>
 
@@ -548,19 +548,19 @@ function AuthScreen({
                 <AuthTrustItem
                   icon={TrendingUp}
                   title="Operacao organizada"
-                  label="mais visibilidade em cada entrega"
+                  label="mais controle sobre cada campanha enviada"
                   accentClassName="text-[#25D366]"
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
                   title="Sessoes protegidas"
-                  label="estabilidade para rodar todos os dias"
+                  label="estabilidade para vender sempre que quiser"
                   accentClassName="text-[#77E6A0]"
                 />
                 <AuthTrustItem
                   icon={Users}
                   title="Gestao multicanal"
-                  label="controle total de contas e fluxos"
+                  label="controle total de contas, grupos e fluxos"
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
