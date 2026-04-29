@@ -31,7 +31,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.34';
+const panelVersion = 'Versao 0.35';
 
 type AuthUser = {
   id: string;
@@ -147,7 +147,7 @@ type AppState = {
 type ViewKey = 'overview' | 'connections' | 'groups' | 'activity' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
-  { key: 'overview', label: 'Visao geral', icon: Gauge },
+  { key: 'overview', label: 'Dashboard', icon: Gauge },
   { key: 'connections', label: 'Telegram', icon: Settings2 },
   { key: 'groups', label: 'WhatsApp', icon: Users },
   { key: 'activity', label: 'Historico', icon: Activity },
@@ -879,12 +879,11 @@ function Overview({
         </div>
       </section>
 
-      <section className="grid grid-cols-4 gap-3 max-xl:grid-cols-2 max-sm:grid-cols-1">
-        <Metric icon={MessageSquare} label="Telegram" value={state.metrics.totalTelegramReceived || 0} detail={lastLabel(state.metrics.lastTelegramMessageAt)} />
-        <Metric icon={Send} label="Encaminhadas" value={state.metrics.totalForwardedMessages || 0} detail={lastLabel(state.metrics.lastForwardedAt)} />
-        <Metric icon={Users} label="Grupos" value={state.metrics.selectedGroupCount || 0} detail={groupProgressText} />
-        <Metric icon={AlertCircle} label="Erros" value={state.metrics.totalErrors || 0} detail={lastLabel(state.metrics.lastErrorAt)} />
-      </section>
+        <section className="grid grid-cols-3 gap-3 max-xl:grid-cols-2 max-sm:grid-cols-1">
+          <Metric icon={MessageSquare} label="Telegram" value={state.metrics.totalTelegramReceived || 0} detail={lastLabel(state.metrics.lastTelegramMessageAt)} />
+          <Metric icon={Send} label="Encaminhadas" value={state.metrics.totalForwardedMessages || 0} detail={lastLabel(state.metrics.lastForwardedAt)} />
+          <Metric icon={Users} label="Grupos" value={state.metrics.selectedGroupCount || 0} detail={groupProgressText} />
+        </section>
 
       <section className="grid grid-cols-[1fr_360px] gap-5 max-xl:grid-cols-1">
         <ActivityLog state={state} compact />
@@ -1796,7 +1795,17 @@ function CompactSetupChecklist({
 }
 
 function ActivityLog({ state, compact = false }: { state: AppState; compact?: boolean }) {
-  const events = compact ? state.activity.slice(0, 6) : state.activity;
+  const dedupedEvents = useMemo(() => {
+    return state.activity.filter((event, index, events) => {
+      const previous = events[index - 1];
+      if (!previous) {
+        return true;
+      }
+
+      return !(previous.message === event.message && previous.level === event.level);
+    });
+  }, [state.activity]);
+  const events = compact ? dedupedEvents.slice(0, 6) : dedupedEvents;
 
   return (
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
