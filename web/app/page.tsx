@@ -33,7 +33,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.41';
+const panelVersion = 'Versao 0.42';
 
 type AuthUser = {
   id: string;
@@ -394,7 +394,7 @@ function AuthScreen({
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
                 <Zap size={14} className="text-[#25D366]" />
-                Vendas automaticas com <span className="text-[#25D366]">WhatsApp</span> e <span className="text-[#229ED9]">Telegram</span>
+                  ⚡ Ponte <span className="text-[#25D366]">Telegram</span> → <span className="text-[#229ED9]">WhatsApp</span> no automatico
               </span>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
@@ -410,15 +410,15 @@ function AuthScreen({
                   </div>
 
                   <h1 className="mt-5 max-w-4xl text-[4rem] font-semibold leading-[0.98] text-[#F8FAFC] max-xl:max-w-3xl max-xl:text-[3.4rem] max-lg:text-[3rem] max-sm:text-[2.5rem]">
-                    Venda no automatico,
+                    Postou no Telegram,
                     <br />
-                    lance campanhas e
+                    chegou em todos os grupos.
                     <br />
-                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">ganhe tempo para crescer</span>
+                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">Voce so foca em achar a oferta.</span>
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Centralize conexoes, sessoes, grupos, ofertas e disparos automaticos em uma plataforma segura, estavel e pronta para escalar sua operacao sem depender de trabalho manual o dia inteiro.
+                    Cole sua oferta de afiliado no Telegram uma unica vez. O sistema le, replica automaticamente em todos os seus grupos de WhatsApp selecionados e pronto — sem copiar, sem colar, sem perder timing.
                   </p>
                 </div>
               </div>
@@ -429,7 +429,7 @@ function AuthScreen({
                     <Rocket size={19} className="text-[#25D366]" />
                   </div>
                   <p className="text-base leading-7 text-[#DBEAE1]">
-                    Programe campanhas, reaproveite sessoes ativas e deixe a entrega rodando quando voce quiser, com muito menos operacao manual e mais previsibilidade nas vendas.
+                    Voce posta a oferta com seu link de afiliado no Telegram. A plataforma reposta nos seus grupos de WhatsApp automaticamente. Enquanto isso, voce ja esta garimpando a proxima promocao.
                   </p>
                 </div>
               </div>
@@ -438,22 +438,22 @@ function AuthScreen({
                 <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Motor comercial automatizado</p>
                   <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
-                    Seu time define a oferta. O Portal executa a rotina.
+                    Voce posta uma vez. A plataforma entrega em todos.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    Conecte WhatsApp e Telegram, organize grupos, mantenha sessoes protegidas e dispare campanhas quantas vezes quiser. Assim voce economiza horas por semana e mantem a operacao pronta para vender sempre.
+                    Conecte seu canal do Telegram e selecione quais grupos de WhatsApp vao receber cada oferta. A partir dai, cada mensagem postada no Telegram e replicada automaticamente para toda a sua base — sem trabalho manual, sem atraso, sem perder venda.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.16)] bg-[rgba(37,211,102,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7F3C0]">
                       <span className="h-2 w-2 rounded-full bg-[#25D366]" />
-                      Campanhas recorrentes
+                      Leitura automatica do Telegram
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.16)] bg-[rgba(34,158,217,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7E5FF]">
                       <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
-                      Disparos agendados
+                      Repost instantaneo no WhatsApp
                     </span>
-                    <span className="text-[#8FA69C]">Fluxos acionados em minutos, sem depender de rotina manual repetitiva.</span>
+                    <span className="text-[#8FA69C]">Postou no Telegram com seu link de afiliado? Seus grupos de WhatsApp ja receberam. Tudo em segundos, sem voce fazer mais nada.</span>
                   </div>
                 </div>
 
@@ -501,7 +501,7 @@ function AuthScreen({
                     <div className="mt-4 grid gap-2">
                       <AuthDashboardRow label="Ofertas disparadas" value="29.300" />
                       <AuthDashboardRow label="Entregas por hora" value="4.190" />
-                      <AuthDashboardRow label="Tempo poupado" value="+18,4%" />
+                      <AuthDashboardRow label="Tempo livre ganho" value="+18,4%" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <AuthMiniSignal
@@ -527,40 +527,40 @@ function AuthScreen({
                 <AuthBenefitCard
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
-                  title="Venda quando quiser"
-                  text="Lance campanhas e reaproveite sua estrutura sempre que surgir uma nova oferta."
+                  title="Poste uma vez, entregue em todos"
+                  text="Uma oferta no Telegram chega simultaneamente em todos os grupos de WhatsApp que voce selecionou. Sem repeticao manual."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
-                  title="Tempo de volta"
-                  text="Automatize tarefas repetitivas e recupere horas do dia para focar no comercial."
+                  title="Horas livres todo dia"
+                  text="Pare de copiar e colar a mesma mensagem em dezenas de grupos. Use esse tempo para garimpar mais ofertas e ganhar mais."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
-                  title="Escala previsivel"
-                  text="Estruture sessoes, grupos e entregas para crescer com constancia e menos atrito."
+                  title="Cresca sem trabalhar mais"
+                  text="Adicione quantos grupos de WhatsApp quiser. O esforco continua sendo zero — voce so posta no Telegram."
                 />
               </div>
 
               <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] lg:grid-cols-3">
                 <AuthTrustItem
                   icon={TrendingUp}
-                  title="Operacao organizada"
-                  label="mais controle sobre cada campanha enviada"
+                  title="Controle total das entregas"
+                  label="veja quais ofertas foram enviadas, para quais grupos e quando."
                   accentClassName="text-[#25D366]"
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
-                  title="Sessoes protegidas"
-                  label="estabilidade para vender sempre que quiser"
+                  title="WhatsApp sempre estavel"
+                  label="suas sessoes ficam ativas e protegidas para entregar sem interrupcao."
                   accentClassName="text-[#77E6A0]"
                 />
                 <AuthTrustItem
                   icon={Users}
-                  title="Gestao multicanal"
-                  label="controle total de contas, grupos e fluxos"
+                  title="Varios grupos, um painel"
+                  label="selecione e gerencie todos os seus grupos de WhatsApp de um unico lugar."
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
@@ -572,7 +572,7 @@ function AuthScreen({
               <div>
                 <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
                 <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
-                  Acesse seu painel de automacao e acompanhe toda a operacao em tempo real.
+                  Acesse o painel, conecte seu Telegram e comece a repostar ofertas nos seus grupos de WhatsApp automaticamente.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
