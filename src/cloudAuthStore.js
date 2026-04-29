@@ -422,7 +422,13 @@ async function supabaseRequest(endpoint, options = {}) {
     return [];
   }
 
-  return await response.json();
+  const payload = await response.text().catch(() => '');
+
+  if (!payload.trim()) {
+    return [];
+  }
+
+  return JSON.parse(payload);
 }
 
 function mapCloudUser(row) {
