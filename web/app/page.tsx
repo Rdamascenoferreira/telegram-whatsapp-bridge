@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.48';
+const panelVersion = 'Versao 0.49';
 
 type AuthUser = {
   id: string;
@@ -972,10 +972,25 @@ function Connections({
   const [telegramBotToken, setTelegramBotToken] = useState('');
   const [telegramCode, setTelegramCode] = useState('');
   const [telegramPassword, setTelegramPassword] = useState('');
-  const [credentialsEditing, setCredentialsEditing] = useState(
-    !(state.config.hasTelegramBotToken || (state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone))
-  );
-  const [sourceEditing, setSourceEditing] = useState(!state.config.telegramChannel);
+  const hasSavedCredentials =
+    state.config.telegramMode === 'bot'
+      ? state.config.hasTelegramBotToken
+      : Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
+  const hasSavedSource = Boolean(state.config.telegramChannel);
+  const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
+  const [sourceEditing, setSourceEditing] = useState(!hasSavedSource);
+
+  function restoreSavedCredentials() {
+    setTelegramMode(state.config.telegramMode || 'user');
+    setTelegramApiId(state.config.telegramApiId || '');
+    setTelegramApiHash(state.config.telegramApiHash || '');
+    setTelegramPhone(state.config.telegramPhone || '');
+    setTelegramBotToken('');
+  }
+
+  function restoreSavedSource() {
+    setTelegramChannel(state.config.telegramChannel || '');
+  }
 
   useEffect(() => {
     setTelegramMode(state.config.telegramMode || 'user');
@@ -983,17 +998,18 @@ function Connections({
     setTelegramApiId(state.config.telegramApiId || '');
     setTelegramApiHash(state.config.telegramApiHash || '');
     setTelegramPhone(state.config.telegramPhone || '');
-    setCredentialsEditing(
-      !(state.config.hasTelegramBotToken || (state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone))
-    );
-    setSourceEditing(!state.config.telegramChannel);
+    setTelegramBotToken('');
+    setCredentialsEditing(!hasSavedCredentials);
+    setSourceEditing(!hasSavedSource);
   }, [
-    state.config.hasTelegramBotToken,
     state.config.telegramMode,
     state.config.telegramChannel,
     state.config.telegramApiId,
     state.config.telegramApiHash,
-    state.config.telegramPhone
+    state.config.telegramPhone,
+    state.config.hasTelegramBotToken,
+    hasSavedCredentials,
+    hasSavedSource
   ]);
 
   useEffect(() => {
@@ -1090,20 +1106,21 @@ function Connections({
             )}
 
             <div className="flex flex-wrap gap-2">
-              <button
-                type={credentialsEditing ? 'submit' : 'button'}
-                disabled={busy === 'settings'}
-                className={primaryButton}
-                onClick={() => {
-                  if (!credentialsEditing) {
-                    setCredentialsEditing(true);
-                  }
-                }}
-              >
-                {credentialsEditing ? 'Salvar credenciais' : 'Editar credenciais'}
-              </button>
-            </div>
-          </form>
+                <button
+                  type={credentialsEditing ? 'submit' : 'button'}
+                  disabled={busy === 'settings'}
+                  className={primaryButton}
+                  onClick={() => {
+                    if (!credentialsEditing) {
+                      restoreSavedCredentials();
+                      setCredentialsEditing(true);
+                    }
+                  }}
+                >
+                  {credentialsEditing || !hasSavedCredentials ? 'Salvar credenciais' : 'Editar credenciais'}
+                </button>
+              </div>
+            </form>
 
           {showTelegramAuthPanel ? (
             <>
@@ -1244,14 +1261,15 @@ function Connections({
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={busy === 'save-source'}
-                  onClick={async () => {
-                    if (!sourceEditing) {
-                      setSourceEditing(true);
-                      return;
-                    }
+                  <button
+                    type="button"
+                    disabled={busy === 'save-source'}
+                    onClick={async () => {
+                      if (!sourceEditing) {
+                        restoreSavedSource();
+                        setSourceEditing(true);
+                        return;
+                      }
 
                     setBusy('save-source');
                     await postJson('/api/settings', {
@@ -1266,11 +1284,11 @@ function Connections({
                     setNotice('Origem monitorada salva.');
                     setSourceEditing(false);
                     setBusy('');
-                  }}
-                  className={primaryButton}
-                >
-                  {sourceEditing ? 'Salvar origem' : 'Editar origem'}
-                </button>
+                    }}
+                    className={primaryButton}
+                  >
+                    {sourceEditing || !hasSavedSource ? 'Salvar origem' : 'Editar origem'}
+                  </button>
                 <button
                   type="button"
                   disabled={busy === 'telegram-chats'}
