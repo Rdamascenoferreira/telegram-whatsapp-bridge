@@ -235,7 +235,13 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
-  const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useState(false);
+  const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.sessionStorage.getItem('affiliate-automation-editing') === 'true';
+  });
 
   async function loadState() {
     const nextState = await requestJson<AppState>('/api/state');
@@ -265,6 +271,14 @@ export default function Home() {
 
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.sessionStorage.setItem('affiliate-automation-editing', affiliateAutomationEditing ? 'true' : 'false');
+  }, [affiliateAutomationEditing]);
 
   useEffect(() => {
     if (!state?.auth.authenticated) {
@@ -889,6 +903,7 @@ function Topbar({
   const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
 
   return (
     <header className="mb-5 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
@@ -902,7 +917,7 @@ function Topbar({
               { label: 'WhatsApp', done: whatsAppConnected },
               { label: 'Origem', done: hasTelegramSource },
               { label: 'Destino', done: hasWhatsAppDestination },
-              { label: 'Ativo', done: state.config.bridgeEnabled, ready: !state.config.bridgeEnabled && canEnableAutomation }
+              { label: 'Ativo', done: effectiveBridgeEnabled, ready: !effectiveBridgeEnabled && canEnableAutomation }
             ]}
           />
         </div>
@@ -938,6 +953,7 @@ function Overview({
 }) {
   const progress = state.metrics.groupRefreshProgress;
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
   const automationLockReason =
     state.telegramStatus !== 'listening'
       ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
@@ -972,17 +988,24 @@ function Overview({
               <div>
                 <p className="text-sm font-semibold">Automacao ativa</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  {state.config.bridgeEnabled
+                  {effectiveBridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
+                    : state.config.bridgeEnabled
+                      ? 'A automacao foi pausada porque nem todas as conexoes estao prontas.'
                     : canEnableAutomation
                       ? 'As mensagens recebidas ficam sem encaminhamento ate voce ligar de novo.'
                       : automationLockReason}
                 </p>
               </div>
               <SystemPowerSwitch
-                checked={state.config.bridgeEnabled}
-                disabled={busy === 'power' || (!canEnableAutomation && !state.config.bridgeEnabled)}
+                checked={effectiveBridgeEnabled}
+                disabled={busy === 'power' || !canEnableAutomation}
                 onChange={async (nextValue) => {
+                  if (nextValue && !canEnableAutomation) {
+                    setNotice(automationLockReason);
+                    return;
+                  }
+
                   setBusy('power');
                   await postJson('/api/system-power', { bridgeEnabled: nextValue });
                   await refresh();
@@ -992,7 +1015,7 @@ function Overview({
               />
             </div>
 
-            {!canEnableAutomation && !state.config.bridgeEnabled ? (
+            {!canEnableAutomation ? (
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
                 O interruptor sera liberado assim que Telegram e WhatsApp estiverem conectados.
               </p>
