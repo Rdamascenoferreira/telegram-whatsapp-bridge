@@ -235,6 +235,7 @@ export default function Home() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
+  const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useState(false);
 
   async function loadState() {
     const nextState = await requestJson<AppState>('/api/state');
@@ -244,10 +245,14 @@ export default function Home() {
   useEffect(() => {
     void loadState();
     const timer = window.setInterval(() => {
+      if (view === 'affiliate' && affiliateAutomationEditing) {
+        return;
+      }
+
       void loadState().catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [view, affiliateAutomationEditing]);
 
   useEffect(() => {
     if (!notice) {
@@ -366,6 +371,8 @@ export default function Home() {
               setBusy={setBusy}
               busy={busy}
               refresh={loadState}
+              isAutomationEditing={affiliateAutomationEditing}
+              setAutomationEditing={setAffiliateAutomationEditing}
             />
           ) : null}
           {view === 'activity' ? <ActivityLog state={state} /> : null}
@@ -2078,29 +2085,21 @@ function AffiliateAutomationPanel({
   setNotice,
   setBusy,
   busy,
-  refresh
+  refresh,
+  isAutomationEditing,
+  setAutomationEditing
 }: {
   state: AppState;
   setNotice: (message: string) => void;
   setBusy: (value: string) => void;
   busy: string;
   refresh: () => Promise<void>;
+  isAutomationEditing: boolean;
+  setAutomationEditing: (value: boolean) => void;
 }) {
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
-  const automationEditorStorageKey = 'affiliate-automation-editing';
-  const [isAutomationEditing, setIsAutomationEditing] = useState(() => {
-    if (!firstAutomation) {
-      return true;
-    }
-
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    return window.sessionStorage.getItem(automationEditorStorageKey) === 'true';
-  });
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2111,17 +2110,9 @@ function AffiliateAutomationPanel({
 
   useEffect(() => {
     if (!firstAutomation) {
-      setIsAutomationEditing(true);
+      setAutomationEditing(true);
     }
-  }, [firstAutomation]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.sessionStorage.setItem(automationEditorStorageKey, isAutomationEditing ? 'true' : 'false');
-  }, [isAutomationEditing]);
+  }, [firstAutomation, setAutomationEditing]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2168,7 +2159,7 @@ function AffiliateAutomationPanel({
 
     await refresh();
     setNotice('Automacao de afiliados salva.');
-    setIsAutomationEditing(false);
+    setAutomationEditing(false);
     setBusy('');
   }
 
@@ -2328,7 +2319,7 @@ function AffiliateAutomationPanel({
               {isAutomationEditing ? (
                 <button type="submit" disabled={busy === 'affiliate-automation'} className={affiliatePrimaryButtonClass}>Salvar automacao</button>
               ) : (
-                <button type="button" onClick={() => setIsAutomationEditing(true)} className={affiliatePrimaryButtonClass}>Editar</button>
+                <button type="button" onClick={() => setAutomationEditing(true)} className={affiliatePrimaryButtonClass}>Editar</button>
               )}
             </div>
           </form>
