@@ -14,6 +14,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
       - name: Validate required secrets
         env:
           AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
@@ -30,12 +39,20 @@ jobs:
       - name: Build release archive
         run: |
           set -euo pipefail
+          npm ci --omit=dev --no-audit --no-fund
+
+          cd web
+          npm ci --no-audit --no-fund
+          CI=1 npm run build
+          npm prune --omit=dev --no-audit --no-fund
+          rm -rf .next/cache
+          cd ..
+
           ARCHIVE_PATH="/tmp/telegram-whatsapp-bridge-release.tgz"
           rm -f "$ARCHIVE_PATH"
 
           tar \
             --exclude-vcs \
-            --exclude='./node_modules' \
             --exclude='./.env' \
             --exclude='./data' \
             --exclude='./.wwebjs_auth' \

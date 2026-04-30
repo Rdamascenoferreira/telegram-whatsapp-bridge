@@ -33,11 +33,6 @@ if ! command -v rsync >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required on the server." >&2
-  exit 1
-fi
-
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "pm2 is required on the server." >&2
   exit 1
@@ -66,23 +61,10 @@ rsync -a --delete \
   --exclude 'data' \
   --exclude '.wwebjs_auth' \
   --exclude '.wwebjs_cache' \
-  --exclude 'node_modules' \
   --exclude '.git' \
   "$TMP_DIR"/ "$APP_DIR"/
 
 cd "$APP_DIR"
-log_step "Instalando dependencias do backend"
-npm ci --omit=dev --no-audit --no-fund
-
-cd "$APP_DIR/web"
-log_step "Instalando dependencias do frontend"
-npm ci --no-audit --no-fund
-
-log_step "Gerando build do frontend"
-CI=1 npm run build
-
-cd "$APP_DIR"
-
 mkdir -p data .wwebjs_auth .wwebjs_cache
 
 export PM2_APP_NAME
