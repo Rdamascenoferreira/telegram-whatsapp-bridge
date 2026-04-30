@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.54';
+const panelVersion = 'Versao 0.55';
 
 type AuthUser = {
   id: string;
@@ -85,6 +85,49 @@ type TelegramChat = {
   id: string;
   name: string;
   type: 'group' | 'channel';
+};
+
+type AffiliateAccount = {
+  amazonTag?: string;
+  shopeeAffiliateId?: string;
+  shopeeAppId?: string;
+  shopeeSecretConfigured?: boolean;
+  defaultSubId?: string;
+  amazonEnabled?: boolean;
+  shopeeEnabled?: boolean;
+};
+
+type AffiliateAutomation = {
+  id: string;
+  name: string;
+  telegramSourceGroupId: string;
+  telegramSourceGroupName?: string;
+  unknownLinkBehavior?: 'keep' | 'remove' | 'ignore_message';
+  customFooter?: string;
+  removeOriginalFooter?: boolean;
+  isActive: boolean;
+  destinations: Array<{
+    whatsappGroupId: string;
+    whatsappGroupName?: string;
+  }>;
+};
+
+type AffiliateLog = {
+  id: string;
+  automationId?: string;
+  originalMessage: string;
+  processedMessage?: string;
+  convertedUrls?: Array<{
+    originalUrl: string;
+    expandedUrl?: string;
+    marketplace: 'amazon' | 'shopee' | 'unknown';
+    affiliateUrl?: string;
+    status: 'converted' | 'ignored' | 'error';
+    error?: string;
+  }>;
+  status: string;
+  errorMessage?: string;
+  createdAt: string;
 };
 
 type AdminUser = AuthUser & {
@@ -159,6 +202,14 @@ type AppState = {
     users: AdminUser[];
     summary?: Record<string, number>;
   } | null;
+  affiliate?: {
+    account: AffiliateAccount | null;
+    automations: AffiliateAutomation[];
+    logs: AffiliateLog[];
+    termsAccepted?: boolean;
+    termsVersion?: string;
+    error?: string;
+  };
   issue?: {
     message?: string;
     canReconnect?: boolean;
@@ -166,12 +217,13 @@ type AppState = {
   } | null;
 };
 
-type ViewKey = 'overview' | 'connections' | 'groups' | 'activity' | 'account' | 'admin';
+type ViewKey = 'overview' | 'connections' | 'groups' | 'affiliate' | 'activity' | 'account' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
   { key: 'connections', label: 'Telegram', icon: Settings2 },
   { key: 'groups', label: 'WhatsApp', icon: Users },
+  { key: 'affiliate', label: 'Afiliados', icon: CreditCard },
   { key: 'activity', label: 'Historico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
@@ -301,6 +353,15 @@ export default function Home() {
               state={state}
               filter={groupFilter}
               setFilter={setGroupFilter}
+              setNotice={setNotice}
+              setBusy={setBusy}
+              busy={busy}
+              refresh={loadState}
+            />
+          ) : null}
+          {view === 'affiliate' ? (
+            <AffiliateAutomationPanel
+              state={state}
               setNotice={setNotice}
               setBusy={setBusy}
               busy={busy}
@@ -2002,6 +2063,282 @@ function CompactSetupChecklist({
       <span className="ml-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-100">
         {doneCount}/5
       </span>
+    </div>
+  );
+}
+
+function AffiliateAutomationPanel({
+  state,
+  setNotice,
+  setBusy,
+  busy,
+  refresh
+}: {
+  state: AppState;
+  setNotice: (message: string) => void;
+  setBusy: (value: string) => void;
+  busy: string;
+  refresh: () => Promise<void>;
+}) {
+  const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
+  const firstAutomation = affiliate.automations?.[0];
+  const [editingAutomationId, setEditingAutomationId] = useState(firstAutomation?.id || '');
+  const activeAutomation = affiliate.automations?.find((automation) => automation.id === editingAutomationId) || firstAutomation;
+  const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
+  const [testResult, setTestResult] = useState<{
+    originalMessage: string;
+    processedMessage: string;
+    convertedUrls: AffiliateLog['convertedUrls'];
+    status: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!editingAutomationId && firstAutomation?.id) {
+      setEditingAutomationId(firstAutomation.id);
+    }
+  }, [editingAutomationId, firstAutomation?.id]);
+
+  async function submitAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy('affiliate-account');
+    const form = new FormData(event.currentTarget);
+
+    await postJson('/api/affiliate/account', {
+      amazonEnabled: form.get('amazonEnabled') === 'on',
+      amazonTag: form.get('amazonTag'),
+      shopeeEnabled: form.get('shopeeEnabled') === 'on',
+      shopeeAffiliateId: form.get('shopeeAffiliateId'),
+      defaultSubId: form.get('defaultSubId'),
+      shopeeAppId: form.get('shopeeAppId'),
+      shopeeSecret: form.get('shopeeSecret')
+    });
+
+    await refresh();
+    setNotice('Dados de afiliado salvos.');
+    setBusy('');
+  }
+
+  async function submitAutomation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy('affiliate-automation');
+    const form = new FormData(event.currentTarget);
+    const sourceId = String(form.get('telegramSourceGroupId') ?? '');
+    const source = state.telegram.availableChats?.find((chat) => chat.id === sourceId);
+    const selectedDestinationIds = new Set(form.getAll('destinations').map(String));
+    const destinations = state.groups
+      .filter((group) => selectedDestinationIds.has(group.id))
+      .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
+
+    await postJson('/api/affiliate/automations', {
+      id: form.get('automationId') || undefined,
+      name: form.get('name'),
+      telegramSourceGroupId: sourceId,
+      telegramSourceGroupName: source?.name || '',
+      destinations,
+      unknownLinkBehavior: form.get('unknownLinkBehavior'),
+      customFooter: form.get('customFooter'),
+      removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
+      isActive: form.get('isActive') === 'on'
+    });
+
+    await refresh();
+    setNotice('Automacao de afiliados salva.');
+    setBusy('');
+  }
+
+  async function runManualTest() {
+    setBusy('affiliate-test');
+    const result = await postJson<typeof testResult>('/api/affiliate/test', {
+      automationId: activeAutomation?.id || '',
+      automation: activeAutomation || {
+        name: 'Teste manual',
+        telegramSourceGroupId: state.telegram.availableChats?.[0]?.id || '',
+        unknownLinkBehavior: 'keep',
+        removeOriginalFooter: false,
+        customFooter: ''
+      },
+      message: testMessage
+    });
+    setTestResult(result);
+    setNotice('Teste de conversao concluido.');
+    setBusy('');
+  }
+
+  async function acceptTerms() {
+    setBusy('affiliate-terms');
+    await postJson('/api/affiliate/terms/accept');
+    await refresh();
+    setNotice('Termo de uso aceito.');
+    setBusy('');
+  }
+
+  return (
+    <div className="grid gap-5">
+      <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] max-sm:p-4">
+        <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Automacao de Afiliados</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">Links Amazon e Shopee no automatico</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Um fluxo separado para ler ofertas do Telegram, converter links elegiveis e entregar a mensagem final nos grupos de WhatsApp escolhidos.
+            </p>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+            {affiliate.automations?.filter((automation) => automation.isActive).length || 0} ativa(s)
+          </span>
+        </div>
+
+        {affiliate.error ? (
+          <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            Banco de afiliados ainda nao preparado. Rode o SQL em scripts/supabase-affiliate-automation.sql no Supabase.
+          </p>
+        ) : null}
+
+        {!affiliate.termsAccepted ? (
+          <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+            <p className="text-sm font-semibold text-amber-50">Aceite obrigatorio</p>
+            <p className="mt-2 text-xs leading-5 text-amber-100/80">
+              Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automacao. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
+            </p>
+            <button type="button" disabled={busy === 'affiliate-terms'} onClick={acceptTerms} className="mt-3 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
+              Aceitar termo e liberar modulo
+            </button>
+          </div>
+        ) : null}
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
+        <div className="grid gap-5">
+          <form key={activeAutomation?.id || 'new-affiliate-automation'} onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+            <div className="flex items-start justify-between gap-3 max-md:flex-col">
+              <div>
+                <p className="text-sm font-semibold">Fluxo da automacao</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Escolha uma origem Telegram e os destinos WhatsApp desta regra.</p>
+              </div>
+              <select value={editingAutomationId} onChange={(event) => setEditingAutomationId(event.target.value)} className="rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2 text-sm">
+                <option value="">Nova automacao</option>
+                {affiliate.automations?.map((automation) => (
+                  <option key={automation.id} value={automation.id}>{automation.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <input type="hidden" name="automationId" value={activeAutomation?.id || ''} />
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-semibold">
+                Nome da automacao
+                <input name="name" defaultValue={activeAutomation?.name || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3" placeholder="Ofertas Amazon" />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Grupo Telegram origem
+                <select name="telegramSourceGroupId" defaultValue={activeAutomation?.telegramSourceGroupId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3">
+                  <option value="">Selecione uma origem</option>
+                  {state.telegram.availableChats?.map((chat) => (
+                    <option key={chat.id} value={chat.id}>{chat.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+              <p className="text-sm font-semibold">Destinos WhatsApp</p>
+              <div className="mt-3 grid max-h-64 gap-2 overflow-auto pr-1 md:grid-cols-2">
+                {state.groups.map((group) => {
+                  const checked = Boolean(activeAutomation?.destinations?.some((destination) => destination.whatsappGroupId === group.id));
+                  return (
+                    <label key={group.id} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs">
+                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} />
+                      <span className="truncate">{group.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-semibold">
+                Links desconhecidos
+                <select name="unknownLinkBehavior" defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3">
+                  <option value="keep">Manter link original</option>
+                  <option value="remove">Remover link</option>
+                  <option value="ignore_message">Ignorar mensagem inteira</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Rodape personalizado
+                <input name="customFooter" defaultValue={activeAutomation?.customFooter || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3" placeholder="Opcional" />
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
+                <label className="inline-flex items-center gap-2"><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} /> Remover rodape original</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" name="isActive" defaultChecked={activeAutomation?.isActive ?? true} /> Ativa</label>
+              </div>
+              <button type="submit" disabled={busy === 'affiliate-automation'} className="rounded-xl bg-[var(--primary)] px-5 py-3 font-semibold text-black disabled:opacity-60">Salvar automacao</button>
+            </div>
+          </form>
+
+          <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+            <div className="flex items-start justify-between gap-3 max-md:flex-col">
+              <div>
+                <p className="text-sm font-semibold">Testar conversao</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Simule a conversao sem enviar ao WhatsApp.</p>
+              </div>
+              <button type="button" disabled={busy === 'affiliate-test'} onClick={runManualTest} className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-60">Rodar teste</button>
+            </div>
+            <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} className="mt-4 min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6" />
+            {testResult ? (
+              <div className="mt-4 grid gap-3">
+                <p className="text-sm font-semibold">Resultado: {testResult.status}</p>
+                <pre className="whitespace-pre-wrap rounded-2xl border border-[var(--border)] bg-black/20 p-4 text-xs leading-5 text-[var(--muted)]">{testResult.processedMessage}</pre>
+                {testResult.convertedUrls?.map((url, index) => (
+                  <div key={`${url.originalUrl}-${index}`} className="rounded-xl border border-[var(--border)] bg-white/[0.03] p-3 text-xs">
+                    <p className="font-semibold">{url.marketplace} - {url.status}</p>
+                    <p className="mt-1 break-all text-[var(--muted)]">Original: {url.originalUrl}</p>
+                    <p className="mt-1 break-all text-[var(--muted)]">Final: {url.affiliateUrl || url.expandedUrl || '-'}</p>
+                    {url.error ? <p className="mt-1 text-amber-100">{url.error}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+        <div className="grid gap-5">
+          <form onSubmit={submitAccount} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+            <p className="text-sm font-semibold">Contas de afiliado</p>
+            <div className="mt-4 grid gap-3">
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} /> Converter Amazon</label>
+              <input name="amazonTag" defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="sua-tag-20" />
+              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} /> Preparar Shopee</label>
+              <input name="shopeeAffiliateId" defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="ID/SubID Shopee" />
+              <input name="defaultSubId" defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="SubID padrao" />
+              <input name="shopeeAppId" defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="App ID Shopee" />
+              <input name="shopeeSecret" className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
+            </div>
+            <button type="submit" disabled={busy === 'affiliate-account'} className="mt-4 w-full rounded-xl bg-[var(--primary)] px-5 py-3 font-semibold text-black disabled:opacity-60">Salvar dados</button>
+          </form>
+
+          <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+            <p className="text-sm font-semibold">Historico recente</p>
+            <div className="mt-4 grid gap-3">
+              {affiliate.logs?.length ? affiliate.logs.map((log) => (
+                <div key={log.id} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{log.status}</span>
+                    <span className="text-[11px] text-[var(--muted)]">{formatDate(log.createdAt)}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-[var(--muted)]">{log.processedMessage || log.originalMessage}</p>
+                  {log.errorMessage ? <p className="mt-2 text-xs text-red-100">{log.errorMessage}</p> : null}
+                </div>
+              )) : (
+                <p className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-6 text-center text-sm text-[var(--muted)]">Nenhuma mensagem processada ainda.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

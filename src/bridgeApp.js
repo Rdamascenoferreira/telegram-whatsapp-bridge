@@ -4,6 +4,14 @@ import TelegramBot from 'node-telegram-bot-api';
 import pkg from 'whatsapp-web.js';
 import { loadActivityForUser } from './activityStore.js';
 import {
+  acceptAffiliateTerms,
+  getAffiliateState,
+  setAffiliateAutomationActive,
+  upsertAffiliateAccount,
+  upsertAffiliateAutomation
+} from './affiliate/affiliate-store.js';
+import { processAffiliateMessage } from './affiliate/affiliate-message-processor.js';
+import {
   deleteUserAccount,
   findUserById,
   listUsersForAdmin,
@@ -56,10 +64,12 @@ export class BridgeApp {
       const admin = this.auth?.isAdminUser(request.user)
         ? await this.buildAdminState()
         : null;
+      const affiliate = request.user ? await this.buildAffiliateState(request.user.id) : null;
 
       response.json({
         auth,
         ...(runtime ? await runtime.getState() : {}),
+        ...(affiliate ? { affiliate } : {}),
         ...(admin ? { admin } : {})
       });
     };
@@ -169,6 +179,50 @@ export class BridgeApp {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.resetAllConnections();
       await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/account', requireAuth, async (request, response) => {
+      await upsertAffiliateAccount(request.user.id, request.body || {});
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/automations', requireAuth, async (request, response) => {
+      await upsertAffiliateAutomation(request.user.id, request.body || {});
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/automations/:automationId/toggle', requireAuth, async (request, response) => {
+      await setAffiliateAutomationActive(
+        request.user.id,
+        String(request.params.automationId ?? '').trim(),
+        Boolean(request.body?.isActive)
+      );
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/terms/accept', requireAuth, async (request, response) => {
+      await acceptAffiliateTerms(request.user.id, {
+        ipAddress: getRequestIp(request),
+        userAgent: request.headers['user-agent']
+      });
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/test', requireAuth, async (request, response) => {
+      const message = String(request.body?.message ?? '');
+      const automationId = String(request.body?.automationId ?? '').trim();
+      const draftAutomation = request.body?.automation && !automationId
+        ? normalizeAffiliateAutomationDraft(request.user.id, request.body.automation)
+        : null;
+      const result = await processAffiliateMessage({
+        userId: request.user.id,
+        automationId,
+        automation: draftAutomation,
+        message,
+        dryRun: true
+      });
+
+      response.json(result);
     });
 
     app.get('/api/admin/users', requireAdmin, async (_request, response) => {
@@ -622,6 +676,40 @@ export class BridgeApp {
         }))
       }));
   }
+
+  async buildAffiliateState(userId) {
+    try {
+      return await getAffiliateState(userId);
+    } catch (error) {
+      return {
+        account: null,
+        automations: [],
+        logs: [],
+        termsAccepted: false,
+        error: error.message
+      };
+    }
+  }
+}
+
+function normalizeAffiliateAutomationDraft(userId, payload = {}) {
+  return {
+    id: 'manual-test',
+    userId,
+    name: String(payload.name ?? 'Teste manual').trim() || 'Teste manual',
+    telegramSourceGroupId: String(payload.telegramSourceGroupId ?? '').trim(),
+    telegramSourceGroupName: String(payload.telegramSourceGroupName ?? '').trim(),
+    unknownLinkBehavior: String(payload.unknownLinkBehavior ?? 'keep'),
+    customFooter: String(payload.customFooter ?? '').trim(),
+    removeOriginalFooter: Boolean(payload.removeOriginalFooter),
+    isActive: true,
+    destinations: []
+  };
+}
+
+function getRequestIp(request) {
+  const forwardedFor = String(request.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+  return forwardedFor || request.ip || '';
 }
 
 function serializeWid(wid) {
@@ -750,7 +838,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-const currentPanelVersion = 'Versao 0.54';
+const currentPanelVersion = 'Versao 0.55';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

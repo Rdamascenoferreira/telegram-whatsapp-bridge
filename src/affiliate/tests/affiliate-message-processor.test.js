@@ -1,0 +1,79 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { processAffiliateMessage } from '../affiliate-message-processor.js';
+import { convertShopeeLink } from '../converters/shopee-affiliate-converter.js';
+
+const automation = {
+  id: 'automation-1',
+  name: 'Teste',
+  isActive: true,
+  unknownLinkBehavior: 'keep',
+  customFooter: '',
+  removeOriginalFooter: false,
+  destinations: []
+};
+
+const account = {
+  amazonEnabled: true,
+  amazonTag: 'tagdocliente-20',
+  shopeeEnabled: false
+};
+
+test('processAffiliateMessage converts Amazon and keeps unknown links', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta\nhttps://amzn.to/abc\n_\nhttps://linktr.ee/mc8mb',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('amzn.to') ? 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20' : url,
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.shouldSend, true);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /https:\/\/linktr\.ee\/mc8mb/);
+});
+
+test('processAffiliateMessage ignores messages without links', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta sem link'
+  });
+
+  assert.equal(result.status, 'ignored');
+  assert.equal(result.shouldSend, false);
+});
+
+test('processAffiliateMessage respects disabled Amazon conversion', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account: { ...account, amazonEnabled: false },
+    dryRun: true,
+    message: 'Oferta https://amazon.com.br/dp/B0ABC12345',
+    expandUrlFn: async (url) => ({ originalUrl: url, expandedUrl: url, success: true })
+  });
+
+  assert.equal(result.status, 'ignored');
+  assert.equal(result.processedMessage, 'Oferta https://amazon.com.br/dp/B0ABC12345');
+});
+
+test('convertShopeeLink returns controlled provider error', async () => {
+  const result = await convertShopeeLink('https://www.shopee.com.br/produto', {
+    affiliateId: 'abc'
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.error, 'Shopee affiliate conversion provider not configured');
+});

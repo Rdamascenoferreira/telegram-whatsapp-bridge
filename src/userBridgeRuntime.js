@@ -15,6 +15,11 @@ import {
   upsertActivityOffer
 } from './activityStore.js';
 import {
+  getActiveAffiliateAutomationsBySource,
+  updateAffiliateMessageLog
+} from './affiliate/affiliate-store.js';
+import { processAffiliateMessage } from './affiliate/affiliate-message-processor.js';
+import {
   ensureWorkspaceForUser,
   loadConfigForUser,
   saveConfigForUser
@@ -228,8 +233,8 @@ export class UserBridgeRuntime {
     return this.telegramStatus === 'listening' && this.whatsAppStatus === 'ready';
   }
 
-  resolveWhatsAppTargetGroupIds() {
-    const selectedIds = Array.isArray(this.config.selectedGroupIds) ? this.config.selectedGroupIds : [];
+  resolveWhatsAppTargetGroupIds(selectedGroupIds = this.config.selectedGroupIds) {
+    const selectedIds = Array.isArray(selectedGroupIds) ? selectedGroupIds : [];
     const groupsById = new Map(this.availableGroups.map((group) => [group.id, group]));
     const resolved = new Set();
 
@@ -744,6 +749,18 @@ export class UserBridgeRuntime {
         source: 'telegram_bot'
       }
     });
+
+    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
+      sourceGroupId: String(message.chat?.id ?? ''),
+      sourceGroupName: describeTelegramChat(message.chat),
+      telegramMessageId: String(message.message_id ?? ''),
+      messageText: message.text || message.caption || fallbackText(message)
+    });
+
+    if (affiliateHandled) {
+      return;
+    }
+
     await this.handleTelegramMessage(message);
   }
 
@@ -928,7 +945,136 @@ export class UserBridgeRuntime {
         source: 'telegram_user_session'
       }
     });
+
+    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
+      sourceGroupId: sourceChatId,
+      sourceGroupName: describeTelegramEntity(chat, sourceChatId),
+      telegramMessageId: String(message.id ?? ''),
+      messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage)
+    });
+
+    if (affiliateHandled) {
+      return;
+    }
+
     await this.handleTelegramMessage(runtimeMessage);
+  }
+
+  async maybeProcessAffiliateAutomation({ sourceGroupId, sourceGroupName, telegramMessageId, messageText }) {
+    const automations = await getActiveAffiliateAutomationsBySource(this.userId, sourceGroupId);
+
+    if (!automations.length) {
+      return false;
+    }
+
+    for (const automation of automations) {
+      const result = await processAffiliateMessage({
+        userId: this.userId,
+        automationId: automation.id,
+        automation,
+        telegramMessageId,
+        message: messageText
+      });
+
+      if (!result.shouldSend) {
+        this.log(`Automacao de afiliados "${automation.name}" processou a mensagem sem envio (${result.status}).`, {
+          type: 'affiliate_ignored',
+          metadata: {
+            automationId: automation.id,
+            sourceGroupId,
+            sourceGroupName
+          }
+        });
+        continue;
+      }
+
+      const destinationIds = automation.destinations.map((destination) => destination.whatsappGroupId).filter(Boolean);
+      const targetGroupIds = this.resolveWhatsAppTargetGroupIds(destinationIds);
+
+      if (!targetGroupIds.length) {
+        await updateAffiliateMessageLog(result.messageLogId, {
+          status: 'error',
+          errorMessage: 'Nenhum grupo de WhatsApp destino configurado.'
+        });
+        this.log(`Automacao de afiliados "${automation.name}" sem destino WhatsApp configurado.`, {
+          level: 'error',
+          type: 'affiliate_error',
+          increments: { errors: 1 }
+        });
+        continue;
+      }
+
+      if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
+        await updateAffiliateMessageLog(result.messageLogId, {
+          status: 'error',
+          errorMessage: `WhatsApp indisponivel: ${this.whatsAppStatus}`
+        });
+        this.log('Mensagem de afiliados processada, mas o WhatsApp ainda nao esta pronto.', {
+          level: 'error',
+          type: 'affiliate_error',
+          increments: { errors: 1 }
+        });
+        continue;
+      }
+
+      const delivery = await this.sendAffiliateMessageToWhatsAppGroups(result.processedMessage, targetGroupIds);
+      await updateAffiliateMessageLog(result.messageLogId, {
+        status: delivery.failed.length ? 'error' : 'sent',
+        errorMessage: delivery.failed.map((failure) => `${failure.groupId}: ${failure.error}`).join(' | '),
+        sentAt: delivery.sent.length ? new Date().toISOString() : null
+      });
+
+      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s).`, {
+        type: delivery.failed.length ? 'affiliate_partial_error' : 'affiliate_sent',
+        increments: {
+          forwardBatches: 1,
+          forwardedMessages: 1,
+          whatsAppDeliveries: delivery.sent.length,
+          errors: delivery.failed.length
+        },
+        metadata: {
+          automationId: automation.id,
+          groups: targetGroupIds.length,
+          sent: delivery.sent.length,
+          failed: delivery.failed.length
+        }
+      });
+    }
+
+    return true;
+  }
+
+  async sendAffiliateMessageToWhatsAppGroups(messageText, targetGroupIds) {
+    const sent = [];
+    const failed = [];
+
+    for (const groupId of targetGroupIds) {
+      let delivered = false;
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          await this.whatsAppClient.sendMessage(groupId, messageText);
+          sent.push({ groupId, attempt });
+          delivered = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          await wait(1200 * attempt);
+        }
+      }
+
+      if (!delivered) {
+        failed.push({
+          groupId,
+          error: lastError?.message || 'Falha desconhecida no envio'
+        });
+      }
+
+      await wait(2200);
+    }
+
+    return { sent, failed };
   }
 
   async handleTelegramMessage(message, options = {}) {
