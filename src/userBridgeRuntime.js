@@ -11,7 +11,8 @@ import {
   appendActivityEvent,
   defaultActivity,
   loadActivityForUser,
-  saveActivityForUser
+  saveActivityForUser,
+  upsertActivityOffer
 } from './activityStore.js';
 import {
   ensureWorkspaceForUser,
@@ -156,6 +157,7 @@ export class UserBridgeRuntime {
       },
       issue: this.whatsAppIssue,
       activity: this.activity.events.slice(0, 24),
+      offers: (this.activity.offers || []).slice(0, 10),
       diagnostics: this.groupDiagnostics,
       groups: this.availableGroups.map((group) => ({
         ...group,
@@ -296,12 +298,27 @@ export class UserBridgeRuntime {
       metadata: options.metadata || {},
       increments: options.increments || {}
     });
+    this.syncActivityArtifacts();
+    const line = `[${new Date().toLocaleString('pt-BR')}] ${message}`;
+    console.log(`[bridge:${this.userId}] ${line}`);
+  }
+
+  syncActivityArtifacts() {
     this.logs = buildLogLines(this.activity.events).slice(0, 80);
     this.persistActivity().catch((error) => {
       console.error(`[bridge:${this.userId}] Falha ao persistir atividade: ${error.message}`);
     });
-    const line = `[${new Date().toLocaleString('pt-BR')}] ${message}`;
-    console.log(`[bridge:${this.userId}] ${line}`);
+  }
+
+  upsertOffer(messages, offer = {}) {
+    this.activity = upsertActivityOffer(this.activity, {
+      ...buildOfferSnapshot(messages, {
+        groupCount: this.config.selectedGroupIds.length
+      }),
+      ...offer,
+      lastUpdatedAt: offer.lastUpdatedAt || new Date().toISOString()
+    });
+    this.syncActivityArtifacts();
   }
 
   async startWhatsApp() {
@@ -693,6 +710,13 @@ export class UserBridgeRuntime {
         }
       }
     );
+    this.upsertOffer([message], {
+      status: 'captured',
+      metadata: {
+        updateType,
+        source: 'telegram_bot'
+      }
+    });
     await this.handleTelegramMessage(message);
   }
 
@@ -850,9 +874,9 @@ export class UserBridgeRuntime {
 
     const chat = await message.getChat().catch(() => null);
     this.telegramStatus = 'listening';
-    this.log(
+      this.log(
       `Mensagem recebida do Telegram (user session) em ${describeTelegramEntity(chat, sourceChatId)}.`,
-      {
+        {
         type: 'telegram_received',
         increments: { telegramReceived: 1 },
         metadata: {
@@ -862,18 +886,31 @@ export class UserBridgeRuntime {
         }
       }
     );
-    await this.handleTelegramMessage({
+    const runtimeMessage = {
       __telegramSource: 'user_session',
       id: Number(message.id ?? 0),
       chatId: sourceChatId,
       text: message.text || message.message || '',
       caption: message.text || message.message || '',
       rawMessage: message
+    };
+    this.upsertOffer([runtimeMessage], {
+      status: 'captured',
+      metadata: {
+        updateType: 'user_session',
+        source: 'telegram_user_session'
+      }
     });
+    await this.handleTelegramMessage(runtimeMessage);
   }
 
   async handleTelegramMessage(message, options = {}) {
     if (!this.config.bridgeEnabled) {
+      this.upsertOffer([message], {
+        status: 'ignored',
+        reason: 'bridge_disabled',
+        fromQueue: Boolean(options.fromQueue)
+      });
       this.log('Mensagem recebida, mas o sistema esta desligado. Encaminhamento ignorado.', {
         type: 'forward_skipped'
       });
@@ -882,11 +919,21 @@ export class UserBridgeRuntime {
 
     if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
       if (this.shouldQueueTelegramMessage()) {
+        this.upsertOffer([message], {
+          status: 'queued',
+          reason: this.whatsAppStatus,
+          fromQueue: Boolean(options.fromQueue)
+        });
         this.enqueueTelegramMessages([message], {
           source: options.fromQueue ? 'retry' : 'live',
           reason: this.whatsAppStatus
         });
       } else {
+        this.upsertOffer([message], {
+          status: 'ignored',
+          reason: this.whatsAppStatus,
+          fromQueue: Boolean(options.fromQueue)
+        });
         this.log('Post recebido, mas o WhatsApp ainda nao esta pronto.', {
           type: 'forward_skipped'
         });
@@ -895,6 +942,11 @@ export class UserBridgeRuntime {
     }
 
     if (this.config.selectedGroupIds.length === 0) {
+      this.upsertOffer([message], {
+        status: 'ignored',
+        reason: 'no_groups_selected',
+        fromQueue: Boolean(options.fromQueue)
+      });
       this.log('Post recebido, mas nenhum grupo do WhatsApp foi selecionado.', {
         type: 'forward_skipped'
       });
@@ -920,10 +972,18 @@ export class UserBridgeRuntime {
       }, albumFlushDelayMs);
 
       this.albumBuffers.set(key, current);
+      this.upsertOffer(current.items, {
+        id: buildTelegramOfferKey(current.items[0]),
+        status: 'captured',
+        fromQueue: Boolean(options.fromQueue),
+        messageCount: current.items.length
+      });
       return;
     }
 
-    await this.forwardMessagesWithRecovery([message]);
+    await this.forwardMessagesWithRecovery([message], {
+      fromQueue: Boolean(options.fromQueue)
+    });
   }
 
   async flushAlbum(key) {
@@ -1078,12 +1138,17 @@ export class UserBridgeRuntime {
     }
   }
 
-  async forwardMessagesWithRecovery(messages) {
+  async forwardMessagesWithRecovery(messages, options = {}) {
     try {
-      await this.forwardMessages(messages);
+      await this.forwardMessages(messages, options);
     } catch (error) {
       if (isRecoverableWhatsAppTargetError(error)) {
         this.markWhatsAppBrowserClosed('encaminhar mensagem', error);
+        this.upsertOffer(messages, {
+          status: 'queued',
+          reason: 'recoverable_target_error',
+          fromQueue: Boolean(options.fromQueue)
+        });
         this.enqueueTelegramMessages(messages, {
           source: 'forward',
           reason: 'recoverable_target_error'
@@ -1091,11 +1156,16 @@ export class UserBridgeRuntime {
         return;
       }
 
+      this.upsertOffer(messages, {
+        status: 'failed',
+        reason: error.message,
+        fromQueue: Boolean(options.fromQueue)
+      });
       throw error;
     }
   }
 
-  async forwardMessages(messages) {
+  async forwardMessages(messages, options = {}) {
     const prepared = [];
 
     for (const message of messages) {
@@ -1115,6 +1185,14 @@ export class UserBridgeRuntime {
       }
     }
 
+    const groupCount = this.config.selectedGroupIds.length;
+    this.upsertOffer(messages, {
+      status: 'sent',
+      groupCount,
+      deliveryCount: prepared.length * groupCount,
+      fromQueue: Boolean(options.fromQueue),
+      reason: ''
+    });
     this.log(`Mensagem do Telegram encaminhada para ${this.config.selectedGroupIds.length} grupo(s).`, {
       type: 'forward_success',
       increments: {
@@ -1805,6 +1883,68 @@ function normalizeTelegramChatRef(value) {
 function describeTelegramChat(chat) {
   const title = chat?.title || chat?.username || 'chat sem nome';
   return `${title} [${chat?.id}]`;
+}
+
+function buildOfferSnapshot(messages, options = {}) {
+  const items = Array.isArray(messages) ? messages.filter(Boolean) : [messages].filter(Boolean);
+  const primary = items[0];
+  const now = new Date().toISOString();
+
+  return {
+    id: buildTelegramOfferKey(primary),
+    at: now,
+    lastUpdatedAt: now,
+    sourceLabel: describeTelegramSource(primary),
+    preview: buildTelegramPreview(items),
+    status: 'captured',
+    messageCount: items.length || 1,
+    groupCount: Math.max(0, Number(options.groupCount || 0)),
+    deliveryCount: Math.max(0, Number(options.deliveryCount || 0)),
+    fromQueue: Boolean(options.fromQueue),
+    reason: String(options.reason || ''),
+    metadata: options.metadata && typeof options.metadata === 'object' ? options.metadata : {}
+  };
+}
+
+function buildTelegramOfferKey(message) {
+  if (!message) {
+    return `telegram:${Date.now()}`;
+  }
+
+  const mediaGroupId = String(message?.media_group_id ?? message?.rawMessage?.groupedId ?? '').trim();
+  const chatId = String(message?.chat?.id ?? message?.chatId ?? '').trim();
+
+  if (mediaGroupId) {
+    return `${chatId || 'telegram'}:album:${mediaGroupId}`;
+  }
+
+  return buildTelegramMessageKey(message) || `telegram:${chatId || 'unknown'}:${Date.now()}`;
+}
+
+function buildTelegramPreview(messages) {
+  const parts = messages
+    .map((message) => String(message?.text || message?.caption || fallbackText(message) || '').trim())
+    .map((value) => value.replace(/\s+/g, ' '))
+    .filter(Boolean);
+  const merged = parts.join(' | ');
+
+  if (!merged) {
+    return 'Mensagem captada do Telegram.';
+  }
+
+  return merged.length > 180 ? `${merged.slice(0, 177)}...` : merged;
+}
+
+function describeTelegramSource(message) {
+  if (message?.chat) {
+    return describeTelegramChat(message.chat);
+  }
+
+  if (message?.chatId) {
+    return describeTelegramEntity(message?.rawMessage?.chat || null, message.chatId);
+  }
+
+  return 'Telegram';
 }
 
 function buildTelegramMessageKey(message) {

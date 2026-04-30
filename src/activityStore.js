@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { ensureWorkspaceForUser, getWorkspacePaths } from './configStore.js';
 
 const maxEvents = 160;
+const maxOffers = 80;
 
 export const defaultMetrics = {
   totalEvents: 0,
@@ -21,7 +22,8 @@ export const defaultMetrics = {
 
 export const defaultActivity = {
   metrics: structuredClone(defaultMetrics),
-  events: []
+  events: [],
+  offers: []
 };
 
 export async function loadActivityForUser(userId) {
@@ -91,12 +93,61 @@ export function appendActivityEvent(activity, event) {
 
   return {
     metrics,
-    events: [nextEvent, ...normalizedActivity.events].slice(0, maxEvents)
+    events: [nextEvent, ...normalizedActivity.events].slice(0, maxEvents),
+    offers: normalizedActivity.offers
+  };
+}
+
+export function upsertActivityOffer(activity, offer) {
+  const normalizedActivity = normalizeActivity(activity);
+  const timestamp = String(offer.lastUpdatedAt || offer.at || new Date().toISOString());
+  const nextOffer = {
+    id: String(offer.id || crypto.randomUUID()),
+    at: String(offer.at || timestamp),
+    lastUpdatedAt: timestamp,
+    status: String(offer.status || 'captured'),
+    sourceLabel: String(offer.sourceLabel || 'Telegram'),
+    preview: String(offer.preview || 'Mensagem captada do Telegram.'),
+    messageCount: Math.max(1, Number(offer.messageCount || 1)),
+    groupCount: Math.max(0, Number(offer.groupCount || 0)),
+    deliveryCount: Math.max(0, Number(offer.deliveryCount || 0)),
+    fromQueue: Boolean(offer.fromQueue),
+    reason: String(offer.reason || ''),
+    metadata: offer.metadata && typeof offer.metadata === 'object' ? offer.metadata : {}
+  };
+  const existingIndex = normalizedActivity.offers.findIndex((item) => item.id === nextOffer.id);
+  const offers = [...normalizedActivity.offers];
+
+  if (existingIndex >= 0) {
+    const previous = offers[existingIndex];
+    offers[existingIndex] = {
+      ...previous,
+      ...nextOffer,
+      at: previous.at || nextOffer.at,
+      messageCount: Math.max(previous.messageCount || 1, nextOffer.messageCount),
+      groupCount: nextOffer.groupCount,
+      deliveryCount: nextOffer.deliveryCount,
+      metadata: {
+        ...(previous.metadata || {}),
+        ...(nextOffer.metadata || {})
+      }
+    };
+  } else {
+    offers.push(nextOffer);
+  }
+
+  offers.sort((left, right) => String(right.lastUpdatedAt).localeCompare(String(left.lastUpdatedAt)));
+
+  return {
+    metrics: normalizedActivity.metrics,
+    events: normalizedActivity.events,
+    offers: offers.slice(0, maxOffers)
   };
 }
 
 function normalizeActivity(activity) {
   const events = Array.isArray(activity?.events) ? activity.events : [];
+  const offers = Array.isArray(activity?.offers) ? activity.offers : [];
 
   return {
     metrics: {
@@ -110,6 +161,20 @@ function normalizeActivity(activity) {
       type: String(event.type || 'system'),
       message: String(event.message || ''),
       metadata: event.metadata && typeof event.metadata === 'object' ? event.metadata : {}
+    })),
+    offers: offers.map((offer) => ({
+      id: String(offer.id || crypto.randomUUID()),
+      at: String(offer.at || new Date().toISOString()),
+      lastUpdatedAt: String(offer.lastUpdatedAt || offer.at || new Date().toISOString()),
+      status: String(offer.status || 'captured'),
+      sourceLabel: String(offer.sourceLabel || 'Telegram'),
+      preview: String(offer.preview || 'Mensagem captada do Telegram.'),
+      messageCount: Math.max(1, Number(offer.messageCount || 1)),
+      groupCount: Math.max(0, Number(offer.groupCount || 0)),
+      deliveryCount: Math.max(0, Number(offer.deliveryCount || 0)),
+      fromQueue: Boolean(offer.fromQueue),
+      reason: String(offer.reason || ''),
+      metadata: offer.metadata && typeof offer.metadata === 'object' ? offer.metadata : {}
     }))
   };
 }
