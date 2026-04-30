@@ -482,7 +482,7 @@ function AuthScreen({
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
                 <Zap size={14} className="text-[#25D366]" />
-                  ⚡ Ponte <span className="text-[#25D366]">Telegram</span> → <span className="text-[#229ED9]">WhatsApp</span> no automatico
+                  Operacao real com <span className="text-[#25D366]">Telegram</span> + <span className="text-[#229ED9]">WhatsApp</span> + afiliados
               </span>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
@@ -498,15 +498,15 @@ function AuthScreen({
                   </div>
 
                   <h1 className="mt-5 max-w-4xl text-[4rem] font-semibold leading-[0.98] text-[#F8FAFC] max-xl:max-w-3xl max-xl:text-[3.4rem] max-lg:text-[3rem] max-sm:text-[2.5rem]">
-                    Postou no Telegram,
+                    Sua oferta nasce no Telegram,
                     <br />
-                    chegou em todos os grupos.
+                    passa pelo painel
                     <br />
-                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">Voce so foca em achar a oferta.</span>
+                    <span className="bg-[linear-gradient(90deg,#25D366,#229ED9)] bg-clip-text text-transparent">e chega pronta no WhatsApp.</span>
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Cole sua oferta de afiliado no Telegram uma unica vez. O sistema le, replica automaticamente em todos os seus grupos de WhatsApp selecionados e pronto — sem copiar, sem colar, sem perder timing.
+                    Configure a origem no Telegram, selecione os destinos no WhatsApp, acompanhe status de sessao, historico, testes manuais e, quando quiser, ative o modulo de afiliados para converter links Amazon e preparar a operacao com Shopee.
                   </p>
                 </div>
               </div>
@@ -517,31 +517,35 @@ function AuthScreen({
                     <Rocket size={19} className="text-[#25D366]" />
                   </div>
                   <p className="text-base leading-7 text-[#DBEAE1]">
-                    Voce posta a oferta com seu link de afiliado no Telegram. A plataforma reposta nos seus grupos de WhatsApp automaticamente. Enquanto isso, voce ja esta garimpando a proxima promocao.
+                    O cliente escolhe um grupo de origem no Telegram, define quais grupos de WhatsApp vao receber a mensagem, testa o fluxo antes de ativar e acompanha tudo no painel. Nao e gambiarra de disparo: e operacao guiada, com controle real de origem, destino e entrega.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Motor comercial automatizado</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Central de operacao</p>
                   <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
-                    Voce posta uma vez. A plataforma entrega em todos.
+                    Tudo o que sua ponte precisa, no mesmo painel.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    Conecte seu canal do Telegram e selecione quais grupos de WhatsApp vao receber cada oferta. A partir dai, cada mensagem postada no Telegram e replicada automaticamente para toda a sua base — sem trabalho manual, sem atraso, sem perder venda.
+                    O Portal do Afiliado conecta a conta do Telegram, mantem a sessao do WhatsApp, organiza grupos de destino, registra historico, oferece teste manual e abre um fluxo separado para automacao de afiliados. A equipe sabe o que entrou, o que saiu e o que realmente foi entregue.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.16)] bg-[rgba(37,211,102,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7F3C0]">
                       <span className="h-2 w-2 rounded-full bg-[#25D366]" />
-                      Leitura automatica do Telegram
+                      Leitura de origem no Telegram
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(34,158,217,0.16)] bg-[rgba(34,158,217,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7E5FF]">
                       <span className="h-2 w-2 rounded-full bg-[#229ED9]" />
-                      Repost instantaneo no WhatsApp
+                      Entrega controlada no WhatsApp
                     </span>
-                    <span className="text-[#8FA69C]">Postou no Telegram com seu link de afiliado? Seus grupos de WhatsApp ja receberam. Tudo em segundos, sem voce fazer mais nada.</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.16)] bg-[rgba(37,211,102,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#A7F3C0]">
+                      <span className="h-2 w-2 rounded-full bg-[#25D366]" />
+                      Modulo de afiliados separado
+                    </span>
+                    <span className="text-[#8FA69C]">Telegram comum, ponte para WhatsApp e automacao de afiliados trabalham com regras separadas, sem misturar fluxos e sem perder rastreabilidade.</span>
                   </div>
                 </div>
 
@@ -555,18 +559,18 @@ function AuthScreen({
                   <div className="relative w-full max-w-[360px] rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(18,32,28,0.95),rgba(7,20,16,0.92))] p-4 shadow-[0_30px_60px_rgba(0,0,0,0.35)]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Motor de vendas</p>
-                        <p className="mt-1 text-sm text-[#DCE9E2]">Campanhas em execucao</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Painel operacional</p>
+                        <p className="mt-1 text-sm text-[#DCE9E2]">Fluxos ativos em acompanhamento</p>
                       </div>
                       <div className="rounded-full border border-[rgba(37,211,102,0.2)] bg-[rgba(37,211,102,0.08)] px-2.5 py-1 text-[11px] font-semibold text-[#9CF0BF]">
-                        Online
+                        Em monitoramento
                       </div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-3 gap-2.5">
-                      <AuthDashboardStat label="Campanhas" value="124" />
-                      <AuthDashboardStat label="Cliques" value="98,7%" />
-                      <AuthDashboardStat label="Conversoes" value="12x" />
+                      <AuthDashboardStat label="Origens" value="07" />
+                      <AuthDashboardStat label="Destinos" value="82" />
+                      <AuthDashboardStat label="Fluxos" value="05" />
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-3">
@@ -581,28 +585,28 @@ function AuthScreen({
                         ))}
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px] text-[#7E9088]">
-                        <span>Operacao sempre ligada</span>
-                        <span>Sem trabalho manual</span>
+                        <span>Fila de entrega acompanhada</span>
+                        <span>Painel em tempo real</span>
                       </div>
                     </div>
 
                     <div className="mt-4 grid gap-2">
-                      <AuthDashboardRow label="Ofertas disparadas" value="29.300" />
-                      <AuthDashboardRow label="Entregas por hora" value="4.190" />
-                      <AuthDashboardRow label="Tempo livre ganho" value="+18,4%" />
+                      <AuthDashboardRow label="Mensagens monitoradas" value="29.300" />
+                      <AuthDashboardRow label="Envios concluidos" value="4.190" />
+                      <AuthDashboardRow label="Links convertidos" value="1.284" />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
                       <AuthMiniSignal
                         icon={Smartphone}
                         title="WhatsApp"
-                        detail="Pronto"
+                        detail="Sessao valida"
                         accentClassName="text-[#25D366]"
                         panelClassName="border-[rgba(37,211,102,0.14)] bg-[rgba(37,211,102,0.06)]"
                       />
                       <AuthMiniSignal
                         icon={Send}
                         title="Telegram"
-                        detail="Canal ativo"
+                        detail="Escuta ativa"
                         accentClassName="text-[#229ED9]"
                         panelClassName="border-[rgba(34,158,217,0.14)] bg-[rgba(34,158,217,0.06)]"
                       />
@@ -615,40 +619,40 @@ function AuthScreen({
                 <AuthBenefitCard
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
-                  title="Poste uma vez, entregue em todos"
-                  text="Uma oferta no Telegram chega simultaneamente em todos os grupos de WhatsApp que voce selecionou. Sem repeticao manual."
+                  title="Telegram como origem oficial"
+                  text="Escolha exatamente qual grupo ou canal sera monitorado. A ponte trabalha a partir dessa origem, com fluxo claro e sem improviso."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
-                  title="Horas livres todo dia"
-                  text="Pare de copiar e colar a mesma mensagem em dezenas de grupos. Use esse tempo para garimpar mais ofertas e ganhar mais."
+                  title="Teste antes de ativar"
+                  text="Simule mensagens, revise a saida final e ative a automacao quando a operacao estiver redonda. Mais previsibilidade, menos tentativa no escuro."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
-                  title="Cresca sem trabalhar mais"
-                  text="Adicione quantos grupos de WhatsApp quiser. O esforco continua sendo zero — voce so posta no Telegram."
+                  title="Afiliados sem remendo manual"
+                  text="Converta links Amazon, prepare o fluxo para Shopee e mantenha o modulo de afiliados separado da ponte comum Telegram para WhatsApp."
                 />
               </div>
 
               <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] lg:grid-cols-3">
                 <AuthTrustItem
                   icon={TrendingUp}
-                  title="Controle total das entregas"
-                  label="veja quais ofertas foram enviadas, para quais grupos e quando."
+                  title="Historico auditavel"
+                  label="consulte o que entrou, o que foi processado, para onde saiu e quando aconteceu."
                   accentClassName="text-[#25D366]"
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
-                  title="WhatsApp sempre estavel"
-                  label="suas sessoes ficam ativas e protegidas para entregar sem interrupcao."
+                  title="Sessoes e conexoes visiveis"
+                  label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir rapido quando precisar."
                   accentClassName="text-[#77E6A0]"
                 />
                 <AuthTrustItem
                   icon={Users}
-                  title="Varios grupos, um painel"
-                  label="selecione e gerencie todos os seus grupos de WhatsApp de um unico lugar."
+                  title="Operacao pronta para cliente"
+                  label="conta, perfil, admin, suspensao, grupos, afiliados e historico no mesmo ambiente."
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
@@ -660,7 +664,7 @@ function AuthScreen({
               <div>
                 <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
                 <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
-                  Acesse o painel, conecte seu Telegram e comece a repostar ofertas nos seus grupos de WhatsApp automaticamente.
+                  Entre no painel para configurar sua origem no Telegram, os destinos no WhatsApp, acompanhar sessoes, rodar testes e ativar o modulo de afiliados quando fizer sentido para sua operacao.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
