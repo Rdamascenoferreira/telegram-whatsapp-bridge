@@ -2095,8 +2095,10 @@ function AffiliateAutomationPanel({
   } | null>(null);
 
   useEffect(() => {
-    setIsAutomationEditing(!firstAutomation);
-  }, [firstAutomation?.id]);
+    if (!firstAutomation) {
+      setIsAutomationEditing(true);
+    }
+  }, [firstAutomation]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2227,7 +2229,7 @@ function AffiliateAutomationPanel({
             </div>
 
             <input type="hidden" name="automationId" value={activeAutomation?.id || ''} />
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-semibold">
                 Nome da automacao
                 <input
