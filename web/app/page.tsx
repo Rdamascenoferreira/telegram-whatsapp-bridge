@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.47';
+const panelVersion = 'Versao 0.48';
 
 type AuthUser = {
   id: string;
@@ -972,6 +972,10 @@ function Connections({
   const [telegramBotToken, setTelegramBotToken] = useState('');
   const [telegramCode, setTelegramCode] = useState('');
   const [telegramPassword, setTelegramPassword] = useState('');
+  const [credentialsEditing, setCredentialsEditing] = useState(
+    !(state.config.hasTelegramBotToken || (state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone))
+  );
+  const [sourceEditing, setSourceEditing] = useState(!state.config.telegramChannel);
 
   useEffect(() => {
     setTelegramMode(state.config.telegramMode || 'user');
@@ -979,7 +983,12 @@ function Connections({
     setTelegramApiId(state.config.telegramApiId || '');
     setTelegramApiHash(state.config.telegramApiHash || '');
     setTelegramPhone(state.config.telegramPhone || '');
+    setCredentialsEditing(
+      !(state.config.hasTelegramBotToken || (state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone))
+    );
+    setSourceEditing(!state.config.telegramChannel);
   }, [
+    state.config.hasTelegramBotToken,
     state.config.telegramMode,
     state.config.telegramChannel,
     state.config.telegramApiId,
@@ -1047,12 +1056,18 @@ function Connections({
               });
               await refresh();
               setNotice('Credenciais do Telegram salvas.');
+              setCredentialsEditing(false);
               setBusy('');
             }}
           >
             <label className="grid gap-2 text-sm font-semibold">
               Modo de conexao
-              <select value={telegramMode} onChange={(event) => setTelegramMode(event.target.value as 'user' | 'bot')} className={inputClass}>
+              <select
+                value={telegramMode}
+                onChange={(event) => setTelegramMode(event.target.value as 'user' | 'bot')}
+                className={inputClass}
+                disabled={!credentialsEditing}
+              >
                 <option value="user">Sessao de usuario</option>
                 <option value="bot">Bot do Telegram</option>
               </select>
@@ -1060,17 +1075,32 @@ function Connections({
 
             {telegramMode === 'user' ? (
               <>
-                <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" />
-                <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" />
-                <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" />
+                <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={!credentialsEditing} />
+                <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={!credentialsEditing} />
+                <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={!credentialsEditing} />
               </>
             ) : (
-              <Field label="Token do bot" value={telegramBotToken} onChange={setTelegramBotToken} placeholder={state.config.hasTelegramBotToken ? 'Token ja configurado' : 'Cole o token do bot'} />
+              <Field
+                label="Token do bot"
+                value={telegramBotToken}
+                onChange={setTelegramBotToken}
+                placeholder={state.config.hasTelegramBotToken ? 'Token ja configurado' : 'Cole o token do bot'}
+                disabled={!credentialsEditing}
+              />
             )}
 
             <div className="flex flex-wrap gap-2">
-              <button type="submit" disabled={busy === 'settings'} className={primaryButton}>
-                Salvar credenciais
+              <button
+                type={credentialsEditing ? 'submit' : 'button'}
+                disabled={busy === 'settings'}
+                className={primaryButton}
+                onClick={() => {
+                  if (!credentialsEditing) {
+                    setCredentialsEditing(true);
+                  }
+                }}
+              >
+                {credentialsEditing ? 'Salvar credenciais' : 'Editar credenciais'}
               </button>
             </div>
           </form>
@@ -1195,6 +1225,7 @@ function Connections({
                     setTelegramChannel(nextChannelId);
                   }}
                   className={inputClass}
+                  disabled={!sourceEditing}
                 >
                   <option value="">Selecione uma origem</option>
                   {(state.telegram.availableChats || []).map((chat) => (
@@ -1206,7 +1237,7 @@ function Connections({
               </label>
 
               <div className="mt-4 grid gap-4">
-                <Field label="ID manual da origem" value={telegramChannel} onChange={setTelegramChannel} placeholder="-100..." />
+                <Field label="ID manual da origem" value={telegramChannel} onChange={setTelegramChannel} placeholder="-100..." disabled={!sourceEditing} />
                 <p className="text-xs text-[var(--muted)]">
                   Quando voce escolher uma origem no menu acima, este ID sera preenchido automaticamente.
                 </p>
@@ -1217,6 +1248,11 @@ function Connections({
                   type="button"
                   disabled={busy === 'save-source'}
                   onClick={async () => {
+                    if (!sourceEditing) {
+                      setSourceEditing(true);
+                      return;
+                    }
+
                     setBusy('save-source');
                     await postJson('/api/settings', {
                       telegramMode,
@@ -1228,11 +1264,12 @@ function Connections({
                     });
                     await refresh();
                     setNotice('Origem monitorada salva.');
+                    setSourceEditing(false);
                     setBusy('');
                   }}
                   className={primaryButton}
                 >
-                  Salvar origem
+                  {sourceEditing ? 'Salvar origem' : 'Editar origem'}
                 </button>
                 <button
                   type="button"
