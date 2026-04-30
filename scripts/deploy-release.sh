@@ -55,10 +55,6 @@ trap cleanup EXIT
 
 tar -xzf "$RELEASE_ARCHIVE" -C "$TMP_DIR"
 
-log_step "Parando processos antes da sincronizacao"
-pm2 stop "$PM2_APP_NAME" >/dev/null 2>&1 || true
-pm2 stop "$PM2_FRONTEND_APP_NAME" >/dev/null 2>&1 || true
-
 log_step "Limpando dependencias e build anteriores"
 rm -rf "$APP_DIR/node_modules" "$APP_DIR/web/node_modules" "$APP_DIR/web/.next"
 
@@ -78,7 +74,18 @@ export PM2_APP_NAME
 export PM2_BACKEND_APP_NAME="$PM2_APP_NAME"
 export PM2_FRONTEND_APP_NAME
 log_step "Recarregando processos no PM2"
-pm2 startOrReload ecosystem.config.cjs --update-env
-pm2 save >/dev/null || true
+if ! pm2 startOrReload ecosystem.config.cjs --update-env; then
+  log_step "Reload falhou, restaurando ambiente com start limpo"
+  pm2 delete "$PM2_APP_NAME" >/dev/null 2>&1 || true
+  pm2 delete "$PM2_FRONTEND_APP_NAME" >/dev/null 2>&1 || true
+  pm2 start ecosystem.config.cjs --update-env
+fi
+
+log_step "Salvando estado do PM2"
+pm2 save --force >/dev/null
+
+log_step "Aguardando processos estabilizarem"
+sleep 5
+pm2 status
 
 log_step "Deploy concluido em $(date -u +%Y-%m-%dT%H:%M:%SZ)"
