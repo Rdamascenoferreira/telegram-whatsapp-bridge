@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.55';
+const panelVersion = 'Versao 0.56';
 
 type AuthUser = {
   id: string;
@@ -2089,7 +2089,18 @@ function AffiliateAutomationPanel({
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
-  const [isAutomationEditing, setIsAutomationEditing] = useState(!firstAutomation);
+  const automationEditorStorageKey = 'affiliate-automation-editing';
+  const [isAutomationEditing, setIsAutomationEditing] = useState(() => {
+    if (!firstAutomation) {
+      return true;
+    }
+
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.sessionStorage.getItem(automationEditorStorageKey) === 'true';
+  });
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2103,6 +2114,14 @@ function AffiliateAutomationPanel({
       setIsAutomationEditing(true);
     }
   }, [firstAutomation]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.sessionStorage.setItem(automationEditorStorageKey, isAutomationEditing ? 'true' : 'false');
+  }, [isAutomationEditing]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2221,7 +2240,7 @@ function AffiliateAutomationPanel({
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
         <div className="grid gap-5">
-          <form key={activeAutomation?.id || 'new-affiliate-automation'} onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+          <form onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
               <div>
                 <p className="text-sm font-semibold">Fluxo da automacao</p>
@@ -2275,8 +2294,8 @@ function AffiliateAutomationPanel({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold">
+            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
+              <label className="grid self-start gap-2 text-sm font-semibold">
                 Links desconhecidos
                 <select
                   name="unknownLinkBehavior"
