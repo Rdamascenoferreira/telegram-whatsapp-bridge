@@ -31,10 +31,10 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.56';
+const panelVersion = 'Versao 0.56.2';
 
 type AuthUser = {
   id: string;
@@ -2123,6 +2123,7 @@ function AffiliateAutomationPanel({
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
+  const automationFormRef = useRef<HTMLFormElement | null>(null);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2254,7 +2255,7 @@ function AffiliateAutomationPanel({
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
         <div className="grid gap-5">
-          <form onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+          <form ref={automationFormRef} onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
               <div>
                 <p className="text-sm font-semibold">Fluxo da automacao</p>
@@ -2339,11 +2340,21 @@ function AffiliateAutomationPanel({
               <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
                 <label className={cn('inline-flex items-center gap-2', !isAutomationEditing && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={!isAutomationEditing} /> Remover rodape original</label>
               </div>
-              {isAutomationEditing ? (
-                <button type="submit" disabled={busy === 'affiliate-automation'} className={affiliatePrimaryButtonClass}>Salvar automacao</button>
-              ) : (
-                <button type="button" onClick={() => setAutomationEditing(true)} className={affiliatePrimaryButtonClass}>Editar</button>
-              )}
+              <button
+                type="button"
+                disabled={busy === 'affiliate-automation'}
+                onClick={() => {
+                  if (!isAutomationEditing) {
+                    setAutomationEditing(true);
+                    return;
+                  }
+
+                  automationFormRef.current?.requestSubmit();
+                }}
+                className={affiliatePrimaryButtonClass}
+              >
+                {isAutomationEditing ? 'Salvar automacao' : 'Editar'}
+              </button>
             </div>
           </form>
 
