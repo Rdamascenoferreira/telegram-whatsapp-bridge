@@ -135,7 +135,7 @@ export class UserBridgeRuntime {
       },
       metrics: {
         ...this.activity.metrics,
-        selectedGroupCount: this.config.selectedGroupIds.length,
+        selectedGroupCount: this.resolveWhatsAppTargetGroupIds().length,
         availableAdminGroupCount: this.availableGroups.length,
         whatsAppStatus: this.whatsAppStatus,
         telegramStatus: this.telegramStatus,
@@ -228,6 +228,33 @@ export class UserBridgeRuntime {
     return this.telegramStatus === 'listening' && this.whatsAppStatus === 'ready';
   }
 
+  resolveWhatsAppTargetGroupIds() {
+    const selectedIds = Array.isArray(this.config.selectedGroupIds) ? this.config.selectedGroupIds : [];
+    const groupsById = new Map(this.availableGroups.map((group) => [group.id, group]));
+    const resolved = new Set();
+
+    for (const selectedId of selectedIds) {
+      const group = groupsById.get(selectedId);
+
+      if (group?.isCommunityLinked && !group?.isAnnouncement) {
+        const linkedAnnouncements = this.availableGroups.filter(
+          (candidate) => candidate.isAnnouncement && candidate.parentGroupId === group.id
+        );
+
+        if (linkedAnnouncements.length > 0) {
+          for (const announcement of linkedAnnouncements) {
+            resolved.add(announcement.id);
+          }
+          continue;
+        }
+      }
+
+      resolved.add(selectedId);
+    }
+
+    return [...resolved];
+  }
+
   async resetAllConnections() {
     this.telegramAuthFlow = null;
     this.pendingTelegramMessages = [];
@@ -313,7 +340,7 @@ export class UserBridgeRuntime {
   upsertOffer(messages, offer = {}) {
     this.activity = upsertActivityOffer(this.activity, {
       ...buildOfferSnapshot(messages, {
-        groupCount: this.config.selectedGroupIds.length
+        groupCount: this.resolveWhatsAppTargetGroupIds().length
       }),
       ...offer,
       lastUpdatedAt: offer.lastUpdatedAt || new Date().toISOString()
@@ -941,7 +968,9 @@ export class UserBridgeRuntime {
       return;
     }
 
-    if (this.config.selectedGroupIds.length === 0) {
+    const targetGroupIds = this.resolveWhatsAppTargetGroupIds();
+
+    if (targetGroupIds.length === 0) {
       this.upsertOffer([message], {
         status: 'ignored',
         reason: 'no_groups_selected',
@@ -982,6 +1011,7 @@ export class UserBridgeRuntime {
     }
 
     await this.forwardMessagesWithRecovery([message], {
+      targetGroupIds,
       fromQueue: Boolean(options.fromQueue)
     });
   }
@@ -997,7 +1027,9 @@ export class UserBridgeRuntime {
     const messages = [...bucket.items].sort(
       (left, right) => getTelegramMessageNumericId(left) - getTelegramMessageNumericId(right)
     );
-    await this.forwardMessagesWithRecovery(messages);
+    await this.forwardMessagesWithRecovery(messages, {
+      targetGroupIds: this.resolveWhatsAppTargetGroupIds()
+    });
   }
 
   shouldQueueTelegramMessage() {
@@ -1167,12 +1199,15 @@ export class UserBridgeRuntime {
 
   async forwardMessages(messages, options = {}) {
     const prepared = [];
+    const targetGroupIds = Array.isArray(options.targetGroupIds) && options.targetGroupIds.length
+      ? options.targetGroupIds
+      : this.resolveWhatsAppTargetGroupIds();
 
     for (const message of messages) {
       prepared.push(await this.prepareWhatsAppPayload(message));
     }
 
-    for (const groupId of this.config.selectedGroupIds) {
+    for (const groupId of targetGroupIds) {
       for (const item of prepared) {
         if (item.type === 'text') {
           await this.whatsAppClient.sendMessage(groupId, item.text);
@@ -1185,7 +1220,7 @@ export class UserBridgeRuntime {
       }
     }
 
-    const groupCount = this.config.selectedGroupIds.length;
+    const groupCount = targetGroupIds.length;
     this.upsertOffer(messages, {
       status: 'sent',
       groupCount,
@@ -1193,15 +1228,15 @@ export class UserBridgeRuntime {
       fromQueue: Boolean(options.fromQueue),
       reason: ''
     });
-    this.log(`Mensagem do Telegram encaminhada para ${this.config.selectedGroupIds.length} grupo(s).`, {
+    this.log(`Mensagem do Telegram encaminhada para ${groupCount} grupo(s).`, {
       type: 'forward_success',
       increments: {
         forwardBatches: 1,
         forwardedMessages: prepared.length,
-        whatsAppDeliveries: prepared.length * this.config.selectedGroupIds.length
+        whatsAppDeliveries: prepared.length * groupCount
       },
       metadata: {
-        groups: this.config.selectedGroupIds.length,
+        groups: groupCount,
         messages: prepared.length
       }
     });
