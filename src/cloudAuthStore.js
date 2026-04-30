@@ -402,16 +402,32 @@ async function supabaseRequest(endpoint, options = {}) {
     }
   });
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers: {
-      apikey: supabaseServiceRoleKey,
-      Authorization: `Bearer ${supabaseServiceRoleKey}`,
-      'content-type': 'application/json',
-      ...(options.headers || {})
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers: {
+        apikey: supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseServiceRoleKey}`,
+        'content-type': 'application/json',
+        ...(options.headers || {})
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Tempo esgotado ao acessar o Supabase.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const payload = await response.text().catch(() => '');

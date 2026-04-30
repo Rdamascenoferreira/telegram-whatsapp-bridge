@@ -2971,10 +2971,27 @@ async function readFileAsDataUrl(file: File) {
 }
 
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    credentials: 'include',
-    ...options
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15000);
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      credentials: 'include',
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('A requisicao demorou demais para responder. Tente novamente.');
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
