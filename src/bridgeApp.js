@@ -5,6 +5,7 @@ import pkg from 'whatsapp-web.js';
 import { loadActivityForUser } from './activityStore.js';
 import {
   acceptAffiliateTerms,
+  getActiveAffiliateAutomationsBySource,
   getAffiliateState,
   setAffiliateAutomationActive,
   upsertAffiliateAccount,
@@ -100,6 +101,7 @@ export class BridgeApp {
       const telegramPhone = String(request.body?.telegramPhone ?? '').trim();
       const telegramChannel = String(request.body?.telegramChannel ?? '').trim();
       const telegramBotToken = incomingTelegramBotToken || runtime.config.telegramBotToken;
+      await ensureTelegramSourceIsNotUsedByAffiliate(request.user.id, telegramChannel);
 
       await runtime.updateSettings({
         telegramMode,
@@ -187,6 +189,8 @@ export class BridgeApp {
     });
 
     app.post('/api/affiliate/automations', requireAuth, async (request, response) => {
+      const runtime = await this.manager.getRuntimeForUser(request.user);
+      ensureAffiliateSourceIsNotUsedByTelegram(runtime.config.telegramChannel, request.body?.telegramSourceGroupId);
       await upsertAffiliateAutomation(request.user.id, request.body || {});
       await respondWithState(request, response);
     });
@@ -707,6 +711,34 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
   };
 }
 
+async function ensureTelegramSourceIsNotUsedByAffiliate(userId, telegramChannel) {
+  const normalizedTelegramChannel = normalizeRouteSourceId(telegramChannel);
+
+  if (!normalizedTelegramChannel) {
+    return;
+  }
+
+  const automations = await getActiveAffiliateAutomationsBySource(userId, normalizedTelegramChannel);
+
+  if (automations.length) {
+    const automationName = automations[0]?.name || 'Automacao de Afiliados';
+    throw new Error(`Este grupo ja esta sendo usado em "${automationName}". Escolha outra origem para o Telegram normal ou edite a automacao de afiliados.`);
+  }
+}
+
+function ensureAffiliateSourceIsNotUsedByTelegram(telegramChannel, affiliateSourceGroupId) {
+  const normalizedTelegramChannel = normalizeRouteSourceId(telegramChannel);
+  const normalizedAffiliateSource = normalizeRouteSourceId(affiliateSourceGroupId);
+
+  if (normalizedTelegramChannel && normalizedAffiliateSource && normalizedTelegramChannel === normalizedAffiliateSource) {
+    throw new Error('Este grupo ja esta configurado no fluxo Telegram normal. Escolha outra origem para Afiliados ou remova a origem na aba Telegram.');
+  }
+}
+
+function normalizeRouteSourceId(value) {
+  return String(value ?? '').trim();
+}
+
 function getRequestIp(request) {
   const forwardedFor = String(request.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
   return forwardedFor || request.ip || '';
@@ -838,7 +870,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-const currentPanelVersion = 'Versao 0.56.2';
+  const currentPanelVersion = 'Versao 0.57';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.56.2';
+const panelVersion = 'Versao 0.57';
 
 type AuthUser = {
   id: string;
@@ -1210,6 +1210,13 @@ function Connections({
   const showTelegramAuthPanel = isUserMode;
   const hasTelegramConnection = state.telegramStatus === 'listening' || Boolean(state.telegram.user?.name);
   const canChooseTelegramSource = !isUserMode || hasTelegramConnection;
+  const affiliateReservedSourceIds = new Set(
+    (state.affiliate?.automations || [])
+      .filter((automation) => automation.isActive)
+      .map((automation) => normalizeRouteSourceId(automation.telegramSourceGroupId))
+      .filter(Boolean)
+  );
+  const telegramSourceReservedByAffiliate = affiliateReservedSourceIds.has(normalizeRouteSourceId(telegramChannel));
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
@@ -1424,11 +1431,16 @@ function Connections({
                   disabled={!sourceEditing}
                 >
                   <option value="">Selecione uma origem</option>
-                  {(state.telegram.availableChats || []).map((chat) => (
-                    <option key={chat.id} value={chat.id}>
-                      {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                    </option>
-                  ))}
+                  {(state.telegram.availableChats || []).map((chat) => {
+                    const reservedByAffiliate = affiliateReservedSourceIds.has(normalizeRouteSourceId(chat.id));
+
+                    return (
+                      <option key={chat.id} value={chat.id} disabled={reservedByAffiliate}>
+                        {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                        {reservedByAffiliate ? ' - usado em Afiliados' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
 
@@ -1437,6 +1449,11 @@ function Connections({
                 <p className="text-xs text-[var(--muted)]">
                   Quando voce escolher uma origem no menu acima, este ID sera preenchido automaticamente.
                 </p>
+                {telegramSourceReservedByAffiliate ? (
+                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                    Esta origem ja esta reservada na Automacao de Afiliados. Para usar o fluxo normal, escolha outro grupo ou altere a origem em Afiliados.
+                  </p>
+                ) : null}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -2124,6 +2141,10 @@ function AffiliateAutomationPanel({
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
   const automationFormRef = useRef<HTMLFormElement | null>(null);
+  const telegramBridgeSourceId = normalizeRouteSourceId(state.config.telegramChannel);
+  const affiliateSourceReservedByTelegram =
+    Boolean(telegramBridgeSourceId) &&
+    normalizeRouteSourceId(activeAutomation?.telegramSourceGroupId) === telegramBridgeSourceId;
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2287,10 +2308,22 @@ function AffiliateAutomationPanel({
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                 >
                   <option value="">Selecione uma origem</option>
-                  {state.telegram.availableChats?.map((chat) => (
-                    <option key={chat.id} value={chat.id}>{chat.name}</option>
-                  ))}
+                  {state.telegram.availableChats?.map((chat) => {
+                    const reservedByTelegram = telegramBridgeSourceId === normalizeRouteSourceId(chat.id);
+
+                    return (
+                      <option key={chat.id} value={chat.id} disabled={reservedByTelegram}>
+                        {chat.name}
+                        {reservedByTelegram ? ' - usado no Telegram normal' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                {affiliateSourceReservedByTelegram ? (
+                  <span className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-normal leading-5 text-amber-100">
+                    Esta origem tambem esta configurada na aba Telegram. Escolha outro grupo para evitar envio duplicado.
+                  </span>
+                ) : null}
               </label>
             </div>
 
@@ -2932,6 +2965,10 @@ function StatusBadge({ label, value }: { label: string; value: string }) {
 
 function isWhatsAppConnectedStatus(value: string) {
   return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
+}
+
+function normalizeRouteSourceId(value?: string | null) {
+  return String(value ?? '').trim();
 }
 
 function Metric({

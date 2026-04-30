@@ -725,7 +725,16 @@ export class UserBridgeRuntime {
   }
 
   async routeTelegramMessage(updateType, message) {
-    if (!matchesChannel(message.chat, this.config.telegramChannel)) {
+    const sourceGroupId = String(message.chat?.id ?? '');
+    const normalFlowMatches = matchesChannel(message.chat, this.config.telegramChannel);
+    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
+      sourceGroupId,
+      sourceGroupName: describeTelegramChat(message.chat),
+      telegramMessageId: String(message.message_id ?? ''),
+      messageText: message.text || message.caption || fallbackText(message)
+    });
+
+    if (!normalFlowMatches) {
       return;
     }
 
@@ -737,7 +746,7 @@ export class UserBridgeRuntime {
         increments: { telegramReceived: 1 },
         metadata: {
           updateType,
-          chatId: String(message.chat?.id ?? ''),
+          chatId: sourceGroupId,
           messageId: Number(message.message_id ?? 0)
         }
       }
@@ -748,13 +757,6 @@ export class UserBridgeRuntime {
         updateType,
         source: 'telegram_bot'
       }
-    });
-
-    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
-      sourceGroupId: String(message.chat?.id ?? ''),
-      sourceGroupName: describeTelegramChat(message.chat),
-      telegramMessageId: String(message.message_id ?? ''),
-      messageText: message.text || message.caption || fallbackText(message)
     });
 
     if (affiliateHandled) {
@@ -911,12 +913,27 @@ export class UserBridgeRuntime {
 
     const sourceChatRefs = getTelegramUserMessageChatRefs(message);
     const sourceChatId = sourceChatRefs[0] || '';
+    const chat = await message.getChat().catch(() => null);
+    const runtimeMessage = {
+      __telegramSource: 'user_session',
+      id: Number(message.id ?? 0),
+      chatId: sourceChatId,
+      text: message.text || message.message || '',
+      caption: message.text || message.message || '',
+      rawMessage: message
+    };
+
+    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
+      sourceGroupId: sourceChatId,
+      sourceGroupName: describeTelegramEntity(chat, sourceChatId),
+      telegramMessageId: String(message.id ?? ''),
+      messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage)
+    });
 
     if (!matchesTelegramUserMessage(message, this.config.telegramChannel)) {
       return;
     }
 
-    const chat = await message.getChat().catch(() => null);
     this.telegramStatus = 'listening';
       this.log(
       `Mensagem recebida do Telegram (user session) em ${describeTelegramEntity(chat, sourceChatId)}.`,
@@ -930,27 +947,12 @@ export class UserBridgeRuntime {
         }
       }
     );
-    const runtimeMessage = {
-      __telegramSource: 'user_session',
-      id: Number(message.id ?? 0),
-      chatId: sourceChatId,
-      text: message.text || message.message || '',
-      caption: message.text || message.message || '',
-      rawMessage: message
-    };
     this.upsertOffer([runtimeMessage], {
       status: 'captured',
       metadata: {
         updateType: 'user_session',
         source: 'telegram_user_session'
       }
-    });
-
-    const affiliateHandled = await this.maybeProcessAffiliateAutomation({
-      sourceGroupId: sourceChatId,
-      sourceGroupName: describeTelegramEntity(chat, sourceChatId),
-      telegramMessageId: String(message.id ?? ''),
-      messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage)
     });
 
     if (affiliateHandled) {
