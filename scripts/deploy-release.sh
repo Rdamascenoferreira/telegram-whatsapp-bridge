@@ -55,6 +55,13 @@ trap cleanup EXIT
 
 tar -xzf "$RELEASE_ARCHIVE" -C "$TMP_DIR"
 
+log_step "Parando processos antes da sincronizacao"
+pm2 stop "$PM2_APP_NAME" >/dev/null 2>&1 || true
+pm2 stop "$PM2_FRONTEND_APP_NAME" >/dev/null 2>&1 || true
+
+log_step "Limpando dependencias e build anteriores"
+rm -rf "$APP_DIR/node_modules" "$APP_DIR/web/node_modules" "$APP_DIR/web/.next"
+
 log_step "Sincronizando release em $APP_DIR"
 rsync -a --delete \
   --exclude '.env' \

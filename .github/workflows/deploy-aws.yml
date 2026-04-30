@@ -120,15 +120,20 @@ jobs:
             "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' PM2_FRONTEND_APP_NAME='$PM2_FRONTEND_NAME' bash -s" \
             < scripts/deploy-release.sh
 
-      - name: Healthcheck
+      - name: Healthcheck over SSH
         env:
-          AWS_DEPLOY_HEALTHCHECK_URL: ${{ secrets.AWS_DEPLOY_HEALTHCHECK_URL }}
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
-
-          if [ -z "${AWS_DEPLOY_HEALTHCHECK_URL:-}" ]; then
-            echo "Healthcheck skipped: AWS_DEPLOY_HEALTHCHECK_URL not set"
-            exit 0
-          fi
-
-          curl --fail --show-error --silent --retry 5 --retry-delay 5 "$AWS_DEPLOY_HEALTHCHECK_URL"
+          ssh \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -p 22 \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "set -euo pipefail; \
+            curl --fail --show-error --silent --retry 12 --retry-delay 5 http://127.0.0.1:3100/api/health; \
+            curl --fail --show-error --silent --retry 12 --retry-delay 5 -I http://127.0.0.1:3000 > /dev/null"
