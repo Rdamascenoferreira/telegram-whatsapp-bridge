@@ -876,6 +876,7 @@ function Topbar({
 }) {
   const hasTelegramSource = Boolean(state.config.telegramChannel);
   const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
+  const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
 
   return (
@@ -887,7 +888,7 @@ function Topbar({
           <CompactSetupChecklist
             steps={[
               { label: 'Telegram', done: state.telegramStatus === 'listening' },
-              { label: 'WhatsApp', done: state.whatsAppStatus === 'ready' },
+              { label: 'WhatsApp', done: whatsAppConnected },
               { label: 'Origem', done: hasTelegramSource },
               { label: 'Destino', done: hasWhatsAppDestination },
               { label: 'Ativo', done: state.config.bridgeEnabled, ready: !state.config.bridgeEnabled && canEnableAutomation }
@@ -1490,8 +1491,9 @@ function Groups({
     ? formatDate(state.metrics.groupCacheRefreshedAt)
     : '';
   const whatsAppReady = state.whatsAppStatus === 'ready';
+  const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const hasQrCode = Boolean(state.qrDataUrl);
-  const whatsAppStatusLabel = whatsAppReady ? 'Conectado' : hasQrCode ? 'QR pronto' : 'Sem sessao';
+  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : 'Sem sessao';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
@@ -1563,11 +1565,11 @@ function Groups({
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conexao</p>
-                    <p className="mt-1 text-base font-semibold">{whatsAppReady ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'Nao conectada'}</p>
+                    <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'Nao conectada'}</p>
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  {whatsAppReady ? 'Sessao autenticada e pronta para encaminhar mensagens.' : 'Use o QR Code ao lado para concluir a autenticacao da conta.'}
+                  {whatsAppConnected ? 'Sessao autenticada e pronta para uso no painel.' : 'Use o QR Code ao lado para concluir a autenticacao da conta.'}
                 </p>
               </div>
 
@@ -1713,13 +1715,13 @@ function Groups({
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {hasQrCode
                     ? 'Escaneie com o seu WhatsApp para concluir a autenticacao.'
-                    : whatsAppReady
+                    : whatsAppConnected
                       ? 'Sua sessao ja esta conectada. O QR Code nao e mais necessario.'
                       : 'Quando uma nova autenticacao for exigida, o QR Code sera exibido aqui automaticamente.'}
                 </p>
               </div>
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
-                {hasQrCode ? 'Disponivel' : whatsAppReady ? 'Conectado' : 'Aguardando'}
+                {hasQrCode ? 'Disponivel' : whatsAppConnected ? 'Conectado' : 'Aguardando'}
               </span>
             </div>
 
@@ -1730,7 +1732,7 @@ function Groups({
                 </div>
               ) : (
                 <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
-                  {whatsAppReady
+                  {whatsAppConnected
                     ? 'Sessao autenticada com sucesso.'
                     : 'Nenhum QR Code disponivel no momento.'}
                 </div>
@@ -2172,6 +2174,11 @@ function AffiliateAutomationPanel({
     setBusy('');
   }
 
+  const affiliatePrimaryButtonClass =
+    'rounded-xl border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(37,211,102,0.96),rgba(34,158,217,0.92))] px-5 py-3 font-semibold text-slate-950 shadow-[0_14px_30px_rgba(25,140,102,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_38px_rgba(25,140,102,0.36)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none';
+  const affiliateSecondaryButtonClass =
+    'rounded-xl border border-cyan-400/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(34,158,217,0.2))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.24),rgba(34,158,217,0.28))] hover:text-white disabled:opacity-60';
+
   return (
     <div className="grid gap-5">
       <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] max-sm:p-4">
@@ -2200,7 +2207,7 @@ function AffiliateAutomationPanel({
             <p className="mt-2 text-xs leading-5 text-amber-100/80">
               Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automacao. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
             </p>
-            <button type="button" disabled={busy === 'affiliate-terms'} onClick={acceptTerms} className="mt-3 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
+            <button type="button" disabled={busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
               Aceitar termo e liberar modulo
             </button>
           </div>
@@ -2275,7 +2282,7 @@ function AffiliateAutomationPanel({
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} /> Remover rodape original</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="isActive" defaultChecked={activeAutomation?.isActive ?? true} /> Ativa</label>
               </div>
-              <button type="submit" disabled={busy === 'affiliate-automation'} className="rounded-xl bg-[var(--primary)] px-5 py-3 font-semibold text-black disabled:opacity-60">Salvar automacao</button>
+              <button type="submit" disabled={busy === 'affiliate-automation'} className={affiliatePrimaryButtonClass}>Salvar automacao</button>
             </div>
           </form>
 
@@ -2285,7 +2292,7 @@ function AffiliateAutomationPanel({
                 <p className="text-sm font-semibold">Testar conversao</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Simule a conversao sem enviar ao WhatsApp.</p>
               </div>
-              <button type="button" disabled={busy === 'affiliate-test'} onClick={runManualTest} className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-60">Rodar teste</button>
+              <button type="button" disabled={busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>Rodar teste</button>
             </div>
             <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} className="mt-4 min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6" />
             {testResult ? (
@@ -2317,7 +2324,7 @@ function AffiliateAutomationPanel({
               <input name="shopeeAppId" defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="App ID Shopee" />
               <input name="shopeeSecret" className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
             </div>
-            <button type="submit" disabled={busy === 'affiliate-account'} className="mt-4 w-full rounded-xl bg-[var(--primary)] px-5 py-3 font-semibold text-black disabled:opacity-60">Salvar dados</button>
+            <button type="submit" disabled={busy === 'affiliate-account'} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -2849,6 +2856,10 @@ function StatusBadge({ label, value }: { label: string; value: string }) {
       {label}: {value}
     </span>
   );
+}
+
+function isWhatsAppConnectedStatus(value: string) {
+  return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
 }
 
 function Metric({
