@@ -2084,8 +2084,8 @@ function AffiliateAutomationPanel({
 }) {
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
-  const [editingAutomationId, setEditingAutomationId] = useState(firstAutomation?.id || '');
-  const activeAutomation = affiliate.automations?.find((automation) => automation.id === editingAutomationId) || firstAutomation;
+  const activeAutomation = firstAutomation;
+  const [isAutomationEditing, setIsAutomationEditing] = useState(!firstAutomation);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2095,10 +2095,8 @@ function AffiliateAutomationPanel({
   } | null>(null);
 
   useEffect(() => {
-    if (!editingAutomationId && firstAutomation?.id) {
-      setEditingAutomationId(firstAutomation.id);
-    }
-  }, [editingAutomationId, firstAutomation?.id]);
+    setIsAutomationEditing(!firstAutomation);
+  }, [firstAutomation?.id]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2140,11 +2138,12 @@ function AffiliateAutomationPanel({
       unknownLinkBehavior: form.get('unknownLinkBehavior'),
       customFooter: form.get('customFooter'),
       removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
-      isActive: form.get('isActive') === 'on'
+      isActive: activeAutomation?.isActive ?? true
     });
 
     await refresh();
     setNotice('Automacao de afiliados salva.');
+    setIsAutomationEditing(false);
     setBusy('');
   }
 
@@ -2222,23 +2221,31 @@ function AffiliateAutomationPanel({
                 <p className="text-sm font-semibold">Fluxo da automacao</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Escolha uma origem Telegram e os destinos WhatsApp desta regra.</p>
               </div>
-              <select value={editingAutomationId} onChange={(event) => setEditingAutomationId(event.target.value)} className="rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2 text-sm">
-                <option value="">Nova automacao</option>
-                {affiliate.automations?.map((automation) => (
-                  <option key={automation.id} value={automation.id}>{automation.name}</option>
-                ))}
-              </select>
+              <span className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                {activeAutomation?.name || 'Nova automacao'}
+              </span>
             </div>
 
             <input type="hidden" name="automationId" value={activeAutomation?.id || ''} />
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-semibold">
                 Nome da automacao
-                <input name="name" defaultValue={activeAutomation?.name || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3" placeholder="Ofertas Amazon" />
+                <input
+                  name="name"
+                  disabled={!isAutomationEditing}
+                  defaultValue={activeAutomation?.name || ''}
+                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
+                  placeholder="Ofertas Amazon"
+                />
               </label>
               <label className="grid gap-2 text-sm font-semibold">
                 Grupo Telegram origem
-                <select name="telegramSourceGroupId" defaultValue={activeAutomation?.telegramSourceGroupId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3">
+                <select
+                  name="telegramSourceGroupId"
+                  disabled={!isAutomationEditing}
+                  defaultValue={activeAutomation?.telegramSourceGroupId || ''}
+                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
+                >
                   <option value="">Selecione uma origem</option>
                   {state.telegram.availableChats?.map((chat) => (
                     <option key={chat.id} value={chat.id}>{chat.name}</option>
@@ -2253,8 +2260,8 @@ function AffiliateAutomationPanel({
                 {state.groups.map((group) => {
                   const checked = Boolean(activeAutomation?.destinations?.some((destination) => destination.whatsappGroupId === group.id));
                   return (
-                    <label key={group.id} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs">
-                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} />
+                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', !isAutomationEditing && 'opacity-65')}>
+                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={!isAutomationEditing} />
                       <span className="truncate">{group.name}</span>
                     </label>
                   );
@@ -2265,7 +2272,12 @@ function AffiliateAutomationPanel({
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-semibold">
                 Links desconhecidos
-                <select name="unknownLinkBehavior" defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3">
+                <select
+                  name="unknownLinkBehavior"
+                  disabled={!isAutomationEditing}
+                  defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
+                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
+                >
                   <option value="keep">Manter link original</option>
                   <option value="remove">Remover link</option>
                   <option value="ignore_message">Ignorar mensagem inteira</option>
@@ -2273,16 +2285,26 @@ function AffiliateAutomationPanel({
               </label>
               <label className="grid gap-2 text-sm font-semibold">
                 Rodape personalizado
-                <input name="customFooter" defaultValue={activeAutomation?.customFooter || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3" placeholder="Opcional" />
+                <textarea
+                  name="customFooter"
+                  disabled={!isAutomationEditing}
+                  defaultValue={activeAutomation?.customFooter || ''}
+                  className="min-h-28 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 leading-6 disabled:cursor-not-allowed disabled:opacity-65"
+                  placeholder={'Visite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la'}
+                />
+                <span className="text-xs font-normal text-[var(--muted)]">Voce pode quebrar linhas livremente nesse rodape.</span>
               </label>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
-                <label className="inline-flex items-center gap-2"><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} /> Remover rodape original</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" name="isActive" defaultChecked={activeAutomation?.isActive ?? true} /> Ativa</label>
+                <label className={cn('inline-flex items-center gap-2', !isAutomationEditing && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={!isAutomationEditing} /> Remover rodape original</label>
               </div>
-              <button type="submit" disabled={busy === 'affiliate-automation'} className={affiliatePrimaryButtonClass}>Salvar automacao</button>
+              {isAutomationEditing ? (
+                <button type="submit" disabled={busy === 'affiliate-automation'} className={affiliatePrimaryButtonClass}>Salvar automacao</button>
+              ) : (
+                <button type="button" onClick={() => setIsAutomationEditing(true)} className={affiliatePrimaryButtonClass}>Editar</button>
+              )}
             </div>
           </form>
 
