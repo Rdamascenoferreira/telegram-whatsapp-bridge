@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.58.1';
+const panelVersion = 'Versao 0.58.2';
 
 type AuthUser = {
   id: string;
@@ -1154,6 +1154,17 @@ function Connections({
   const hasSavedSource = Boolean(state.config.telegramChannel);
   const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
   const [sourceEditing, setSourceEditing] = useState(!hasSavedSource);
+  const credentialsEditingRef = useRef(credentialsEditing);
+  const sourceEditingRef = useRef(sourceEditing);
+  const previousTelegramSessionRef = useRef(hasTelegramSession);
+
+  useEffect(() => {
+    credentialsEditingRef.current = credentialsEditing;
+  }, [credentialsEditing]);
+
+  useEffect(() => {
+    sourceEditingRef.current = sourceEditing;
+  }, [sourceEditing]);
 
   function restoreSavedCredentials() {
     setTelegramApiId(state.config.telegramApiId || '');
@@ -1166,17 +1177,20 @@ function Connections({
   }
 
   useEffect(() => {
-    if (!sourceEditing) {
+    const telegramSessionJustConnected = !previousTelegramSessionRef.current && hasTelegramSession;
+    previousTelegramSessionRef.current = hasTelegramSession;
+
+    if (!sourceEditingRef.current) {
       setTelegramChannel(state.config.telegramChannel || '');
     }
 
-    if (!credentialsEditing) {
+    if (!credentialsEditingRef.current) {
       setTelegramApiId(state.config.telegramApiId || '');
       setTelegramApiHash(state.config.telegramApiHash || '');
       setTelegramPhone(state.config.telegramPhone || '');
     }
 
-    if (hasTelegramSession) {
+    if (telegramSessionJustConnected) {
       setCredentialsEditing(false);
     } else if (!hasSavedCredentials) {
       setCredentialsEditing(true);
@@ -1190,11 +1204,9 @@ function Connections({
     state.config.telegramApiId,
     state.config.telegramApiHash,
     state.config.telegramPhone,
-    credentialsEditing,
     hasSavedCredentials,
     hasTelegramSession,
-    hasSavedSource,
-    sourceEditing
+    hasSavedSource
   ]);
 
   useEffect(() => {
@@ -1280,19 +1292,29 @@ function Connections({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {credentialsEditing || !hasSavedCredentials ? (
                 <button
-                  type={credentialsEditing ? 'submit' : 'button'}
+                  type="submit"
                   disabled={busy === 'settings' || hasTelegramSession}
                   className={primaryButton}
-                  onClick={() => {
-                    if (!credentialsEditing) {
-                      restoreSavedCredentials();
-                      setCredentialsEditing(true);
-                    }
+                >
+                  Salvar credenciais
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy === 'settings' || hasTelegramSession}
+                  className={primaryButton}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    restoreSavedCredentials();
+                    setCredentialsEditing(true);
                   }}
                 >
-                  {credentialsEditing || !hasSavedCredentials ? 'Salvar credenciais' : 'Editar credenciais'}
+                  Editar credenciais
                 </button>
+              )}
               </div>
             </form>
 
