@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.59';
+const panelVersion = 'Versao 0.60';
 
 type AuthUser = {
   id: string;
@@ -1244,6 +1244,14 @@ function Connections({
     .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
   const selectedWhatsAppDestinationCount = selectedWhatsAppDestinations.length;
   const selectedRouteSource = telegramFlow === 'bridge' ? telegramChannel : affiliateTelegramChannel;
+  const telegramCodeSent = hasTelegramSession || authPhase === 'code_required' || authPhase === 'password_required';
+  const telegramInternalChecklist = [
+    { label: 'Salvar credenciais', done: hasSavedCredentials, ready: credentialsEditing && Boolean(telegramApiId && telegramApiHash && telegramPhone) },
+    { label: 'Enviar codigo', done: telegramCodeSent, ready: canUseAuthStep },
+    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession },
+    { label: 'Escolher fluxo de origem', done: hasSavedSource, ready: hasTelegramSession && sourceEditing && Boolean(selectedRouteSource.trim()) }
+  ];
+  const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
 
   function getTelegramSourceName(sourceId: string) {
     const normalizedSourceId = normalizeRouteSourceId(sourceId);
@@ -1321,7 +1329,14 @@ function Connections({
           <StatusBadge label="Status" value={state.telegramStatus} />
         </div>
 
-        <section className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+        <InternalSetupChecklist
+          title="Checklist do Config. Telegram"
+          steps={telegramInternalChecklist}
+          complete={telegramChecklistComplete}
+          completeLabel="Telegram 100% configurado"
+        />
+
+        <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
           <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 1</p>
@@ -2279,6 +2294,89 @@ function CompactSetupChecklist({
         {doneCount}/5
       </span>
     </div>
+  );
+}
+
+function InternalSetupChecklist({
+  title,
+  steps,
+  complete,
+  completeLabel
+}: {
+  title: string;
+  steps: Array<{
+    label: string;
+    done: boolean;
+    ready?: boolean;
+  }>;
+  complete: boolean;
+  completeLabel: string;
+}) {
+  const doneCount = steps.filter((step) => step.done).length;
+
+  return (
+    <section
+      className={cn(
+        'rounded-2xl border p-4 transition',
+        complete
+          ? 'border-emerald-300/40 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.18),transparent_34%),rgba(16,185,129,0.08)] shadow-[0_0_0_1px_rgba(34,197,94,0.08),0_18px_45px_rgba(16,185,129,0.12)]'
+          : 'border-[var(--border)] bg-black/10'
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{title}</p>
+          <p className={cn('mt-1 text-sm font-semibold', complete ? 'text-emerald-100' : 'text-[var(--foreground)]')}>
+            {complete ? completeLabel : 'Complete as etapas para liberar a configuracao.'}
+          </p>
+        </div>
+        <span
+          className={cn(
+            'rounded-full px-3 py-1.5 text-sm font-bold',
+            complete
+              ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/30 animate-pulse'
+              : 'bg-white/5 text-[var(--muted)] ring-1 ring-white/10'
+          )}
+        >
+          {doneCount}/{steps.length}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step, index) => (
+          <div
+            key={step.label}
+            className={cn(
+              'rounded-xl border px-3 py-3 transition',
+              step.done
+                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-50'
+                : step.ready
+                  ? 'border-sky-400/25 bg-sky-400/10 text-sky-50'
+                  : 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold',
+                  step.done
+                    ? 'border-emerald-300/40 bg-emerald-400/20 text-emerald-100'
+                    : step.ready
+                      ? 'border-sky-300/40 bg-sky-400/20 text-sky-100'
+                      : 'border-white/15 bg-white/5 text-[var(--muted)]'
+                )}
+              >
+                {step.done ? <CheckCircle2 size={14} /> : index + 1}
+              </span>
+              <p className="text-sm font-semibold">{step.label}</p>
+            </div>
+            <p className="mt-2 text-xs leading-5 opacity-80">
+              {step.done ? 'Concluido' : step.ready ? 'Pronto para executar' : 'Pendente'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
