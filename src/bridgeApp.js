@@ -94,13 +94,12 @@ export class BridgeApp {
 
     app.post('/api/settings', requireAuth, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
-      const telegramMode = String(request.body?.telegramMode ?? runtime.getTelegramMode()).trim();
-      const incomingTelegramBotToken = String(request.body?.telegramBotToken ?? '').trim();
+      const telegramMode = 'user';
+      const telegramBotToken = '';
       const telegramApiId = String(request.body?.telegramApiId ?? '').trim();
       const telegramApiHash = String(request.body?.telegramApiHash ?? '').trim();
       const telegramPhone = String(request.body?.telegramPhone ?? '').trim();
       const telegramChannel = String(request.body?.telegramChannel ?? '').trim();
-      const telegramBotToken = incomingTelegramBotToken || runtime.config.telegramBotToken;
       await ensureTelegramSourceIsNotUsedByAffiliate(request.user.id, telegramChannel);
 
       await runtime.updateSettings({
@@ -870,7 +869,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.57';
+  const currentPanelVersion = 'Versao 0.58';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

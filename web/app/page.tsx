@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.57';
+const panelVersion = 'Versao 0.58';
 
 type AuthUser = {
   id: string;
@@ -221,9 +221,9 @@ type ViewKey = 'overview' | 'connections' | 'groups' | 'affiliate' | 'activity' 
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
-  { key: 'connections', label: 'Telegram', icon: Settings2 },
-  { key: 'groups', label: 'WhatsApp', icon: Users },
-  { key: 'affiliate', label: 'Afiliados', icon: CreditCard },
+  { key: 'connections', label: 'Config. Telegram', icon: Settings2 },
+  { key: 'groups', label: 'Config. WhatsApp', icon: Users },
+  { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
   { key: 'activity', label: 'Historico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
@@ -1143,28 +1143,22 @@ function Connections({
   busy: string;
   refresh: () => Promise<void>;
 }) {
-  const [telegramMode, setTelegramMode] = useState(state.config.telegramMode || 'user');
   const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
   const [telegramApiId, setTelegramApiId] = useState(state.config.telegramApiId || '');
   const [telegramApiHash, setTelegramApiHash] = useState(state.config.telegramApiHash || '');
   const [telegramPhone, setTelegramPhone] = useState(state.config.telegramPhone || '');
-  const [telegramBotToken, setTelegramBotToken] = useState('');
   const [telegramCode, setTelegramCode] = useState('');
   const [telegramPassword, setTelegramPassword] = useState('');
-  const hasSavedCredentials =
-    state.config.telegramMode === 'bot'
-      ? state.config.hasTelegramBotToken
-      : Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
+  const hasSavedCredentials = Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
+  const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
   const hasSavedSource = Boolean(state.config.telegramChannel);
   const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
   const [sourceEditing, setSourceEditing] = useState(!hasSavedSource);
 
   function restoreSavedCredentials() {
-    setTelegramMode(state.config.telegramMode || 'user');
     setTelegramApiId(state.config.telegramApiId || '');
     setTelegramApiHash(state.config.telegramApiHash || '');
     setTelegramPhone(state.config.telegramPhone || '');
-    setTelegramBotToken('');
   }
 
   function restoreSavedSource() {
@@ -1172,22 +1166,19 @@ function Connections({
   }
 
   useEffect(() => {
-    setTelegramMode(state.config.telegramMode || 'user');
     setTelegramChannel(state.config.telegramChannel || '');
     setTelegramApiId(state.config.telegramApiId || '');
     setTelegramApiHash(state.config.telegramApiHash || '');
     setTelegramPhone(state.config.telegramPhone || '');
-    setTelegramBotToken('');
-    setCredentialsEditing(!hasSavedCredentials);
+    setCredentialsEditing(!hasSavedCredentials && !hasTelegramSession);
     setSourceEditing(!hasSavedSource);
   }, [
-    state.config.telegramMode,
     state.config.telegramChannel,
     state.config.telegramApiId,
     state.config.telegramApiHash,
     state.config.telegramPhone,
-    state.config.hasTelegramBotToken,
     hasSavedCredentials,
+    hasTelegramSession,
     hasSavedSource
   ]);
 
@@ -1201,15 +1192,15 @@ function Connections({
     }
   }, [state.telegram.authPhase]);
 
-  const isUserMode = telegramMode === 'user';
   const authPhase = state.telegram.authPhase || 'idle';
   const telegramStatusLabel = humanize(state.telegramStatus || 'not_configured');
   const telegramUserLabel = state.telegram.user?.name
     ? state.telegram.user.name + (state.telegram.user.username ? ` (${state.telegram.user.username})` : '')
     : '';
-  const showTelegramAuthPanel = isUserMode;
   const hasTelegramConnection = state.telegramStatus === 'listening' || Boolean(state.telegram.user?.name);
-  const canChooseTelegramSource = !isUserMode || hasTelegramConnection;
+  const canChooseTelegramSource = hasTelegramConnection;
+  const canUseAuthStep = hasSavedCredentials && !hasTelegramSession;
+  const credentialsLocked = hasTelegramSession || (!credentialsEditing && hasSavedCredentials);
   const affiliateReservedSourceIds = new Set(
     (state.affiliate?.automations || [])
       .filter((automation) => automation.isActive)
@@ -1249,12 +1240,12 @@ function Connections({
               event.preventDefault();
               setBusy('settings');
               await postJson('/api/settings', {
-                telegramMode,
+                telegramMode: 'user',
                 telegramChannel,
                 telegramApiId,
                 telegramApiHash,
                 telegramPhone,
-                telegramBotToken
+                telegramBotToken: ''
               });
               await refresh();
               setNotice('Credenciais do Telegram salvas.');
@@ -1262,39 +1253,21 @@ function Connections({
               setBusy('');
             }}
           >
-            <label className="grid gap-2 text-sm font-semibold">
-              Modo de conexao
-              <select
-                value={telegramMode}
-                onChange={(event) => setTelegramMode(event.target.value as 'user' | 'bot')}
-                className={inputClass}
-                disabled={!credentialsEditing}
-              >
-                <option value="user">Sessao de usuario</option>
-                <option value="bot">Bot do Telegram</option>
-              </select>
-            </label>
+            <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexao</p>
+              <p className="mt-1 text-sm font-semibold">Sessao de usuario</p>
+            </div>
 
-            {telegramMode === 'user' ? (
-              <>
-                <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={!credentialsEditing} />
-                <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={!credentialsEditing} />
-                <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={!credentialsEditing} />
-              </>
-            ) : (
-              <Field
-                label="Token do bot"
-                value={telegramBotToken}
-                onChange={setTelegramBotToken}
-                placeholder={state.config.hasTelegramBotToken ? 'Token ja configurado' : 'Cole o token do bot'}
-                disabled={!credentialsEditing}
-              />
-            )}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={credentialsLocked} />
+              <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={credentialsLocked} />
+              <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={credentialsLocked} />
+            </div>
 
             <div className="flex flex-wrap gap-2">
                 <button
                   type={credentialsEditing ? 'submit' : 'button'}
-                  disabled={busy === 'settings'}
+                  disabled={busy === 'settings' || hasTelegramSession}
                   className={primaryButton}
                   onClick={() => {
                     if (!credentialsEditing) {
@@ -1308,21 +1281,20 @@ function Connections({
               </div>
             </form>
 
-          {showTelegramAuthPanel ? (
             <>
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-5 grid gap-4 lg:grid-cols-[180px_1fr]">
                 <button
                   type="button"
-                  disabled={busy === 'telegram-send-code' || busy === 'settings'}
+                  disabled={busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
                   onClick={async () => {
                     setBusy('telegram-send-code');
                     await postJson('/api/settings', {
-                      telegramMode,
+                      telegramMode: 'user',
                       telegramChannel,
                       telegramApiId,
                       telegramApiHash,
                       telegramPhone,
-                      telegramBotToken
+                      telegramBotToken: ''
                     });
                     await postJson('/api/telegram/send-code');
                     await refresh();
@@ -1333,35 +1305,23 @@ function Connections({
                 >
                   Enviar codigo
                 </button>
-                <button
-                  type="button"
-                  disabled={busy === 'telegram-disconnect'}
-                  onClick={async () => {
-                    setBusy('telegram-disconnect');
-                    await postJson('/api/telegram/disconnect');
-                    await refresh();
-                    setNotice('Conta do Telegram desconectada.');
-                    setBusy('');
-                  }}
-                  className={secondaryButton}
-                >
-                  Desconectar Telegram
-                </button>
-              </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
-                <Field
-                  label="Codigo recebido"
-                  value={telegramCode}
-                  onChange={setTelegramCode}
-                  placeholder="Digite o codigo do Telegram"
-                />
-                <Field
-                  label="Senha em duas etapas"
-                  value={telegramPassword}
-                  onChange={setTelegramPassword}
-                  placeholder="Preencha apenas se o Telegram pedir"
-                />
+                <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+                  <Field
+                    label="Codigo recebido"
+                    value={telegramCode}
+                    onChange={setTelegramCode}
+                    placeholder="Digite o codigo do Telegram"
+                    disabled={!canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
+                  />
+                  <Field
+                    label="Senha em duas etapas"
+                    value={telegramPassword}
+                    onChange={setTelegramPassword}
+                    placeholder="Preencha apenas se o Telegram pedir"
+                    disabled={!canUseAuthStep || authPhase !== 'password_required'}
+                  />
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1386,6 +1346,26 @@ function Connections({
                 >
                   {authPhase === 'password_required' ? 'Enviar senha em duas etapas' : 'Concluir login no Telegram'}
                 </button>
+                <button
+                  type="button"
+                  disabled={busy === 'telegram-disconnect' || !hasSavedCredentials}
+                  onClick={async () => {
+                    setBusy('telegram-disconnect');
+                    await postJson('/api/telegram/disconnect');
+                    setTelegramApiId('');
+                    setTelegramApiHash('');
+                    setTelegramPhone('');
+                    setTelegramChannel('');
+                    setTelegramCode('');
+                    setTelegramPassword('');
+                    await refresh();
+                    setNotice('Telegram desconectado e configuracoes removidas.');
+                    setBusy('');
+                  }}
+                  className={secondaryButton}
+                >
+                  Desconectar Telegram
+                </button>
               </div>
 
               <p className="mt-4 text-sm text-[var(--muted)]">
@@ -1397,10 +1377,9 @@ function Connections({
                       ? 'Digite o codigo enviado para concluir a conexao.'
                       : authPhase === 'auth_required'
                         ? 'Envie um codigo para iniciar a conexao da sua conta.'
-                        : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
+                    : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
               </p>
             </>
-          ) : null}
         </section>
 
         <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
@@ -1469,12 +1448,12 @@ function Connections({
 
                     setBusy('save-source');
                     await postJson('/api/settings', {
-                      telegramMode,
+                      telegramMode: 'user',
                       telegramChannel,
                       telegramApiId,
                       telegramApiHash,
                       telegramPhone,
-                      telegramBotToken
+                      telegramBotToken: ''
                     });
                     await refresh();
                     setNotice('Origem monitorada salva.');

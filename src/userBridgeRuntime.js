@@ -876,7 +876,14 @@ export class UserBridgeRuntime {
     await this.stopTelegramTransport();
     this.config = await saveConfigForUser(this.userId, {
       ...this.config,
-      telegramSession: ''
+      telegramMode: 'user',
+      telegramBotToken: '',
+      telegramApiId: '',
+      telegramApiHash: '',
+      telegramPhone: '',
+      telegramSession: '',
+      telegramChannel: '',
+      bridgeEnabled: false
     });
     this.telegramAvailableChats = [];
     this.telegramUserProfile = null;
