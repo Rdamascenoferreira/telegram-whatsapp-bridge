@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.61';
+const panelVersion = 'Versao 0.62';
 
 type AuthUser = {
   id: string;
@@ -229,6 +229,10 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'admin', label: 'Admin', icon: Shield }
 ];
 
+function isReadOnlyAccount(state: AppState) {
+  return state.auth.user?.accountStatus === 'trial' && state.auth.user?.role !== 'admin';
+}
+
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
   const [view, setView] = useState<ViewKey>('overview');
@@ -305,6 +309,7 @@ export default function Home() {
     }
 
   const isAdmin = state.auth.user?.role === 'admin';
+  const readOnlyAccount = isReadOnlyAccount(state);
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -361,6 +366,8 @@ export default function Home() {
             </div>
           ) : null}
 
+          {readOnlyAccount ? <ReadOnlyModeBanner /> : null}
+
           {view === 'overview' ? (
             <Overview state={state} setNotice={setNotice} setBusy={setBusy} busy={busy} refresh={loadState} />
           ) : null}
@@ -405,6 +412,14 @@ function LoadingScreen() {
         Carregando painel...
       </div>
     </main>
+  );
+}
+
+function ReadOnlyModeBanner() {
+  return (
+    <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50">
+      <span className="font-semibold">Conta em teste:</span> este acesso esta em modo somente leitura. Voce pode navegar pelos paineis, mas edicoes e configuracoes precisam ser liberadas pelo administrador.
+    </div>
   );
 }
 
@@ -951,6 +966,7 @@ function Overview({
   busy: string;
   refresh: () => Promise<void>;
 }) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const progress = state.metrics.groupRefreshProgress;
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
   const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
@@ -999,8 +1015,13 @@ function Overview({
               </div>
               <SystemPowerSwitch
                 checked={effectiveBridgeEnabled}
-                disabled={busy === 'power' || !canEnableAutomation}
+                disabled={readOnlyAccount || busy === 'power' || !canEnableAutomation}
                 onChange={async (nextValue) => {
+                  if (readOnlyAccount) {
+                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    return;
+                  }
+
                   if (nextValue && !canEnableAutomation) {
                     setNotice(automationLockReason);
                     return;
@@ -1015,7 +1036,11 @@ function Overview({
               />
             </div>
 
-            {!canEnableAutomation ? (
+            {readOnlyAccount ? (
+              <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                Conta em teste: a automacao fica somente para visualizacao ate o administrador liberar.
+              </p>
+            ) : !canEnableAutomation ? (
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
                 O interruptor sera liberado assim que Telegram e WhatsApp estiverem conectados.
               </p>
@@ -1023,7 +1048,7 @@ function Overview({
 
             <button
               type="button"
-              disabled={busy === 'reset-all'}
+              disabled={readOnlyAccount || busy === 'reset-all'}
               onClick={async () => {
                 const confirmed = window.confirm(
                   'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
@@ -1143,6 +1168,7 @@ function Connections({
   busy: string;
   refresh: () => Promise<void>;
 }) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
   const [telegramApiId, setTelegramApiId] = useState(state.config.telegramApiId || '');
   const [telegramApiHash, setTelegramApiHash] = useState(state.config.telegramApiHash || '');
@@ -1263,6 +1289,11 @@ function Connections({
   }
 
   async function saveTelegramRoute() {
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+
     if (!selectedRouteSource.trim()) {
       setNotice('Escolha uma origem do Telegram antes de salvar o fluxo.');
       return;
@@ -1354,6 +1385,10 @@ function Connections({
             className="grid gap-4"
             onSubmit={async (event) => {
               event.preventDefault();
+              if (readOnlyAccount) {
+                setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                return;
+              }
               setBusy('settings');
               await postJson('/api/settings', {
                 telegramMode: 'user',
@@ -1375,16 +1410,16 @@ function Connections({
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={credentialsLocked} />
-              <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={credentialsLocked} />
-              <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={credentialsLocked} />
+              <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={readOnlyAccount || credentialsLocked} />
+              <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={readOnlyAccount || credentialsLocked} />
+              <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={readOnlyAccount || credentialsLocked} />
             </div>
 
             <div className="flex flex-wrap gap-2">
               {credentialsEditing || !hasSavedCredentials ? (
                 <button
                   type="submit"
-                  disabled={busy === 'settings' || hasTelegramSession}
+                  disabled={readOnlyAccount || busy === 'settings' || hasTelegramSession}
                   className={primaryButton}
                 >
                   Salvar credenciais
@@ -1392,7 +1427,7 @@ function Connections({
               ) : (
                 <button
                   type="button"
-                  disabled={busy === 'settings' || hasTelegramSession}
+                  disabled={readOnlyAccount || busy === 'settings' || hasTelegramSession}
                   className={primaryButton}
                   onClick={(event) => {
                     event.preventDefault();
@@ -1413,7 +1448,7 @@ function Connections({
               <div className="mt-5 grid gap-4 lg:grid-cols-[180px_1fr]">
                 <button
                   type="button"
-                  disabled={busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
+                  disabled={readOnlyAccount || busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
                   onClick={async () => {
                     setBusy('telegram-send-code');
                     await postJson('/api/settings', {
@@ -1440,14 +1475,14 @@ function Connections({
                     value={telegramCode}
                     onChange={setTelegramCode}
                     placeholder="Digite o codigo do Telegram"
-                    disabled={!canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
+                    disabled={readOnlyAccount || !canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
                   />
                   <Field
                     label="Senha em duas etapas"
                     value={telegramPassword}
                     onChange={setTelegramPassword}
                     placeholder="Preencha apenas se o Telegram pedir"
-                    disabled={!canUseAuthStep || authPhase !== 'password_required'}
+                    disabled={readOnlyAccount || !canUseAuthStep || authPhase !== 'password_required'}
                   />
                 </div>
               </div>
@@ -1455,7 +1490,7 @@ function Connections({
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
+                  disabled={readOnlyAccount || busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
                   onClick={async () => {
                     setBusy('telegram-complete-auth');
                     await postJson('/api/telegram/complete-auth', {
@@ -1476,7 +1511,7 @@ function Connections({
                 </button>
                 <button
                   type="button"
-                  disabled={busy === 'telegram-disconnect' || !hasSavedCredentials}
+                  disabled={readOnlyAccount || busy === 'telegram-disconnect' || !hasSavedCredentials}
                   onClick={async () => {
                     setBusy('telegram-disconnect');
                     await postJson('/api/telegram/disconnect');
@@ -1536,7 +1571,7 @@ function Connections({
                 >
                   <button
                     type="button"
-                    disabled={!sourceEditing}
+                    disabled={readOnlyAccount || !sourceEditing}
                     onClick={() => setTelegramFlow('bridge')}
                     className="w-full text-left disabled:cursor-not-allowed"
                   >
@@ -1561,7 +1596,7 @@ function Connections({
                         value={telegramChannel}
                         onChange={(event) => setTelegramChannel(event.target.value)}
                         className={inputClass}
-                        disabled={!sourceEditing || telegramFlow !== 'bridge'}
+                        disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'bridge'}
                       >
                         <option value="">Selecione uma origem</option>
                         {(state.telegram.availableChats || []).map((chat) => (
@@ -1576,7 +1611,7 @@ function Connections({
                       value={telegramChannel}
                       onChange={setTelegramChannel}
                       placeholder="-100..."
-                      disabled={!sourceEditing || telegramFlow !== 'bridge'}
+                      disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'bridge'}
                     />
                   </div>
                 </div>
@@ -1590,7 +1625,7 @@ function Connections({
                 >
                   <button
                     type="button"
-                    disabled={!sourceEditing}
+                    disabled={readOnlyAccount || !sourceEditing}
                     onClick={() => setTelegramFlow('affiliate')}
                     className="w-full text-left disabled:cursor-not-allowed"
                   >
@@ -1615,7 +1650,7 @@ function Connections({
                         value={affiliateTelegramChannel}
                         onChange={(event) => setAffiliateTelegramChannel(event.target.value)}
                         className={inputClass}
-                        disabled={!sourceEditing || telegramFlow !== 'affiliate'}
+                        disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'affiliate'}
                       >
                         <option value="">Selecione uma origem</option>
                         {(state.telegram.availableChats || []).map((chat) => (
@@ -1630,7 +1665,7 @@ function Connections({
                       value={affiliateTelegramChannel}
                       onChange={setAffiliateTelegramChannel}
                       placeholder="-100..."
-                      disabled={!sourceEditing || telegramFlow !== 'affiliate'}
+                      disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'affiliate'}
                     />
                   </div>
                 </div>
@@ -1648,7 +1683,7 @@ function Connections({
               <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={busy === 'save-source' || (sourceEditing && !selectedRouteSource.trim())}
+                    disabled={readOnlyAccount || busy === 'save-source' || (sourceEditing && !selectedRouteSource.trim())}
                     onClick={async () => {
                       if (!sourceEditing) {
                         restoreSavedSource();
@@ -1664,7 +1699,7 @@ function Connections({
                   </button>
                 <button
                   type="button"
-                  disabled={busy === 'telegram-chats'}
+                  disabled={readOnlyAccount || busy === 'telegram-chats'}
                   onClick={async () => {
                     setBusy('telegram-chats');
                     await postJson('/api/telegram/refresh-chats');
@@ -1709,6 +1744,7 @@ function Groups({
   busy: string;
   refresh: () => Promise<void>;
 }) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const groupsProgress = state.metrics.groupRefreshProgress;
@@ -1859,7 +1895,7 @@ function Groups({
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <button
                   type="button"
-                  disabled={busy === 'wa-reconnect'}
+                  disabled={readOnlyAccount || busy === 'wa-reconnect'}
                   onClick={async () => {
                     setBusy('wa-reconnect');
                     await postJson('/api/whatsapp/reconnect');
@@ -1882,7 +1918,7 @@ function Groups({
 
                 <button
                   type="button"
-                  disabled={busy === 'wa-reset'}
+                  disabled={readOnlyAccount || busy === 'wa-reset'}
                   onClick={async () => {
                     setBusy('wa-reset');
                     await postJson('/api/whatsapp/reset-session');
@@ -1905,7 +1941,7 @@ function Groups({
 
                 <button
                   type="button"
-                  disabled={busy === 'reset-all'}
+                  disabled={readOnlyAccount || busy === 'reset-all'}
                   onClick={async () => {
                     const confirmed = window.confirm(
                       'Isso vai esquecer Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
@@ -1985,7 +2021,7 @@ function Groups({
         </div>
         <button
           type="button"
-          disabled={busy === 'groups' || state.metrics.groupsRefreshing}
+          disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
             await postJson('/api/refresh-groups');
@@ -2073,6 +2109,10 @@ function Groups({
                 key={group.id}
                 type="button"
                 onClick={() => {
+                  if (readOnlyAccount) {
+                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    return;
+                  }
                   const next = new Set(selected);
                   next.delete(group.id);
                   setSelected(next);
@@ -2097,6 +2137,7 @@ function Groups({
               <input
                 type="checkbox"
                 checked={selected.has(group.id)}
+                disabled={readOnlyAccount}
                 onChange={(event) => {
                   const next = new Set(selected);
                   if (event.target.checked) {
@@ -2125,6 +2166,7 @@ function Groups({
           ) : null}
           <button
             type="button"
+            disabled={readOnlyAccount || busy === 'save-groups'}
             className={primaryButton}
             onClick={async () => {
               setBusy('save-groups');
@@ -2400,6 +2442,7 @@ function AffiliateAutomationPanel({
   isAutomationEditing: boolean;
   setAutomationEditing: (value: boolean) => void;
 }) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
@@ -2417,13 +2460,17 @@ function AffiliateAutomationPanel({
   } | null>(null);
 
   useEffect(() => {
-    if (!firstAutomation) {
+    if (!firstAutomation && !readOnlyAccount) {
       setAutomationEditing(true);
     }
-  }, [firstAutomation, setAutomationEditing]);
+  }, [firstAutomation, readOnlyAccount, setAutomationEditing]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
     setBusy('affiliate-account');
     const form = new FormData(event.currentTarget);
 
@@ -2444,6 +2491,10 @@ function AffiliateAutomationPanel({
 
   async function submitAutomation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
     setBusy('affiliate-automation');
     const form = new FormData(event.currentTarget);
     const sourceId = String(form.get('telegramSourceGroupId') ?? '');
@@ -2472,6 +2523,11 @@ function AffiliateAutomationPanel({
   }
 
   async function runManualTest() {
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+
     setBusy('affiliate-test');
     const result = await postJson<typeof testResult>('/api/affiliate/test', {
       automationId: activeAutomation?.id || '',
@@ -2490,6 +2546,11 @@ function AffiliateAutomationPanel({
   }
 
   async function acceptTerms() {
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+
     setBusy('affiliate-terms');
     await postJson('/api/affiliate/terms/accept');
     await refresh();
@@ -2530,7 +2591,7 @@ function AffiliateAutomationPanel({
             <p className="mt-2 text-xs leading-5 text-amber-100/80">
               Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automacao. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
             </p>
-            <button type="button" disabled={busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
+            <button type="button" disabled={readOnlyAccount || busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
               Aceitar termo e liberar modulo
             </button>
           </div>
@@ -2556,7 +2617,7 @@ function AffiliateAutomationPanel({
                 Nome da automacao
                 <input
                   name="name"
-                  disabled={!isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing}
                   defaultValue={activeAutomation?.name || ''}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                   placeholder="Ofertas Amazon"
@@ -2566,7 +2627,7 @@ function AffiliateAutomationPanel({
                 Grupo Telegram origem
                 <select
                   name="telegramSourceGroupId"
-                  disabled={!isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing}
                   defaultValue={activeAutomation?.telegramSourceGroupId || ''}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                 >
@@ -2596,8 +2657,8 @@ function AffiliateAutomationPanel({
                 {state.groups.map((group) => {
                   const checked = Boolean(activeAutomation?.destinations?.some((destination) => destination.whatsappGroupId === group.id));
                   return (
-                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', !isAutomationEditing && 'opacity-65')}>
-                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={!isAutomationEditing} />
+                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', (!isAutomationEditing || readOnlyAccount) && 'opacity-65')}>
+                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={readOnlyAccount || !isAutomationEditing} />
                       <span className="truncate">{group.name}</span>
                     </label>
                   );
@@ -2610,7 +2671,7 @@ function AffiliateAutomationPanel({
                 Links desconhecidos
                 <select
                   name="unknownLinkBehavior"
-                  disabled={!isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing}
                   defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                 >
@@ -2623,7 +2684,7 @@ function AffiliateAutomationPanel({
                 Rodape personalizado
                 <textarea
                   name="customFooter"
-                  disabled={!isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing}
                   defaultValue={activeAutomation?.customFooter || ''}
                   className="min-h-28 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 leading-6 disabled:cursor-not-allowed disabled:opacity-65"
                   placeholder={'Visite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la'}
@@ -2634,11 +2695,11 @@ function AffiliateAutomationPanel({
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
-                <label className={cn('inline-flex items-center gap-2', !isAutomationEditing && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={!isAutomationEditing} /> Remover rodape original</label>
+                <label className={cn('inline-flex items-center gap-2', (!isAutomationEditing || readOnlyAccount) && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={readOnlyAccount || !isAutomationEditing} /> Remover rodape original</label>
               </div>
               <button
                 type="button"
-                disabled={busy === 'affiliate-automation'}
+                disabled={readOnlyAccount || busy === 'affiliate-automation'}
                 onClick={() => {
                   if (!isAutomationEditing) {
                     setAutomationEditing(true);
@@ -2660,9 +2721,9 @@ function AffiliateAutomationPanel({
                 <p className="text-sm font-semibold">Testar conversao</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Simule a conversao sem enviar ao WhatsApp.</p>
               </div>
-              <button type="button" disabled={busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>Rodar teste</button>
+              <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>Rodar teste</button>
             </div>
-            <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} className="mt-4 min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6" />
+            <textarea value={testMessage} disabled={readOnlyAccount} onChange={(event) => setTestMessage(event.target.value)} className="mt-4 min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6 disabled:cursor-not-allowed disabled:opacity-65" />
             {testResult ? (
               <div className="mt-4 grid gap-3">
                 <p className="text-sm font-semibold">Resultado: {testResult.status}</p>
@@ -2684,15 +2745,15 @@ function AffiliateAutomationPanel({
           <form onSubmit={submitAccount} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <p className="text-sm font-semibold">Contas de afiliado</p>
             <div className="mt-4 grid gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} /> Converter Amazon</label>
-              <input name="amazonTag" defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="sua-tag-20" />
-              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} /> Preparar Shopee</label>
-              <input name="shopeeAffiliateId" defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="ID/SubID Shopee" />
-              <input name="defaultSubId" defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="SubID padrao" />
-              <input name="shopeeAppId" defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder="App ID Shopee" />
-              <input name="shopeeSecret" className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount} /> Converter Amazon</label>
+              <input name="amazonTag" disabled={readOnlyAccount} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="sua-tag-20" />
+              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount} /> Preparar Shopee</label>
+              <input name="shopeeAffiliateId" disabled={readOnlyAccount} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="ID/SubID Shopee" />
+              <input name="defaultSubId" disabled={readOnlyAccount} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="SubID padrao" />
+              <input name="shopeeAppId" disabled={readOnlyAccount} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
+              <input name="shopeeSecret" disabled={readOnlyAccount} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
             </div>
-            <button type="submit" disabled={busy === 'affiliate-account'} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
+            <button type="submit" disabled={readOnlyAccount || busy === 'affiliate-account'} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -2773,6 +2834,7 @@ function AccountPanel({
   refresh: () => Promise<void>;
   setNotice: (message: string) => void;
 }) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const user = state.auth.user;
   const [name, setName] = useState(user?.name || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -2829,6 +2891,7 @@ function AccountPanel({
                 <button
                   type="button"
                   className={profileEditing ? secondaryButton : primaryButton}
+                  disabled={readOnlyAccount}
                   onClick={() => {
                     if (!profileEditing) {
                       setProfileEditing(true);
@@ -2863,11 +2926,11 @@ function AccountPanel({
                 }
               }}
             >
-              <Field label="Nome" value={name} onChange={setName} disabled={!profileEditing} icon={User} />
+              <Field label="Nome" value={name} onChange={setName} disabled={readOnlyAccount || !profileEditing} icon={User} />
               <Field label="E-mail" value={user?.email || ''} disabled icon={Mail} />
               {profileEditing ? (
                 <div className="flex justify-end">
-                  <button type="submit" className={primaryButton} disabled={busy === 'profile'}>
+                  <button type="submit" className={primaryButton} disabled={readOnlyAccount || busy === 'profile'}>
                     Salvar perfil
                   </button>
                 </div>
@@ -2922,6 +2985,7 @@ function AccountPanel({
                   value={currentPassword}
                   onChange={setCurrentPassword}
                   icon={LockKeyhole}
+                  disabled={readOnlyAccount}
                 />
                 <div className="hidden md:block" />
                 <Field
@@ -2931,6 +2995,7 @@ function AccountPanel({
                   value={nextPassword}
                   onChange={setNextPassword}
                   icon={Shield}
+                  disabled={readOnlyAccount}
                 />
                 <Field
                   label="Confirmar nova senha"
@@ -2939,9 +3004,10 @@ function AccountPanel({
                   value={confirmPassword}
                   onChange={setConfirmPassword}
                   icon={ShieldCheck}
+                  disabled={readOnlyAccount}
                 />
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="submit" className={primaryButton} disabled={busy === 'password'}>
+                  <button type="submit" className={primaryButton} disabled={readOnlyAccount || busy === 'password'}>
                     Alterar senha
                   </button>
                 </div>
@@ -2993,13 +3059,14 @@ function AccountPanel({
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
               Aceitamos PNG, JPG ou WEBP com ate 1 MB.
             </p>
-            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 px-4 py-6 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10">
+            <label className={cn('mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 px-4 py-6 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10', readOnlyAccount && 'cursor-not-allowed opacity-60')}>
               <Camera size={18} />
               Selecionar imagem
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 className="hidden"
+                disabled={readOnlyAccount}
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
 

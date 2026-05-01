@@ -159,7 +159,7 @@ export class AuthService {
       });
     });
 
-    app.post('/api/account/profile', this.requireAuth(), async (request, response) => {
+    app.post('/api/account/profile', this.requireWriteAccess(), async (request, response) => {
       try {
         const user = await updateUserProfile(request.user.id, {
           name: request.body?.name
@@ -175,7 +175,7 @@ export class AuthService {
       }
     });
 
-    app.post('/api/account/password', this.requireAuth(), async (request, response) => {
+    app.post('/api/account/password', this.requireWriteAccess(), async (request, response) => {
       try {
         const user = await updateUserPassword(request.user.id, {
           currentPassword: request.body?.currentPassword,
@@ -193,7 +193,7 @@ export class AuthService {
       }
     });
 
-    app.post('/api/account/avatar', this.requireAuth(), async (request, response) => {
+    app.post('/api/account/avatar', this.requireWriteAccess(), async (request, response) => {
       try {
         const user = await updateUserAvatar(request.user.id, {
           avatarDataUrl: request.body?.avatarDataUrl
@@ -320,6 +320,30 @@ export class AuthService {
     };
   }
 
+  requireWriteAccess() {
+    return (request, response, next) => {
+      if (!request.user) {
+        response.status(401).json({
+          authenticated: false,
+          googleEnabled: this.googleEnabled,
+          error: 'FaÃ§a login para continuar.'
+        });
+        return;
+      }
+
+      if (this.isReadOnlyUser(request.user)) {
+        response.status(403).json({
+          authenticated: true,
+          googleEnabled: this.googleEnabled,
+          error: 'Sua conta esta em modo teste. Voce pode visualizar os paineis, mas edicoes precisam ser liberadas pelo administrador.'
+        });
+        return;
+      }
+
+      next();
+    };
+  }
+
   requireAdmin() {
     return (request, response, next) => {
       if (!request.user) {
@@ -346,6 +370,10 @@ export class AuthService {
 
   isAdminUser(user) {
     return isPrimaryAdminEmail(user?.email);
+  }
+
+  isReadOnlyUser(user) {
+    return Boolean(user) && !this.isAdminUser(user) && user.accountStatus === 'trial';
   }
 
   getClientSession(user) {

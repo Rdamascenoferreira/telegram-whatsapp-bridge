@@ -56,6 +56,7 @@ export class BridgeApp {
 
   attachRoutes(app) {
     const requireAuth = this.auth?.requireAuth() ?? ((_request, _response, next) => next());
+    const requireWriteAccess = this.auth?.requireWriteAccess() ?? requireAuth;
     const requireAdmin = this.auth?.requireAdmin() ?? ((_request, _response, next) => next());
     const respondWithState = async (request, response) => {
       const auth = this.auth
@@ -92,7 +93,7 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/settings', requireAuth, async (request, response) => {
+    app.post('/api/settings', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       const telegramMode = 'user';
       const telegramBotToken = '';
@@ -113,13 +114,13 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/telegram/send-code', requireAuth, async (request, response) => {
+    app.post('/api/telegram/send-code', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.sendTelegramUserCode();
       await respondWithState(request, response);
     });
 
-    app.post('/api/telegram/complete-auth', requireAuth, async (request, response) => {
+    app.post('/api/telegram/complete-auth', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.completeTelegramUserAuth({
         code: String(request.body?.code ?? '').trim(),
@@ -128,19 +129,19 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/telegram/disconnect', requireAuth, async (request, response) => {
+    app.post('/api/telegram/disconnect', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.disconnectTelegramUser();
       await respondWithState(request, response);
     });
 
-    app.post('/api/telegram/refresh-chats', requireAuth, async (request, response) => {
+    app.post('/api/telegram/refresh-chats', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.refreshTelegramAvailableChats();
       await respondWithState(request, response);
     });
 
-    app.post('/api/groups', requireAuth, async (request, response) => {
+    app.post('/api/groups', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       const selectedGroupIds = Array.isArray(request.body?.selectedGroupIds)
         ? request.body.selectedGroupIds.map(String)
@@ -150,13 +151,13 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/refresh-groups', requireAuth, async (request, response) => {
+    app.post('/api/refresh-groups', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.refreshAvailableGroups();
       await respondWithState(request, response);
     });
 
-    app.post('/api/system-power', requireAuth, async (request, response) => {
+    app.post('/api/system-power', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       const bridgeEnabled = Boolean(request.body?.bridgeEnabled);
 
@@ -164,37 +165,37 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/whatsapp/reset-session', requireAuth, async (request, response) => {
+    app.post('/api/whatsapp/reset-session', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.resetWhatsAppSession();
       await respondWithState(request, response);
     });
 
-    app.post('/api/whatsapp/reconnect', requireAuth, async (request, response) => {
+    app.post('/api/whatsapp/reconnect', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.reconnectWhatsApp();
       await respondWithState(request, response);
     });
 
-    app.post('/api/connections/reset-all', requireAuth, async (request, response) => {
+    app.post('/api/connections/reset-all', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       await runtime.resetAllConnections();
       await respondWithState(request, response);
     });
 
-    app.post('/api/affiliate/account', requireAuth, async (request, response) => {
+    app.post('/api/affiliate/account', requireWriteAccess, async (request, response) => {
       await upsertAffiliateAccount(request.user.id, request.body || {});
       await respondWithState(request, response);
     });
 
-    app.post('/api/affiliate/automations', requireAuth, async (request, response) => {
+    app.post('/api/affiliate/automations', requireWriteAccess, async (request, response) => {
       const runtime = await this.manager.getRuntimeForUser(request.user);
       ensureAffiliateSourceIsNotUsedByTelegram(runtime.config.telegramChannel, request.body?.telegramSourceGroupId);
       await upsertAffiliateAutomation(request.user.id, request.body || {});
       await respondWithState(request, response);
     });
 
-    app.post('/api/affiliate/automations/:automationId/toggle', requireAuth, async (request, response) => {
+    app.post('/api/affiliate/automations/:automationId/toggle', requireWriteAccess, async (request, response) => {
       await setAffiliateAutomationActive(
         request.user.id,
         String(request.params.automationId ?? '').trim(),
@@ -203,7 +204,7 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/affiliate/terms/accept', requireAuth, async (request, response) => {
+    app.post('/api/affiliate/terms/accept', requireWriteAccess, async (request, response) => {
       await acceptAffiliateTerms(request.user.id, {
         ipAddress: getRequestIp(request),
         userAgent: request.headers['user-agent']
@@ -211,7 +212,7 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/affiliate/test', requireAuth, async (request, response) => {
+    app.post('/api/affiliate/test', requireWriteAccess, async (request, response) => {
       const message = String(request.body?.message ?? '');
       const automationId = String(request.body?.automationId ?? '').trim();
       const draftAutomation = request.body?.automation && !automationId
@@ -869,7 +870,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.61';
+  const currentPanelVersion = 'Versao 0.62';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
