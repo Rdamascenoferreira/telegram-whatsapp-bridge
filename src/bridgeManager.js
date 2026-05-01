@@ -59,6 +59,7 @@ export class BridgeManager {
     try {
       runtime.clearWhatsAppRestart?.();
       runtime.clearWhatsAppAutoReconnect?.();
+      runtime.clearWhatsAppStartupWatchdog?.();
       await runtime.stopTelegramTransport?.();
       await runtime.stopWhatsAppClient?.();
     } finally {

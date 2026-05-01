@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.60';
+const panelVersion = 'Versao 0.61';
 
 type AuthUser = {
   id: string;
@@ -1721,7 +1721,8 @@ function Groups({
   const whatsAppReady = state.whatsAppStatus === 'ready';
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const hasQrCode = Boolean(state.qrDataUrl);
-  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : 'Sem sessao';
+  const whatsAppReconnecting = ['connecting', 'authenticated', 'reconnecting'].includes(String(state.whatsAppStatus || '').toLowerCase());
+  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sessao';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
@@ -1962,7 +1963,9 @@ function Groups({
                 <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
                   {whatsAppConnected
                     ? 'Sessao autenticada com sucesso.'
-                    : 'Nenhum QR Code disponivel no momento.'}
+                    : whatsAppReconnecting
+                      ? 'Reconectando com a sessao salva. Se demorar, use Reconectar WhatsApp.'
+                      : 'Nenhum QR Code disponivel no momento.'}
                 </div>
               )}
             </div>

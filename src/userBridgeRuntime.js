@@ -38,6 +38,10 @@ const defaultWhatsAppProtocolTimeoutMs = parseProtocolTimeout(
   process.env.WHATSAPP_PROTOCOL_TIMEOUT_MS,
   10 * 60 * 1000
 );
+const whatsAppStartupWatchdogMs = parseProtocolTimeout(
+  process.env.WHATSAPP_STARTUP_WATCHDOG_MS,
+  75 * 1000
+);
 const backgroundBrowserArgs = defaultWhatsAppHeadless
   ? ['--disable-gpu', '--mute-audio', '--hide-scrollbars', '--window-size=1280,900']
   : process.platform === 'win32'
@@ -78,6 +82,7 @@ export class UserBridgeRuntime {
     this.pendingTelegramMessages = [];
     this.isFlushingPendingTelegramMessages = false;
     this.whatsAppAutoReconnectTimeout = null;
+    this.whatsAppStartupWatchdogTimeout = null;
     this.whatsAppRestartAttempts = 0;
     this.whatsAppRestartTimeout = null;
     this.groupDiagnostics = {
@@ -358,6 +363,7 @@ export class UserBridgeRuntime {
 
     this.whatsAppStatus = 'connecting';
     this.whatsAppIssue = null;
+    this.scheduleWhatsAppStartupWatchdog('inicializacao');
     this.whatsAppClient = new Client({
       authStrategy: new LocalAuth({
         clientId: this.paths.authClientId,
@@ -379,6 +385,7 @@ export class UserBridgeRuntime {
       this.qrDataUrl = await QRCode.toDataURL(qr);
       this.whatsAppStatus = 'qr_required';
       this.whatsAppIssue = null;
+      this.clearWhatsAppStartupWatchdog();
       this.whatsAppPhone = null;
       this.log('Escaneie o QR Code do WhatsApp no painel.', {
         type: 'whatsapp_qr'
@@ -400,6 +407,7 @@ export class UserBridgeRuntime {
       this.whatsAppStatus = 'ready';
       this.whatsAppRestartAttempts = 0;
       this.whatsAppIssue = null;
+      this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.clearWhatsAppAutoReconnect();
       this.attachWhatsAppBrowserLifecycle();
@@ -428,6 +436,7 @@ export class UserBridgeRuntime {
     this.whatsAppClient.on('auth_failure', (message) => {
       this.whatsAppStatus = 'auth_failure';
       this.whatsAppIssue = null;
+      this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.clearWhatsAppAutoReconnect();
       this.log(`Falha na autenticacao do WhatsApp: ${message}`, {
@@ -440,6 +449,7 @@ export class UserBridgeRuntime {
     this.whatsAppClient.on('disconnected', (reason) => {
       this.whatsAppStatus = 'disconnected';
       this.whatsAppIssue = null;
+      this.clearWhatsAppStartupWatchdog();
       this.log(`WhatsApp desconectado: ${reason}`, {
         type: 'whatsapp_disconnected'
       });
@@ -457,6 +467,7 @@ export class UserBridgeRuntime {
     if (issue) {
       this.whatsAppStatus = issue.status;
       this.whatsAppIssue = issue;
+      this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.log(issue.message, {
         level: 'error',
@@ -469,6 +480,7 @@ export class UserBridgeRuntime {
 
     this.whatsAppStatus = 'error';
     this.whatsAppIssue = null;
+    this.clearWhatsAppStartupWatchdog();
     this.log(`Falha na inicializacao do WhatsApp: ${error.message}`, {
       level: 'error',
       type: 'whatsapp_init_error',
@@ -489,6 +501,7 @@ export class UserBridgeRuntime {
     this.whatsAppResetInProgress = true;
     this.clearWhatsAppRestart();
     this.clearWhatsAppAutoReconnect();
+    this.clearWhatsAppStartupWatchdog();
     this.whatsAppStatus = 'resetting';
     this.whatsAppIssue = null;
     this.qrDataUrl = null;
@@ -528,6 +541,7 @@ export class UserBridgeRuntime {
 
     const client = this.whatsAppClient;
     this.whatsAppClient = null;
+    this.clearWhatsAppStartupWatchdog();
     client.removeAllListeners();
     await client.destroy().catch(() => {});
     await wait(1200);
@@ -1857,6 +1871,39 @@ export class UserBridgeRuntime {
 
     clearTimeout(this.whatsAppAutoReconnectTimeout);
     this.whatsAppAutoReconnectTimeout = null;
+  }
+
+  scheduleWhatsAppStartupWatchdog(reason) {
+    this.clearWhatsAppStartupWatchdog();
+
+    this.whatsAppStartupWatchdogTimeout = setTimeout(() => {
+      this.whatsAppStartupWatchdogTimeout = null;
+
+      if (!['connecting', 'authenticated', 'reconnecting'].includes(this.whatsAppStatus)) {
+        return;
+      }
+
+      this.log('O WhatsApp ficou preso em reconexao. Reiniciando a janela automaticamente.', {
+        level: 'error',
+        type: 'whatsapp_startup_watchdog',
+        increments: { errors: 1 },
+        metadata: {
+          reason,
+          status: this.whatsAppStatus
+        }
+      });
+
+      this.scheduleWhatsAppRestart(`watchdog: ${this.whatsAppStatus}`);
+    }, whatsAppStartupWatchdogMs);
+  }
+
+  clearWhatsAppStartupWatchdog() {
+    if (!this.whatsAppStartupWatchdogTimeout) {
+      return;
+    }
+
+    clearTimeout(this.whatsAppStartupWatchdogTimeout);
+    this.whatsAppStartupWatchdogTimeout = null;
   }
 
   attachWhatsAppBrowserLifecycle() {
