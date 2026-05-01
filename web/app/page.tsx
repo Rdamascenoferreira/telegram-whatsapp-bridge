@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.58.2';
+const panelVersion = 'Versao 0.58.3';
 
 type AuthUser = {
   id: string;
@@ -1226,7 +1226,7 @@ function Connections({
     : '';
   const hasTelegramConnection = state.telegramStatus === 'listening' || Boolean(state.telegram.user?.name);
   const canChooseTelegramSource = hasTelegramConnection;
-  const canUseAuthStep = hasSavedCredentials && !hasTelegramSession;
+  const canUseAuthStep = hasSavedCredentials && !credentialsEditing && !hasTelegramSession;
   const credentialsLocked = hasTelegramSession || (!credentialsEditing && hasSavedCredentials);
   const affiliateReservedSourceIds = new Set(
     (state.affiliate?.automations || [])
@@ -1309,6 +1309,8 @@ function Connections({
                     event.preventDefault();
                     event.stopPropagation();
                     restoreSavedCredentials();
+                    setTelegramCode('');
+                    setTelegramPassword('');
                     setCredentialsEditing(true);
                   }}
                 >
