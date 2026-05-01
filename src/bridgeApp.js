@@ -869,7 +869,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.58';
+  const currentPanelVersion = 'Versao 0.58.1';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.58';
+const panelVersion = 'Versao 0.58.1';
 
 type AuthUser = {
   id: string;
@@ -1166,20 +1166,35 @@ function Connections({
   }
 
   useEffect(() => {
-    setTelegramChannel(state.config.telegramChannel || '');
-    setTelegramApiId(state.config.telegramApiId || '');
-    setTelegramApiHash(state.config.telegramApiHash || '');
-    setTelegramPhone(state.config.telegramPhone || '');
-    setCredentialsEditing(!hasSavedCredentials && !hasTelegramSession);
-    setSourceEditing(!hasSavedSource);
+    if (!sourceEditing) {
+      setTelegramChannel(state.config.telegramChannel || '');
+    }
+
+    if (!credentialsEditing) {
+      setTelegramApiId(state.config.telegramApiId || '');
+      setTelegramApiHash(state.config.telegramApiHash || '');
+      setTelegramPhone(state.config.telegramPhone || '');
+    }
+
+    if (hasTelegramSession) {
+      setCredentialsEditing(false);
+    } else if (!hasSavedCredentials) {
+      setCredentialsEditing(true);
+    }
+
+    if (!hasSavedSource) {
+      setSourceEditing(true);
+    }
   }, [
     state.config.telegramChannel,
     state.config.telegramApiId,
     state.config.telegramApiHash,
     state.config.telegramPhone,
+    credentialsEditing,
     hasSavedCredentials,
     hasTelegramSession,
-    hasSavedSource
+    hasSavedSource,
+    sourceEditing
   ]);
 
   useEffect(() => {
