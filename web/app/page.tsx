@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.58.3';
+const panelVersion = 'Versao 0.59';
 
 type AuthUser = {
   id: string;
@@ -1151,7 +1151,12 @@ function Connections({
   const [telegramPassword, setTelegramPassword] = useState('');
   const hasSavedCredentials = Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
   const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
-  const hasSavedSource = Boolean(state.config.telegramChannel);
+  const activeAffiliateAutomation = state.affiliate?.automations?.[0] || null;
+  const savedAffiliateSource = activeAffiliateAutomation?.isActive ? activeAffiliateAutomation.telegramSourceGroupId || '' : '';
+  const savedTelegramFlow: 'bridge' | 'affiliate' = savedAffiliateSource ? 'affiliate' : 'bridge';
+  const hasSavedSource = Boolean(state.config.telegramChannel || savedAffiliateSource);
+  const [telegramFlow, setTelegramFlow] = useState<'bridge' | 'affiliate'>(savedTelegramFlow);
+  const [affiliateTelegramChannel, setAffiliateTelegramChannel] = useState(savedAffiliateSource);
   const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
   const [sourceEditing, setSourceEditing] = useState(!hasSavedSource);
   const credentialsEditingRef = useRef(credentialsEditing);
@@ -1174,6 +1179,8 @@ function Connections({
 
   function restoreSavedSource() {
     setTelegramChannel(state.config.telegramChannel || '');
+    setAffiliateTelegramChannel(savedAffiliateSource);
+    setTelegramFlow(savedTelegramFlow);
   }
 
   useEffect(() => {
@@ -1182,6 +1189,8 @@ function Connections({
 
     if (!sourceEditingRef.current) {
       setTelegramChannel(state.config.telegramChannel || '');
+      setAffiliateTelegramChannel(savedAffiliateSource);
+      setTelegramFlow(savedTelegramFlow);
     }
 
     if (!credentialsEditingRef.current) {
@@ -1204,6 +1213,8 @@ function Connections({
     state.config.telegramApiId,
     state.config.telegramApiHash,
     state.config.telegramPhone,
+    savedAffiliateSource,
+    savedTelegramFlow,
     hasSavedCredentials,
     hasTelegramSession,
     hasSavedSource
@@ -1228,13 +1239,76 @@ function Connections({
   const canChooseTelegramSource = hasTelegramConnection;
   const canUseAuthStep = hasSavedCredentials && !credentialsEditing && !hasTelegramSession;
   const credentialsLocked = hasTelegramSession || (!credentialsEditing && hasSavedCredentials);
-  const affiliateReservedSourceIds = new Set(
-    (state.affiliate?.automations || [])
-      .filter((automation) => automation.isActive)
-      .map((automation) => normalizeRouteSourceId(automation.telegramSourceGroupId))
-      .filter(Boolean)
-  );
-  const telegramSourceReservedByAffiliate = affiliateReservedSourceIds.has(normalizeRouteSourceId(telegramChannel));
+  const selectedWhatsAppDestinations = state.groups
+    .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
+    .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
+  const selectedWhatsAppDestinationCount = selectedWhatsAppDestinations.length;
+  const selectedRouteSource = telegramFlow === 'bridge' ? telegramChannel : affiliateTelegramChannel;
+
+  function getTelegramSourceName(sourceId: string) {
+    const normalizedSourceId = normalizeRouteSourceId(sourceId);
+    return (
+      state.telegram.availableChats?.find((chat) => normalizeRouteSourceId(chat.id) === normalizedSourceId)?.name ||
+      sourceId ||
+      'Nenhuma origem escolhida'
+    );
+  }
+
+  async function saveTelegramRoute() {
+    if (!selectedRouteSource.trim()) {
+      setNotice('Escolha uma origem do Telegram antes de salvar o fluxo.');
+      return;
+    }
+
+    setBusy('save-source');
+
+    try {
+      if (telegramFlow === 'bridge') {
+        if (activeAffiliateAutomation?.id && activeAffiliateAutomation.isActive) {
+          await postJson(`/api/affiliate/automations/${activeAffiliateAutomation.id}/toggle`, { isActive: false });
+        }
+
+        await postJson('/api/settings', {
+          telegramMode: 'user',
+          telegramChannel,
+          telegramApiId,
+          telegramApiHash,
+          telegramPhone,
+          telegramBotToken: ''
+        });
+        setNotice('Ponte Telegram -> WhatsApp salva. O automatizador de ofertas foi desativado para evitar conflito.');
+      } else {
+        const sourceName = getTelegramSourceName(affiliateTelegramChannel);
+
+        await postJson('/api/settings', {
+          telegramMode: 'user',
+          telegramChannel: '',
+          telegramApiId,
+          telegramApiHash,
+          telegramPhone,
+          telegramBotToken: ''
+        });
+
+        await postJson('/api/affiliate/automations', {
+          id: activeAffiliateAutomation?.id || undefined,
+          name: activeAffiliateAutomation?.name || 'Automatizador de Ofertas',
+          telegramSourceGroupId: affiliateTelegramChannel,
+          telegramSourceGroupName: sourceName,
+          destinations: selectedWhatsAppDestinations,
+          unknownLinkBehavior: activeAffiliateAutomation?.unknownLinkBehavior || 'keep',
+          customFooter: activeAffiliateAutomation?.customFooter || '',
+          removeOriginalFooter: Boolean(activeAffiliateAutomation?.removeOriginalFooter),
+          isActive: true
+        });
+        setNotice('Automatizador de Ofertas salvo. A ponte simples foi desligada para evitar envio duplicado.');
+      }
+
+      await refresh();
+      setSourceEditing(false);
+    } finally {
+      setBusy('');
+    }
+  }
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
@@ -1425,9 +1499,9 @@ function Connections({
           <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 2</p>
-              <h3 className="mt-1 text-lg font-semibold">Escolher grupo ou canal monitorado</h3>
+              <h3 className="mt-1 text-lg font-semibold">Escolher fluxo e origem do Telegram</h3>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Depois que a conta estiver conectada, selecione a origem que a ponte deve monitorar.
+                Escolha se esta conta vai apenas repostar mensagens ou se vai tratar ofertas com links de afiliado. Um fluxo fica ativo por vez para evitar envio duplicado.
               </p>
             </div>
             <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
@@ -1437,47 +1511,129 @@ function Connections({
 
           {canChooseTelegramSource ? (
             <>
-              <label className="grid gap-2 text-sm font-semibold">
-                Grupo ou canal monitorado
-                <select
-                  value={telegramChannel}
-                  onChange={(event) => {
-                    const nextChannelId = event.target.value;
-                    setTelegramChannel(nextChannelId);
-                  }}
-                  className={inputClass}
-                  disabled={!sourceEditing}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div
+                  className={`rounded-2xl border p-4 transition ${
+                    telegramFlow === 'bridge'
+                      ? 'border-emerald-400/50 bg-emerald-400/10 shadow-[0_18px_45px_rgba(16,185,129,0.08)]'
+                      : 'border-[var(--border)] bg-black/10'
+                  } ${!sourceEditing ? 'opacity-80' : ''}`}
                 >
-                  <option value="">Selecione uma origem</option>
-                  {(state.telegram.availableChats || []).map((chat) => {
-                    const reservedByAffiliate = affiliateReservedSourceIds.has(normalizeRouteSourceId(chat.id));
+                  <button
+                    type="button"
+                    disabled={!sourceEditing}
+                    onClick={() => setTelegramFlow('bridge')}
+                    className="w-full text-left disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Bloco 1</p>
+                        <h4 className="mt-1 text-base font-semibold">Ponte Telegram -&gt; WhatsApp</h4>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${telegramFlow === 'bridge' ? 'bg-emerald-400/15 text-emerald-100' : 'bg-white/5 text-[var(--muted)]'}`}>
+                        {telegramFlow === 'bridge' ? 'Selecionado' : 'Escolher'}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                      Reposta a mensagem exatamente como chegou no Telegram para os destinos configurados no WhatsApp.
+                    </p>
+                  </button>
 
-                    return (
-                      <option key={chat.id} value={chat.id} disabled={reservedByAffiliate}>
-                        {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                        {reservedByAffiliate ? ' - usado em Afiliados' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
+                  <div className="mt-4 grid gap-3">
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Origem da ponte
+                      <select
+                        value={telegramChannel}
+                        onChange={(event) => setTelegramChannel(event.target.value)}
+                        className={inputClass}
+                        disabled={!sourceEditing || telegramFlow !== 'bridge'}
+                      >
+                        <option value="">Selecione uma origem</option>
+                        {(state.telegram.availableChats || []).map((chat) => (
+                          <option key={chat.id} value={chat.id}>
+                            {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label="ID manual da origem"
+                      value={telegramChannel}
+                      onChange={setTelegramChannel}
+                      placeholder="-100..."
+                      disabled={!sourceEditing || telegramFlow !== 'bridge'}
+                    />
+                  </div>
+                </div>
 
-              <div className="mt-4 grid gap-4">
-                <Field label="ID manual da origem" value={telegramChannel} onChange={setTelegramChannel} placeholder="-100..." disabled={!sourceEditing} />
-                <p className="text-xs text-[var(--muted)]">
-                  Quando voce escolher uma origem no menu acima, este ID sera preenchido automaticamente.
+                <div
+                  className={`rounded-2xl border p-4 transition ${
+                    telegramFlow === 'affiliate'
+                      ? 'border-cyan-300/50 bg-cyan-400/10 shadow-[0_18px_45px_rgba(34,158,217,0.08)]'
+                      : 'border-[var(--border)] bg-black/10'
+                  } ${!sourceEditing ? 'opacity-80' : ''}`}
+                >
+                  <button
+                    type="button"
+                    disabled={!sourceEditing}
+                    onClick={() => setTelegramFlow('affiliate')}
+                    className="w-full text-left disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Bloco 2</p>
+                        <h4 className="mt-1 text-base font-semibold">Automatizador de Ofertas</h4>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${telegramFlow === 'affiliate' ? 'bg-cyan-400/15 text-cyan-100' : 'bg-white/5 text-[var(--muted)]'}`}>
+                        {telegramFlow === 'affiliate' ? 'Selecionado' : 'Escolher'}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                      Le a oferta, converte links elegiveis com a configuracao de afiliados e envia a mensagem final aos destinos do WhatsApp.
+                    </p>
+                  </button>
+
+                  <div className="mt-4 grid gap-3">
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Origem das ofertas
+                      <select
+                        value={affiliateTelegramChannel}
+                        onChange={(event) => setAffiliateTelegramChannel(event.target.value)}
+                        className={inputClass}
+                        disabled={!sourceEditing || telegramFlow !== 'affiliate'}
+                      >
+                        <option value="">Selecione uma origem</option>
+                        {(state.telegram.availableChats || []).map((chat) => (
+                          <option key={chat.id} value={chat.id}>
+                            {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label="ID manual da origem"
+                      value={affiliateTelegramChannel}
+                      onChange={setAffiliateTelegramChannel}
+                      placeholder="-100..."
+                      disabled={!sourceEditing || telegramFlow !== 'affiliate'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-3">
+                <p className="text-sm font-semibold">
+                  Rota atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
                 </p>
-                {telegramSourceReservedByAffiliate ? (
-                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                    Esta origem ja esta reservada na Automacao de Afiliados. Para usar o fluxo normal, escolha outro grupo ou altere a origem em Afiliados.
-                  </p>
-                ) : null}
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Plano atual liberado para 1 origem neste fluxo. Os destinos usados sao os {selectedWhatsAppDestinationCount} grupo(s) escolhidos em Config. WhatsApp.
+                </p>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={busy === 'save-source'}
+                    disabled={busy === 'save-source' || (sourceEditing && !selectedRouteSource.trim())}
                     onClick={async () => {
                       if (!sourceEditing) {
                         restoreSavedSource();
@@ -1485,23 +1641,11 @@ function Connections({
                         return;
                       }
 
-                    setBusy('save-source');
-                    await postJson('/api/settings', {
-                      telegramMode: 'user',
-                      telegramChannel,
-                      telegramApiId,
-                      telegramApiHash,
-                      telegramPhone,
-                      telegramBotToken: ''
-                    });
-                    await refresh();
-                    setNotice('Origem monitorada salva.');
-                    setSourceEditing(false);
-                    setBusy('');
+                      await saveTelegramRoute();
                     }}
                     className={primaryButton}
                   >
-                    {sourceEditing || !hasSavedSource ? 'Salvar origem' : 'Editar origem'}
+                    {sourceEditing || !hasSavedSource ? 'Salvar fluxo' : 'Editar fluxo'}
                   </button>
                 <button
                   type="button"
