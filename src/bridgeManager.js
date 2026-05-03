@@ -80,4 +80,15 @@ export class BridgeManager {
       this.runtimes.delete(normalizedUserId);
     }
   }
+
+  async restartRuntimeForUserId(userId) {
+    const normalizedUserId = String(userId ?? '').trim();
+
+    if (!normalizedUserId) {
+      throw new Error('Usuario invalido para reiniciar a sessao.');
+    }
+
+    await this.destroyRuntimeForUserId(normalizedUserId);
+    return await this.getRuntimeForUserId(normalizedUserId);
+  }
 }

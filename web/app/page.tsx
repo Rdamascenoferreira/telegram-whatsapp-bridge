@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.65';
+const panelVersion = 'Versao 0.66';
 
 type AuthUser = {
   id: string;
@@ -139,6 +139,44 @@ type AdminUser = AuthUser & {
     whatsAppStatus: string;
     telegramStatus: string;
   };
+  metrics?: {
+    totalTelegramReceived?: number;
+    totalForwardedMessages?: number;
+    totalWhatsAppDeliveries?: number;
+    totalErrors?: number;
+    lastActivityAt?: string | null;
+    lastForwardedAt?: string | null;
+  };
+  supervisor?: SupervisorSession | null;
+};
+
+type SupervisorSession = {
+  userId: string;
+  telegramStatus: string;
+  whatsAppStatus: string;
+  whatsAppPhone?: string | null;
+  bridgeEnabled?: boolean;
+  selectedGroupCount?: number;
+  pendingTelegramCount?: number;
+  lastActivityAt?: string | null;
+  lastForwardedAt?: string | null;
+  totalErrors?: number;
+  deliveryQueue?: {
+    active?: boolean;
+    activeJob?: {
+      name?: string;
+      startedAt?: string;
+    } | null;
+    queuedCount?: number;
+    completedCount?: number;
+    failedCount?: number;
+    delayMs?: number;
+    retryLimit?: number;
+    maxQueuedJobs?: number;
+    lastCompletedAt?: string | null;
+    lastFailedAt?: string | null;
+    lastError?: string | null;
+  };
 };
 
 type AppState = {
@@ -201,6 +239,14 @@ type AppState = {
   admin?: {
     users: AdminUser[];
     summary?: Record<string, number>;
+    supervisor?: {
+      totalRuntimes?: number;
+      readyWhatsApp?: number;
+      listeningTelegram?: number;
+      queuedDeliveries?: number;
+      activeDeliveries?: number;
+      sessions?: SupervisorSession[];
+    };
   } | null;
   affiliate?: {
     account: AffiliateAccount | null;
@@ -3149,12 +3195,13 @@ function AdminPanel({
   setNotice: (message: string) => void;
 }) {
   const [search, setSearch] = useState('');
+  const supervisor = state.admin?.supervisor;
   const users = (state.admin?.users || []).filter((user) =>
     normalizeText(`${user.name} ${user.email}`).includes(normalizeText(search))
   );
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+    <section className="grid gap-5 rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
       <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Administracao</p>
@@ -3169,6 +3216,14 @@ function AdminPanel({
             className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
           />
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-5">
+        <AdminSupervisorMetric label="Runtimes" value={supervisor?.totalRuntimes || 0} />
+        <AdminSupervisorMetric label="Telegram OK" value={supervisor?.listeningTelegram || 0} tone="success" />
+        <AdminSupervisorMetric label="WhatsApp OK" value={supervisor?.readyWhatsApp || 0} tone="success" />
+        <AdminSupervisorMetric label="Filas ativas" value={supervisor?.activeDeliveries || 0} tone="info" />
+        <AdminSupervisorMetric label="Aguardando" value={supervisor?.queuedDeliveries || 0} tone="warning" />
       </div>
 
       <div className="grid gap-3">
@@ -3194,6 +3249,33 @@ function AdminPanel({
                 <span className="rounded bg-white/5 px-2 py-1">Plano {humanize(user.plan || 'beta')}</span>
                 <span className="rounded bg-white/5 px-2 py-1">Conta {humanize(user.accountStatus || 'active')}</span>
                 <span className="rounded bg-white/5 px-2 py-1">{user.workspace?.selectedGroupCount || 0} grupo(s)</span>
+                <AdminRuntimeStatusPill label="Telegram" value={user.supervisor?.telegramStatus || user.workspace?.telegramStatus || 'offline'} />
+                <AdminRuntimeStatusPill label="WhatsApp" value={user.supervisor?.whatsAppStatus || user.workspace?.whatsAppStatus || 'offline'} />
+              </div>
+              <div className="mt-4 grid gap-2 rounded-md border border-[var(--border)] bg-white/[0.03] p-3 text-xs text-[var(--muted)] md:grid-cols-4">
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{user.supervisor?.deliveryQueue?.queuedCount || 0}</p>
+                  <p>Na fila</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{user.supervisor?.pendingTelegramCount || 0}</p>
+                  <p>Telegram pendente</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{user.metrics?.totalWhatsAppDeliveries || 0}</p>
+                  <p>Entregas</p>
+                </div>
+                <div>
+                  <p className={cn('font-semibold', (user.supervisor?.totalErrors || user.metrics?.totalErrors || 0) > 0 ? 'text-red-100' : 'text-[var(--foreground)]')}>
+                    {user.supervisor?.totalErrors || user.metrics?.totalErrors || 0}
+                  </p>
+                  <p>Erros</p>
+                </div>
+                {user.supervisor?.deliveryQueue?.lastError ? (
+                  <p className="col-span-full rounded border border-red-400/20 bg-red-400/10 px-3 py-2 text-red-100">
+                    Ultimo erro da fila: {user.supervisor.deliveryQueue.lastError}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="grid min-w-64 grid-cols-2 gap-2">
@@ -3230,6 +3312,18 @@ function AdminPanel({
               </select>
               <button
                 type="button"
+                className="col-span-2 inline-flex items-center justify-center gap-2 rounded-md border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15"
+                onClick={async () => {
+                  await postJson(`/api/admin/users/${encodeURIComponent(user.id)}/restart-runtime`);
+                  await refresh();
+                  setNotice(`Sessao de ${user.name} reiniciada sem apagar dados.`);
+                }}
+              >
+                <RefreshCcw size={16} />
+                Reiniciar sessao
+              </button>
+              <button
+                type="button"
                 className="col-span-2 inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-400/15"
                 onClick={async () => {
                   const confirmed = window.confirm(
@@ -3259,6 +3353,47 @@ function AdminPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function AdminSupervisorMetric({
+  label,
+  value,
+  tone = 'default'
+}: {
+  label: string;
+  value: number;
+  tone?: 'default' | 'success' | 'warning' | 'info';
+}) {
+  const toneClass = {
+    default: 'border-white/10 bg-white/[0.03] text-[var(--foreground)]',
+    success: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100',
+    warning: 'border-amber-400/20 bg-amber-400/10 text-amber-100',
+    info: 'border-sky-400/20 bg-sky-400/10 text-sky-100'
+  }[tone];
+
+  return (
+    <div className={cn('rounded-md border p-3', toneClass)}>
+      <p className="text-2xl font-semibold">{value}</p>
+      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] opacity-75">{label}</p>
+    </div>
+  );
+}
+
+function AdminRuntimeStatusPill({ label, value }: { label: string; value: string }) {
+  const normalized = String(value || '').toLowerCase();
+  const healthy = ['ready', 'listening', 'authenticated'].includes(normalized);
+  const waiting = ['connecting', 'qr_required', 'auth_required', 'code_required', 'password_required', 'reconnecting'].includes(normalized);
+  const className = healthy
+    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+    : waiting
+      ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+      : 'border-red-400/20 bg-red-400/10 text-red-100';
+
+  return (
+    <span className={cn('rounded border px-2 py-1', className)}>
+      {label}: {humanize(value || 'offline')}
+    </span>
   );
 }
 

@@ -287,6 +287,23 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
+    app.post('/api/admin/users/:userId/restart-runtime', requireAdmin, async (request, response) => {
+      const targetUserId = String(request.params.userId ?? '').trim();
+      const targetUser = await findUserById(targetUserId);
+
+      if (!targetUser) {
+        response.status(404).json({
+          authenticated: true,
+          googleEnabled: this.auth?.googleEnabled ?? false,
+          error: 'Usuario nao encontrado.'
+        });
+        return;
+      }
+
+      await this.manager.restartRuntimeForUserId(targetUserId);
+      await respondWithState(request, response);
+    });
+
     app.delete('/api/admin/users/:userId', requireAdmin, async (request, response) => {
       const targetUserId = String(request.params.userId ?? '').trim();
       const targetUser = await findUserById(targetUserId);
@@ -323,6 +340,7 @@ export class BridgeApp {
         loadActivityForUser(user.id)
       ]);
       const runtime = this.manager.runtimes.get(user.id);
+      const supervisor = runtime?.getSupervisorSnapshot?.() || null;
 
       return {
         ...user,
@@ -343,12 +361,22 @@ export class BridgeApp {
           totalErrors: activity.metrics.totalErrors || 0,
           lastActivityAt: activity.metrics.lastActivityAt || null,
           lastForwardedAt: activity.metrics.lastForwardedAt || null
-        }
+        },
+        supervisor
       };
     }));
+    const supervisor = this.manager.getRuntimeSnapshots();
 
     return {
       summary: buildAdminSummary(enrichedUsers),
+      supervisor: {
+        totalRuntimes: supervisor.length,
+        readyWhatsApp: supervisor.filter((runtime) => runtime.whatsAppStatus === 'ready').length,
+        listeningTelegram: supervisor.filter((runtime) => runtime.telegramStatus === 'listening').length,
+        queuedDeliveries: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryQueue?.queuedCount || 0), 0),
+        activeDeliveries: supervisor.filter((runtime) => runtime.deliveryQueue?.active).length,
+        sessions: supervisor
+      },
       options: {
         roles: userRoleOptions,
         plans: userPlanOptions,
@@ -927,7 +955,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.65';
+  const currentPanelVersion = 'Versao 0.66';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
