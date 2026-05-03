@@ -128,6 +128,9 @@ export class UserBridgeRuntime {
 
   async getState() {
     const selected = new Set(this.config.selectedGroupIds);
+    const dashboardViewClearedAt = String(this.config.dashboardViewClearedAt || '');
+    const visibleEvents = filterDashboardItemsByTimestamp(this.activity.events, dashboardViewClearedAt, 'at');
+    const visibleOffers = filterDashboardItemsByTimestamp(this.activity.offers, dashboardViewClearedAt, 'lastUpdatedAt');
 
     return {
       whatsAppStatus: this.whatsAppStatus,
@@ -143,6 +146,7 @@ export class UserBridgeRuntime {
         hasTelegramBotToken: Boolean(this.config.telegramBotToken),
         hasTelegramSession: Boolean(this.config.telegramSession),
         bridgeEnabled: this.config.bridgeEnabled,
+        dashboardViewClearedAt,
         selectedGroupIds: this.config.selectedGroupIds
       },
       metrics: {
@@ -169,8 +173,8 @@ export class UserBridgeRuntime {
         availableChats: this.telegramAvailableChats
       },
       issue: this.whatsAppIssue,
-      activity: this.activity.events.slice(0, 24),
-      offers: (this.activity.offers || []).slice(0, 10),
+      activity: visibleEvents.slice(0, 24),
+      offers: visibleOffers.slice(0, 10),
       diagnostics: this.groupDiagnostics,
       groups: this.availableGroups.map((group) => ({
         ...group,
@@ -238,6 +242,13 @@ export class UserBridgeRuntime {
     });
 
     this.log(`Grupos selecionados atualizados (${selectedGroupIds.length}).`);
+  }
+
+  async clearDashboardView() {
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      dashboardViewClearedAt: new Date().toISOString()
+    });
   }
 
   async updatePower(bridgeEnabled) {
@@ -2376,4 +2387,27 @@ function isRecoverableWhatsAppTargetError(error) {
 function isProtocolTimeoutError(error) {
   const message = String(error?.message ?? error ?? '').toLowerCase();
   return message.includes('runtime.callfunctionon timed out');
+}
+
+function filterDashboardItemsByTimestamp(items, clearedAt, dateField) {
+  if (!Array.isArray(items) || !items.length) {
+    return [];
+  }
+
+  const baseline = Date.parse(String(clearedAt || ''));
+
+  if (!Number.isFinite(baseline)) {
+    return items;
+  }
+
+  return items.filter((item) => {
+    const rawValue = item?.[dateField] || item?.at || '';
+    const value = Date.parse(String(rawValue));
+
+    if (!Number.isFinite(value)) {
+      return true;
+    }
+
+    return value >= baseline;
+  });
 }

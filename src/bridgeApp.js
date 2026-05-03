@@ -192,6 +192,14 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
+    app.post('/api/dashboard/clear-view', requireWriteAccess, async (request, response) => {
+      await runUserOperation(request, 'dashboard:clear-view', async () => {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        await runtime.clearDashboardView();
+      });
+      await respondWithState(request, response);
+    });
+
     app.post('/api/whatsapp/reset-session', requireAdmin, async (request, response) => {
       await runUserOperation(request, 'whatsapp:reset-session', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);

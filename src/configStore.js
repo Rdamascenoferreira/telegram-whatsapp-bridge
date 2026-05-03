@@ -19,6 +19,7 @@ export const defaultConfig = {
   telegramSession: '',
   telegramChannel: '',
   bridgeEnabled: true,
+  dashboardViewClearedAt: '',
   selectedGroupIds: [],
   whatsAppGroupCache: {
     groups: [],
