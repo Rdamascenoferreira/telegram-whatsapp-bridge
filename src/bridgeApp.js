@@ -361,13 +361,24 @@ export class BridgeApp {
 
   getHealthSnapshot() {
     const operations = this.manager.getOperationsSnapshot();
+    const runtimeSnapshots = this.manager.getRuntimeSnapshots();
+    const deliveryQueues = runtimeSnapshots.map((runtime) => ({
+      userId: runtime.userId,
+      telegramStatus: runtime.telegramStatus,
+      whatsAppStatus: runtime.whatsAppStatus,
+      pendingTelegramCount: runtime.pendingTelegramCount,
+      deliveryQueue: runtime.deliveryQueue
+    }));
 
     return {
       runtimes: {
         loaded: this.manager.runtimes.size,
-        initializing: this.manager.runtimePromises.size
+        initializing: this.manager.runtimePromises.size,
+        readyWhatsApp: runtimeSnapshots.filter((runtime) => runtime.whatsAppStatus === 'ready').length,
+        listeningTelegram: runtimeSnapshots.filter((runtime) => runtime.telegramStatus === 'listening').length
       },
-      operations
+      operations,
+      deliveryQueues
     };
   }
 
@@ -916,7 +927,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.64';
+  const currentPanelVersion = 'Versao 0.65';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

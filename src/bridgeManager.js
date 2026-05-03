@@ -29,6 +29,10 @@ export class BridgeManager {
     return this.operations.getSnapshot();
   }
 
+  getRuntimeSnapshots() {
+    return [...this.runtimes.values()].map((runtime) => runtime.getSupervisorSnapshot?.()).filter(Boolean);
+  }
+
   async getRuntimeForUserId(userId) {
     const normalizedUserId = String(userId ?? '').trim();
 

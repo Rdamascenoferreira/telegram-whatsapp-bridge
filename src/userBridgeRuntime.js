@@ -24,6 +24,7 @@ import {
   loadConfigForUser,
   saveConfigForUser
 } from './configStore.js';
+import { WhatsAppDeliveryQueue } from './whatsAppDeliveryQueue.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
@@ -81,6 +82,7 @@ export class UserBridgeRuntime {
     this.isRefreshingGroups = false;
     this.pendingTelegramMessages = [];
     this.isFlushingPendingTelegramMessages = false;
+    this.whatsAppDeliveryQueue = new WhatsAppDeliveryQueue({ userId: this.userId });
     this.whatsAppAutoReconnectTimeout = null;
     this.whatsAppStartupWatchdogTimeout = null;
     this.whatsAppRestartAttempts = 0;
@@ -154,6 +156,7 @@ export class UserBridgeRuntime {
         groupCacheRefreshedAt: this.groupCacheRefreshedAt,
         hasCachedGroups: this.availableGroups.length > 0,
         pendingTelegramCount: this.pendingTelegramMessages.length,
+        whatsAppDeliveryQueue: this.whatsAppDeliveryQueue.getSnapshot(),
         canResetWhatsAppSession: Boolean(this.whatsAppIssue?.canResetSession),
         canReconnectWhatsApp: this.whatsAppStatus !== 'connecting' && !this.whatsAppReconnectInProgress
       },
@@ -174,6 +177,22 @@ export class UserBridgeRuntime {
         selected: selected.has(group.id)
       })),
       logs: this.logs
+    };
+  }
+
+  getSupervisorSnapshot() {
+    return {
+      userId: this.userId,
+      telegramStatus: this.telegramStatus,
+      whatsAppStatus: this.whatsAppStatus,
+      whatsAppPhone: this.whatsAppPhone,
+      bridgeEnabled: Boolean(this.config?.bridgeEnabled),
+      selectedGroupCount: this.resolveWhatsAppTargetGroupIds().length,
+      pendingTelegramCount: this.pendingTelegramMessages.length,
+      deliveryQueue: this.whatsAppDeliveryQueue.getSnapshot(),
+      lastActivityAt: this.activity?.metrics?.lastActivityAt || null,
+      lastForwardedAt: this.activity?.metrics?.lastForwardedAt || null,
+      totalErrors: this.activity?.metrics?.totalErrors || 0
     };
   }
 
@@ -1068,36 +1087,29 @@ export class UserBridgeRuntime {
   }
 
   async sendAffiliateMessageToWhatsAppGroups(messageText, targetGroupIds) {
-    const sent = [];
-    const failed = [];
+    return await this.whatsAppDeliveryQueue.enqueue('affiliate-message', async ({ sendWithRetry, waitBetweenDeliveries }) => {
+      const sent = [];
+      const failed = [];
 
-    for (const groupId of targetGroupIds) {
-      let delivered = false;
-      let lastError = null;
-
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
-        try {
+      for (const groupId of targetGroupIds) {
+        const delivery = await sendWithRetry(async () => {
           await this.whatsAppClient.sendMessage(groupId, messageText);
-          sent.push({ groupId, attempt });
-          delivered = true;
-          break;
-        } catch (error) {
-          lastError = error;
-          await wait(1200 * attempt);
-        }
-      }
-
-      if (!delivered) {
-        failed.push({
-          groupId,
-          error: lastError?.message || 'Falha desconhecida no envio'
         });
+
+        if (delivery.ok) {
+          sent.push({ groupId, attempt: delivery.attempt });
+        } else {
+          failed.push({
+            groupId,
+            error: delivery.error
+          });
+        }
+
+        await waitBetweenDeliveries();
       }
 
-      await wait(2200);
-    }
-
-    return { sent, failed };
+      return { sent, failed };
+    });
   }
 
   async handleTelegramMessage(message, options = {}) {
@@ -1376,24 +1388,64 @@ export class UserBridgeRuntime {
       prepared.push(await this.prepareWhatsAppPayload(message));
     }
 
-    for (const groupId of targetGroupIds) {
-      for (const item of prepared) {
-        if (item.type === 'text') {
-          await this.whatsAppClient.sendMessage(groupId, item.text);
-        } else if (item.type === 'media') {
-          const media = new MessageMedia(item.mimeType, item.base64, item.filename);
-          await this.whatsAppClient.sendMessage(groupId, media, {
-            caption: item.caption || undefined
+    const delivery = await this.whatsAppDeliveryQueue.enqueue('telegram-forward', async ({ sendWithRetry, waitBetweenDeliveries }) => {
+      const sent = [];
+      const failed = [];
+
+      for (const groupId of targetGroupIds) {
+        for (const item of prepared) {
+          const result = await sendWithRetry(async () => {
+            if (item.type === 'text') {
+              await this.whatsAppClient.sendMessage(groupId, item.text);
+              return;
+            }
+
+            if (item.type === 'media') {
+              const media = new MessageMedia(item.mimeType, item.base64, item.filename);
+              await this.whatsAppClient.sendMessage(groupId, media, {
+                caption: item.caption || undefined
+              });
+            }
           });
+
+          if (result.ok) {
+            sent.push({ groupId, attempt: result.attempt, type: item.type });
+          } else {
+            failed.push({ groupId, type: item.type, error: result.error });
+          }
         }
+
+        await waitBetweenDeliveries();
       }
+
+      return { sent, failed };
+    });
+
+    if (delivery.failed.length > 0 && delivery.sent.length === 0) {
+      throw new Error(
+        `Falha em ${delivery.failed.length} entrega(s) do WhatsApp: ${delivery.failed
+          .slice(0, 3)
+          .map((failure) => `${failure.groupId}: ${failure.error}`)
+          .join(' | ')}`
+      );
+    }
+
+    if (delivery.failed.length > 0) {
+      this.log(`Mensagem enviada parcialmente. ${delivery.failed.length} entrega(s) falharam.`, {
+        level: 'error',
+        type: 'forward_partial_error',
+        increments: { errors: delivery.failed.length },
+        metadata: {
+          failed: delivery.failed.slice(0, 6)
+        }
+      });
     }
 
     const groupCount = targetGroupIds.length;
     this.upsertOffer(messages, {
       status: 'sent',
       groupCount,
-      deliveryCount: prepared.length * groupCount,
+      deliveryCount: delivery.sent.length,
       fromQueue: Boolean(options.fromQueue),
       reason: ''
     });
@@ -1402,11 +1454,12 @@ export class UserBridgeRuntime {
       increments: {
         forwardBatches: 1,
         forwardedMessages: prepared.length,
-        whatsAppDeliveries: prepared.length * groupCount
+        whatsAppDeliveries: delivery.sent.length
       },
       metadata: {
         groups: groupCount,
-        messages: prepared.length
+        messages: prepared.length,
+        deliveries: delivery.sent.length
       }
     });
   }
