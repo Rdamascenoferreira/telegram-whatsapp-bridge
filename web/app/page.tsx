@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.71';
+const panelVersion = 'Versao 0.72';
 
 type AuthUser = {
   id: string;
@@ -278,12 +278,13 @@ type AppState = {
   } | null;
 };
 
-type ViewKey = 'overview' | 'connections' | 'groups' | 'affiliate' | 'activity' | 'account' | 'admin';
+type ViewKey = 'overview' | 'connections' | 'groups' | 'flows' | 'affiliate' | 'activity' | 'account' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
   { key: 'connections', label: 'Config. Telegram', icon: Settings2 },
   { key: 'groups', label: 'Config. WhatsApp', icon: Users },
+  { key: 'flows', label: 'Fluxos', icon: ArrowRight },
   { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
   { key: 'activity', label: 'Historico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
@@ -316,7 +317,7 @@ export default function Home() {
   useEffect(() => {
     void loadState();
     const timer = window.setInterval(() => {
-      if (view === 'affiliate' && affiliateAutomationEditing) {
+      if (view === 'flows' && affiliateAutomationEditing) {
         return;
       }
 
@@ -446,8 +447,8 @@ export default function Home() {
               refresh={loadState}
             />
           ) : null}
-          {view === 'affiliate' ? (
-            <AffiliateAutomationPanel
+          {view === 'flows' ? (
+            <FlowsPanel
               state={state}
               setNotice={setNotice}
               setBusy={setBusy}
@@ -455,6 +456,15 @@ export default function Home() {
               refresh={loadState}
               isAutomationEditing={affiliateAutomationEditing}
               setAutomationEditing={setAffiliateAutomationEditing}
+            />
+          ) : null}
+          {view === 'affiliate' ? (
+            <AffiliateAutomationPanel
+              state={state}
+              setNotice={setNotice}
+              setBusy={setBusy}
+              busy={busy}
+              refresh={loadState}
             />
           ) : null}
           {view === 'activity' ? <ActivityLog state={state} /> : null}
@@ -1339,25 +1349,13 @@ function Connections({
   const [telegramPassword, setTelegramPassword] = useState('');
   const hasSavedCredentials = Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
   const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
-  const activeAffiliateAutomation = state.affiliate?.automations?.[0] || null;
-  const savedAffiliateSource = activeAffiliateAutomation?.isActive ? activeAffiliateAutomation.telegramSourceGroupId || '' : '';
-  const savedTelegramFlow: 'bridge' | 'affiliate' = savedAffiliateSource ? 'affiliate' : 'bridge';
-  const hasSavedSource = Boolean(state.config.telegramChannel || savedAffiliateSource);
-  const [telegramFlow, setTelegramFlow] = useState<'bridge' | 'affiliate'>(savedTelegramFlow);
-  const [affiliateTelegramChannel, setAffiliateTelegramChannel] = useState(savedAffiliateSource);
   const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
-  const [sourceEditing, setSourceEditing] = useState(!hasSavedSource);
   const credentialsEditingRef = useRef(credentialsEditing);
-  const sourceEditingRef = useRef(sourceEditing);
   const previousTelegramSessionRef = useRef(hasTelegramSession);
 
   useEffect(() => {
     credentialsEditingRef.current = credentialsEditing;
   }, [credentialsEditing]);
-
-  useEffect(() => {
-    sourceEditingRef.current = sourceEditing;
-  }, [sourceEditing]);
 
   function restoreSavedCredentials() {
     setTelegramApiId(state.config.telegramApiId || '');
@@ -1365,21 +1363,9 @@ function Connections({
     setTelegramPhone(state.config.telegramPhone || '');
   }
 
-  function restoreSavedSource() {
-    setTelegramChannel(state.config.telegramChannel || '');
-    setAffiliateTelegramChannel(savedAffiliateSource);
-    setTelegramFlow(savedTelegramFlow);
-  }
-
   useEffect(() => {
     const telegramSessionJustConnected = !previousTelegramSessionRef.current && hasTelegramSession;
     previousTelegramSessionRef.current = hasTelegramSession;
-
-    if (!sourceEditingRef.current) {
-      setTelegramChannel(state.config.telegramChannel || '');
-      setAffiliateTelegramChannel(savedAffiliateSource);
-      setTelegramFlow(savedTelegramFlow);
-    }
 
     if (!credentialsEditingRef.current) {
       setTelegramApiId(state.config.telegramApiId || '');
@@ -1392,20 +1378,12 @@ function Connections({
     } else if (!hasSavedCredentials) {
       setCredentialsEditing(true);
     }
-
-    if (!hasSavedSource) {
-      setSourceEditing(true);
-    }
   }, [
-    state.config.telegramChannel,
     state.config.telegramApiId,
     state.config.telegramApiHash,
     state.config.telegramPhone,
-    savedAffiliateSource,
-    savedTelegramFlow,
     hasSavedCredentials,
-    hasTelegramSession,
-    hasSavedSource
+    hasTelegramSession
   ]);
 
   useEffect(() => {
@@ -1424,20 +1402,13 @@ function Connections({
     ? state.telegram.user.name + (state.telegram.user.username ? ` (${state.telegram.user.username})` : '')
     : '';
   const hasTelegramConnection = state.telegramStatus === 'listening' || Boolean(state.telegram.user?.name);
-  const canChooseTelegramSource = hasTelegramConnection;
   const canUseAuthStep = hasSavedCredentials && !credentialsEditing && !hasTelegramSession;
   const credentialsLocked = hasTelegramSession || (!credentialsEditing && hasSavedCredentials);
-  const selectedWhatsAppDestinations = state.groups
-    .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
-    .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
-  const selectedWhatsAppDestinationCount = selectedWhatsAppDestinations.length;
-  const selectedRouteSource = telegramFlow === 'bridge' ? telegramChannel : affiliateTelegramChannel;
   const telegramCodeSent = hasTelegramSession || authPhase === 'code_required' || authPhase === 'password_required';
   const telegramInternalChecklist = [
     { label: 'Salvar credenciais', done: hasSavedCredentials, ready: credentialsEditing && Boolean(telegramApiId && telegramApiHash && telegramPhone) },
     { label: 'Enviar codigo', done: telegramCodeSent, ready: canUseAuthStep },
-    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession },
-    { label: 'Escolher fluxo de origem', done: hasSavedSource, ready: hasTelegramSession && sourceEditing && Boolean(selectedRouteSource.trim()) }
+    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession }
   ];
   const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
   const telegramHeroStatusLabel = hasTelegramSession
@@ -1453,76 +1424,6 @@ function Connections({
     ? telegramUserLabel || state.telegram.user?.phone || 'Sessao conectada'
     : 'Sessao de usuario';
 
-  function getTelegramSourceName(sourceId: string) {
-    const normalizedSourceId = normalizeRouteSourceId(sourceId);
-    return (
-      state.telegram.availableChats?.find((chat) => normalizeRouteSourceId(chat.id) === normalizedSourceId)?.name ||
-      sourceId ||
-      'Nenhuma origem escolhida'
-    );
-  }
-
-  async function saveTelegramRoute() {
-    if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
-      return;
-    }
-
-    if (!selectedRouteSource.trim()) {
-      setNotice('Escolha uma origem do Telegram antes de salvar o fluxo.');
-      return;
-    }
-
-    setBusy('save-source');
-
-    try {
-      if (telegramFlow === 'bridge') {
-        if (activeAffiliateAutomation?.id && activeAffiliateAutomation.isActive) {
-          await postJson(`/api/affiliate/automations/${activeAffiliateAutomation.id}/toggle`, { isActive: false });
-        }
-
-        await postJson('/api/settings', {
-          telegramMode: 'user',
-          telegramChannel,
-          telegramApiId,
-          telegramApiHash,
-          telegramPhone,
-          telegramBotToken: ''
-        });
-        setNotice('Ponte Telegram -> WhatsApp salva. O automatizador de ofertas foi desativado para evitar conflito.');
-      } else {
-        const sourceName = getTelegramSourceName(affiliateTelegramChannel);
-
-        await postJson('/api/settings', {
-          telegramMode: 'user',
-          telegramChannel: '',
-          telegramApiId,
-          telegramApiHash,
-          telegramPhone,
-          telegramBotToken: ''
-        });
-
-        await postJson('/api/affiliate/automations', {
-          id: activeAffiliateAutomation?.id || undefined,
-          name: activeAffiliateAutomation?.name || 'Automatizador de Ofertas',
-          telegramSourceGroupId: affiliateTelegramChannel,
-          telegramSourceGroupName: sourceName,
-          destinations: selectedWhatsAppDestinations,
-          unknownLinkBehavior: activeAffiliateAutomation?.unknownLinkBehavior || 'keep',
-          customFooter: activeAffiliateAutomation?.customFooter || '',
-          removeOriginalFooter: Boolean(activeAffiliateAutomation?.removeOriginalFooter),
-          isActive: true
-        });
-        setNotice('Automatizador de Ofertas salvo. A ponte simples foi desligada para evitar envio duplicado.');
-      }
-
-      await refresh();
-      setSourceEditing(false);
-    } finally {
-      setBusy('');
-    }
-  }
-
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
       <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
@@ -1537,7 +1438,7 @@ function Connections({
                 <div>
                   <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do Telegram</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, valide o codigo de acesso e defina qual fluxo do Telegram vai alimentar sua operacao com seguranca.
+                    Conecte sua conta, valide o codigo de acesso e mantenha a sessao do Telegram pronta para alimentar os fluxos da operacao.
                   </p>
                 </div>
               </div>
@@ -1567,7 +1468,7 @@ function Connections({
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 1</p>
               <h3 className="mt-1 text-lg font-semibold">Entrar na conta do Telegram</h3>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Primeiro conecte sua conta. Depois a tela libera a escolha do grupo ou canal monitorado.
+                Primeiro conecte sua conta. Depois a aba Fluxos libera a escolha da origem que vai alimentar a ponte simples ou o automatizador de ofertas.
               </p>
             </div>
             <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
@@ -1586,7 +1487,7 @@ function Connections({
               setBusy('settings');
               await postJson('/api/settings', {
                 telegramMode: 'user',
-                telegramChannel,
+                telegramChannel: state.config.telegramChannel,
                 telegramApiId,
                 telegramApiHash,
                 telegramPhone,
@@ -1647,7 +1548,7 @@ function Connections({
                     setBusy('telegram-send-code');
                     await postJson('/api/settings', {
                       telegramMode: 'user',
-                      telegramChannel,
+                      telegramChannel: state.config.telegramChannel,
                       telegramApiId,
                       telegramApiHash,
                       telegramPhone,
@@ -1740,184 +1641,370 @@ function Connections({
         </section>
 
         <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
-          <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
+          <div className="flex items-start justify-between gap-3 max-md:flex-col">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 2</p>
-              <h3 className="mt-1 text-lg font-semibold">Escolher fluxo e origem do Telegram</h3>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Proximo passo</p>
+              <h3 className="mt-1 text-lg font-semibold">Defina os fluxos na aba dedicada</h3>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Escolha se esta conta vai apenas repostar mensagens ou se vai tratar ofertas com links de afiliado. Um fluxo fica ativo por vez para evitar envio duplicado.
+                Depois de concluir o login, use a aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span> para escolher se esta conta vai operar a ponte simples ou o automatizador de ofertas.
               </p>
             </div>
             <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-              {canChooseTelegramSource ? 'Liberado' : 'Aguardando login'}
+              {hasTelegramConnection ? 'Sessao pronta' : 'Aguardando login'}
             </span>
           </div>
-
-          {canChooseTelegramSource ? (
-            <>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div
-                  className={`rounded-2xl border p-4 transition ${
-                    telegramFlow === 'bridge'
-                      ? 'border-emerald-400/50 bg-emerald-400/10 shadow-[0_18px_45px_rgba(16,185,129,0.08)]'
-                      : 'border-[var(--border)] bg-black/10'
-                  } ${!sourceEditing ? 'opacity-80' : ''}`}
-                >
-                  <button
-                    type="button"
-                    disabled={readOnlyAccount || !sourceEditing}
-                    onClick={() => setTelegramFlow('bridge')}
-                    className="w-full text-left disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Bloco 1</p>
-                        <h4 className="mt-1 text-base font-semibold">Ponte Telegram -&gt; WhatsApp</h4>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${telegramFlow === 'bridge' ? 'bg-emerald-400/15 text-emerald-100' : 'bg-white/5 text-[var(--muted)]'}`}>
-                        {telegramFlow === 'bridge' ? 'Selecionado' : 'Escolher'}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                      Reposta a mensagem exatamente como chegou no Telegram para os destinos configurados no WhatsApp.
-                    </p>
-                  </button>
-
-                  <div className="mt-4 grid gap-3">
-                    <label className="grid gap-2 text-sm font-semibold">
-                      Origem da ponte
-                      <select
-                        value={telegramChannel}
-                        onChange={(event) => setTelegramChannel(event.target.value)}
-                        className={inputClass}
-                        disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'bridge'}
-                      >
-                        <option value="">Selecione uma origem</option>
-                        {(state.telegram.availableChats || []).map((chat) => (
-                          <option key={chat.id} value={chat.id}>
-                            {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <Field
-                      label="ID manual da origem"
-                      value={telegramChannel}
-                      onChange={setTelegramChannel}
-                      placeholder="-100..."
-                      disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'bridge'}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  className={`rounded-2xl border p-4 transition ${
-                    telegramFlow === 'affiliate'
-                      ? 'border-cyan-300/50 bg-cyan-400/10 shadow-[0_18px_45px_rgba(34,158,217,0.08)]'
-                      : 'border-[var(--border)] bg-black/10'
-                  } ${!sourceEditing ? 'opacity-80' : ''}`}
-                >
-                  <button
-                    type="button"
-                    disabled={readOnlyAccount || !sourceEditing}
-                    onClick={() => setTelegramFlow('affiliate')}
-                    className="w-full text-left disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Bloco 2</p>
-                        <h4 className="mt-1 text-base font-semibold">Automatizador de Ofertas</h4>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${telegramFlow === 'affiliate' ? 'bg-cyan-400/15 text-cyan-100' : 'bg-white/5 text-[var(--muted)]'}`}>
-                        {telegramFlow === 'affiliate' ? 'Selecionado' : 'Escolher'}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                      Le a oferta, converte links elegiveis com a configuracao de afiliados e envia a mensagem final aos destinos do WhatsApp.
-                    </p>
-                  </button>
-
-                  <div className="mt-4 grid gap-3">
-                    <label className="grid gap-2 text-sm font-semibold">
-                      Origem das ofertas
-                      <select
-                        value={affiliateTelegramChannel}
-                        onChange={(event) => setAffiliateTelegramChannel(event.target.value)}
-                        className={inputClass}
-                        disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'affiliate'}
-                      >
-                        <option value="">Selecione uma origem</option>
-                        {(state.telegram.availableChats || []).map((chat) => (
-                          <option key={chat.id} value={chat.id}>
-                            {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <Field
-                      label="ID manual da origem"
-                      value={affiliateTelegramChannel}
-                      onChange={setAffiliateTelegramChannel}
-                      placeholder="-100..."
-                      disabled={readOnlyAccount || !sourceEditing || telegramFlow !== 'affiliate'}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-3">
-                <p className="text-sm font-semibold">
-                  Rota atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Plano atual liberado para 1 origem neste fluxo. Os destinos usados sao os {selectedWhatsAppDestinationCount} grupo(s) escolhidos em Config. WhatsApp.
-                </p>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={readOnlyAccount || busy === 'save-source' || (sourceEditing && !selectedRouteSource.trim())}
-                    onClick={async () => {
-                      if (!sourceEditing) {
-                        restoreSavedSource();
-                        setSourceEditing(true);
-                        return;
-                      }
-
-                      await saveTelegramRoute();
-                    }}
-                    className={primaryButton}
-                  >
-                    {sourceEditing || !hasSavedSource ? 'Salvar fluxo' : 'Editar fluxo'}
-                  </button>
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'telegram-chats'}
-                  onClick={async () => {
-                    setBusy('telegram-chats');
-                    await postJson('/api/telegram/refresh-chats');
-                    await refresh();
-                    setNotice('Lista de grupos e canais do Telegram atualizada.');
-                    setBusy('');
-                  }}
-                  className={secondaryButton}
-                >
-                  <RefreshCcw size={16} />
-                  Atualizar origens
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="rounded-md border border-[var(--border)] bg-black/15 px-4 py-3 text-sm text-[var(--muted)]">
-              Conclua o login do Telegram na etapa 1 para liberar o dropdown de origem.
-            </p>
-          )}
-          </section>
+        </section>
         </div>
       </section>
 
       <ConnectionSummary state={state} refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
+    </div>
+  );
+}
+
+function FlowsPanel({
+  state,
+  setNotice,
+  setBusy,
+  busy,
+  refresh,
+  isAutomationEditing,
+  setAutomationEditing
+}: {
+  state: AppState;
+  setNotice: (message: string) => void;
+  setBusy: (value: string) => void;
+  busy: string;
+  refresh: () => Promise<void>;
+  isAutomationEditing: boolean;
+  setAutomationEditing: (value: boolean) => void;
+}) {
+  const readOnlyAccount = isReadOnlyAccount(state);
+  const planLimits = state.planLimits;
+  const activeAutomation = state.affiliate?.automations?.[0] || null;
+  const savedAffiliateSource = activeAutomation?.isActive ? activeAutomation.telegramSourceGroupId || '' : '';
+  const savedTelegramFlow: 'bridge' | 'affiliate' = savedAffiliateSource ? 'affiliate' : 'bridge';
+  const hasSavedSource = Boolean(state.config.telegramChannel || savedAffiliateSource);
+  const [telegramFlow, setTelegramFlow] = useState<'bridge' | 'affiliate'>(savedTelegramFlow);
+  const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
+  const [affiliateTelegramChannel, setAffiliateTelegramChannel] = useState(savedAffiliateSource);
+  const flowFormRef = useRef<HTMLFormElement | null>(null);
+  const selectedWhatsAppDestinations = state.groups
+    .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
+    .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
+  const selectedWhatsAppDestinationCount = selectedWhatsAppDestinations.length;
+  const selectedRouteSource = telegramFlow === 'bridge' ? telegramChannel : affiliateTelegramChannel;
+  const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
+  const canChooseTelegramSource = hasTelegramSession;
+  const affiliateModuleAllowed = (planLimits?.affiliateAutomations ?? 0) > 0;
+  const selectedBridgeName = getTelegramChatName(state, state.config.telegramChannel);
+  const selectedAffiliateName = getTelegramChatName(state, savedAffiliateSource);
+  const flowChecklist = [
+    { label: 'Telegram conectado', done: hasTelegramSession, ready: Boolean(state.config.telegramApiId) },
+    { label: 'Destinos WhatsApp prontos', done: selectedWhatsAppDestinationCount > 0, ready: state.groups.length > 0 },
+    { label: 'Fluxo escolhido', done: hasSavedSource, ready: canChooseTelegramSource && selectedWhatsAppDestinationCount > 0 }
+  ];
+  const flowChecklistComplete = flowChecklist.every((step) => step.done);
+
+  useEffect(() => {
+    if (!isAutomationEditing) {
+      setTelegramChannel(state.config.telegramChannel || '');
+      setAffiliateTelegramChannel(savedAffiliateSource);
+      setTelegramFlow(savedTelegramFlow);
+    }
+  }, [isAutomationEditing, state.config.telegramChannel, savedAffiliateSource, savedTelegramFlow]);
+
+  useEffect(() => {
+    if (!hasSavedSource && !readOnlyAccount) {
+      setAutomationEditing(true);
+    }
+  }, [hasSavedSource, readOnlyAccount, setAutomationEditing]);
+
+  async function saveFlow() {
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+
+    if (!hasTelegramSession) {
+      setNotice('Conclua o login do Telegram antes de configurar um fluxo.');
+      return;
+    }
+
+    if (!selectedWhatsAppDestinationCount) {
+      setNotice('Escolha ao menos um destino em Config. WhatsApp antes de salvar o fluxo.');
+      return;
+    }
+
+    if (!selectedRouteSource.trim()) {
+      setNotice('Escolha uma origem do Telegram antes de salvar o fluxo.');
+      return;
+    }
+
+    if (telegramFlow === 'affiliate' && !affiliateModuleAllowed) {
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automatizador de Ofertas.`);
+      return;
+    }
+
+    setBusy('save-source');
+
+    try {
+      if (telegramFlow === 'bridge') {
+        if (activeAutomation?.id && activeAutomation.isActive) {
+          await postJson(`/api/affiliate/automations/${activeAutomation.id}/toggle`, { isActive: false });
+        }
+
+        await postJson('/api/settings', {
+          telegramMode: 'user',
+          telegramChannel,
+          telegramApiId: state.config.telegramApiId,
+          telegramApiHash: state.config.telegramApiHash,
+          telegramPhone: state.config.telegramPhone,
+          telegramBotToken: ''
+        });
+        setNotice('Fluxo Ponte Telegram -> WhatsApp salvo com sucesso.');
+      } else {
+        await postJson('/api/settings', {
+          telegramMode: 'user',
+          telegramChannel: '',
+          telegramApiId: state.config.telegramApiId,
+          telegramApiHash: state.config.telegramApiHash,
+          telegramPhone: state.config.telegramPhone,
+          telegramBotToken: ''
+        });
+
+        await postJson('/api/affiliate/automations', {
+          id: activeAutomation?.id || undefined,
+          name: activeAutomation?.name || 'Automatizador de Ofertas',
+          telegramSourceGroupId: affiliateTelegramChannel,
+          telegramSourceGroupName: getTelegramChatName(state, affiliateTelegramChannel),
+          destinations: selectedWhatsAppDestinations,
+          unknownLinkBehavior: activeAutomation?.unknownLinkBehavior || 'keep',
+          customFooter: activeAutomation?.customFooter || '',
+          removeOriginalFooter: Boolean(activeAutomation?.removeOriginalFooter),
+          isActive: true
+        });
+        setNotice('Fluxo Automatizador de Ofertas salvo com sucesso.');
+      }
+
+      await refresh();
+      setAutomationEditing(false);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
+        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
+          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Fluxos</p>
+              <div className="mt-3 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+                  <ArrowRight size={22} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da operacao</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    Escolha como a conta vai trabalhar: ponte simples para republicar exatamente o que chega do Telegram ou automatizador de ofertas para tratar links de afiliado antes do envio.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+                {selectedWhatsAppDestinationCount} destino(s) ativo(s)
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
+                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuracao'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-5 px-6 py-6 max-sm:px-4">
+          <InternalSetupChecklist
+            title="Checklist dos Fluxos"
+            steps={flowChecklist}
+            complete={flowChecklistComplete}
+            completeLabel="Fluxo operacional pronto para rodar"
+          />
+
+          <form ref={flowFormRef} onSubmit={(event) => { event.preventDefault(); void saveFlow(); }} className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de operacao</p>
+                <h3 className="mt-1 text-lg font-semibold">Um fluxo ativo por vez</h3>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                  A mesma conta pode usar a ponte simples ou o automatizador de ofertas, mas apenas um deles fica ativo por vez para evitar envio duplicado.
+                </p>
+              </div>
+              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+                {hasTelegramSession ? 'Telegram pronto' : 'Conecte o Telegram primeiro'}
+              </span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className={cn('rounded-2xl border p-4 transition', telegramFlow === 'bridge' ? 'border-emerald-400/50 bg-emerald-400/10 shadow-[0_18px_45px_rgba(16,185,129,0.08)]' : 'border-[var(--border)] bg-black/10', !isAutomationEditing && 'opacity-90')}>
+                <button
+                  type="button"
+                  disabled={readOnlyAccount || !isAutomationEditing}
+                  onClick={() => setTelegramFlow('bridge')}
+                  className="w-full text-left disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Fluxo 1</p>
+                      <h4 className="mt-1 text-base font-semibold">Ponte Telegram -&gt; WhatsApp</h4>
+                    </div>
+                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', telegramFlow === 'bridge' ? 'bg-emerald-400/15 text-emerald-100' : 'bg-white/5 text-[var(--muted)]')}>
+                      {telegramFlow === 'bridge' ? 'Selecionado' : 'Escolher'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos ja salvos no WhatsApp.
+                  </p>
+                </button>
+
+                <div className="mt-4 grid gap-3">
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Origem da ponte
+                    <select
+                      value={telegramChannel}
+                      onChange={(event) => setTelegramChannel(event.target.value)}
+                      className={inputClass}
+                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
+                    >
+                      <option value="">Selecione uma origem</option>
+                      {(state.telegram.availableChats || []).map((chat) => (
+                        <option key={chat.id} value={chat.id}>
+                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field
+                    label="ID manual da origem"
+                    value={telegramChannel}
+                    onChange={setTelegramChannel}
+                    placeholder="-100..."
+                    disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
+                  />
+                </div>
+              </div>
+
+              <div className={cn('rounded-2xl border p-4 transition', telegramFlow === 'affiliate' ? 'border-cyan-300/50 bg-cyan-400/10 shadow-[0_18px_45px_rgba(34,158,217,0.08)]' : 'border-[var(--border)] bg-black/10', !isAutomationEditing && 'opacity-90')}>
+                <button
+                  type="button"
+                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
+                  onClick={() => setTelegramFlow('affiliate')}
+                  className="w-full text-left disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Fluxo 2</p>
+                      <h4 className="mt-1 text-base font-semibold">Automatizador de Ofertas</h4>
+                    </div>
+                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', telegramFlow === 'affiliate' ? 'bg-cyan-400/15 text-cyan-100' : 'bg-white/5 text-[var(--muted)]')}>
+                      {telegramFlow === 'affiliate' ? 'Selecionado' : 'Escolher'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configuracoes de afiliado e so depois enviar a mensagem final.
+                  </p>
+                </button>
+
+                <div className="mt-4 grid gap-3">
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Origem das ofertas
+                    <select
+                      value={affiliateTelegramChannel}
+                      onChange={(event) => setAffiliateTelegramChannel(event.target.value)}
+                      className={inputClass}
+                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                    >
+                      <option value="">Selecione uma origem</option>
+                      {(state.telegram.availableChats || []).map((chat) => (
+                        <option key={chat.id} value={chat.id}>
+                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field
+                    label="ID manual da origem"
+                    value={affiliateTelegramChannel}
+                    onChange={setAffiliateTelegramChannel}
+                    placeholder="-100..."
+                    disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-4">
+                <p className="text-sm font-semibold">
+                  Fluxo atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Os dois fluxos usam os destinos escolhidos em Config. WhatsApp. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
+                </p>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
+                    <p className="font-semibold text-emerald-100">Ponte simples salva</p>
+                    <p className="mt-1 leading-5 text-[var(--muted)]">{selectedBridgeName}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
+                    <p className="font-semibold text-cyan-100">Automatizador salvo</p>
+                    <p className="mt-1 leading-5 text-[var(--muted)]">{selectedAffiliateName}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+                <p className="text-sm font-semibold">Acoes do fluxo</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Edite a origem, recarregue a lista de chats do Telegram e salve a operacao escolhida.
+                </p>
+                <div className="mt-4 grid gap-2">
+                  <button
+                    type="button"
+                    disabled={readOnlyAccount || busy === 'save-source' || (isAutomationEditing && !selectedRouteSource.trim())}
+                    onClick={() => {
+                      if (!isAutomationEditing) {
+                        setAutomationEditing(true);
+                        return;
+                      }
+                      flowFormRef.current?.requestSubmit();
+                    }}
+                    className={primaryButton}
+                  >
+                    {isAutomationEditing || !hasSavedSource ? 'Salvar fluxo' : 'Editar fluxo'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={readOnlyAccount || busy === 'telegram-chats'}
+                    onClick={async () => {
+                      setBusy('telegram-chats');
+                      await postJson('/api/telegram/refresh-chats');
+                      await refresh();
+                      setNotice('Lista de grupos e canais do Telegram atualizada.');
+                      setBusy('');
+                    }}
+                    className={secondaryButton}
+                  >
+                    <RefreshCcw size={16} />
+                    Atualizar origens
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
@@ -2687,31 +2774,21 @@ function AffiliateAutomationPanel({
   setNotice,
   setBusy,
   busy,
-  refresh,
-  isAutomationEditing,
-  setAutomationEditing
+  refresh
 }: {
   state: AppState;
   setNotice: (message: string) => void;
   setBusy: (value: string) => void;
   busy: string;
   refresh: () => Promise<void>;
-  isAutomationEditing: boolean;
-  setAutomationEditing: (value: boolean) => void;
 }) {
   const readOnlyAccount = isReadOnlyAccount(state);
   const planLimits = state.planLimits;
   const affiliateAutomationLimit = planLimits?.affiliateAutomations ?? Number.POSITIVE_INFINITY;
   const affiliateModuleAllowed = affiliateAutomationLimit > 0;
-  const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
-  const automationFormRef = useRef<HTMLFormElement | null>(null);
-  const telegramBridgeSourceId = normalizeRouteSourceId(state.config.telegramChannel);
-  const affiliateSourceReservedByTelegram =
-    Boolean(telegramBridgeSourceId) &&
-    normalizeRouteSourceId(activeAutomation?.telegramSourceGroupId) === telegramBridgeSourceId;
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -2719,12 +2796,6 @@ function AffiliateAutomationPanel({
     convertedUrls: AffiliateLog['convertedUrls'];
     status: string;
   } | null>(null);
-
-  useEffect(() => {
-    if (!firstAutomation && !readOnlyAccount) {
-      setAutomationEditing(true);
-    }
-  }, [firstAutomation, readOnlyAccount, setAutomationEditing]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2751,48 +2822,6 @@ function AffiliateAutomationPanel({
 
     await refresh();
     setNotice('Dados de afiliado salvos.');
-    setBusy('');
-  }
-
-  async function submitAutomation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
-      return;
-    }
-    if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
-      return;
-    }
-    setBusy('affiliate-automation');
-    const form = new FormData(event.currentTarget);
-    const sourceId = String(form.get('telegramSourceGroupId') ?? '');
-    const source = state.telegram.availableChats?.find((chat) => chat.id === sourceId);
-    const selectedDestinationIds = new Set(form.getAll('destinations').map(String));
-    const destinations = state.groups
-      .filter((group) => selectedDestinationIds.has(group.id))
-      .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
-    if (destinations.length > whatsappDestinationLimit) {
-      setBusy('');
-      setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp por automacao.`);
-      return;
-    }
-
-    await postJson('/api/affiliate/automations', {
-      id: form.get('automationId') || undefined,
-      name: form.get('name'),
-      telegramSourceGroupId: sourceId,
-      telegramSourceGroupName: source?.name || '',
-      destinations,
-      unknownLinkBehavior: form.get('unknownLinkBehavior'),
-      customFooter: form.get('customFooter'),
-      removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
-      isActive: activeAutomation?.isActive ?? true
-    });
-
-    await refresh();
-    setNotice('Automacao de afiliados salva.');
-    setAutomationEditing(false);
     setBusy('');
   }
 
@@ -2884,120 +2913,55 @@ function AffiliateAutomationPanel({
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
         <div className="grid gap-5">
-          <form ref={automationFormRef} onSubmit={submitAutomation} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+          <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-sm font-semibold">Fluxo da automacao</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Escolha uma origem Telegram e os destinos WhatsApp desta regra.</p>
+                <p className="text-sm font-semibold">Regras do automatizador</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui voce concentra apenas as configuracoes de afiliado, os testes e o historico.
+                </p>
               </div>
-              <span className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">
-                {activeAutomation?.name || 'Nova automacao'}
+              <span className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">
+                {activeAutomation?.name || 'Fluxo nao configurado'}
               </span>
             </div>
 
-            <input type="hidden" name="automationId" value={activeAutomation?.id || ''} />
-            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-semibold">
-                Nome da automacao
-                <input
-                  name="name"
-                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
-                  defaultValue={activeAutomation?.name || ''}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
-                  placeholder="Ofertas Amazon"
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-semibold">
-                Grupo Telegram origem
-                <select
-                  name="telegramSourceGroupId"
-                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
-                  defaultValue={activeAutomation?.telegramSourceGroupId || ''}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
-                >
-                  <option value="">Selecione uma origem</option>
-                  {state.telegram.availableChats?.map((chat) => {
-                    const reservedByTelegram = telegramBridgeSourceId === normalizeRouteSourceId(chat.id);
-
-                    return (
-                      <option key={chat.id} value={chat.id} disabled={reservedByTelegram}>
-                        {chat.name}
-                        {reservedByTelegram ? ' - usado no Telegram normal' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                {affiliateSourceReservedByTelegram ? (
-                  <span className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-normal leading-5 text-amber-100">
-                    Esta origem tambem esta configurada na aba Telegram. Escolha outro grupo para evitar envio duplicado.
-                  </span>
-                ) : null}
-              </label>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
-              <p className="text-sm font-semibold">Destinos WhatsApp</p>
-              <div className="mt-3 grid max-h-64 gap-2 overflow-auto pr-1 md:grid-cols-2">
-                {state.groups.map((group) => {
-                  const checked = Boolean(activeAutomation?.destinations?.some((destination) => destination.whatsappGroupId === group.id));
-                  return (
-                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', (!isAutomationEditing || readOnlyAccount || !affiliateModuleAllowed) && 'opacity-65')}>
-                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed} />
-                      <span className="truncate">{group.name}</span>
-                    </label>
-                  );
-                })}
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Origem ativa</p>
+                <p className="mt-2 text-sm font-semibold">{getTelegramChatName(state, activeAutomation?.telegramSourceGroupId)}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  O grupo de origem do automatizador de ofertas e configurado na aba Fluxos.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos ativos</p>
+                <p className="mt-2 text-sm font-semibold">{activeAutomation?.destinations?.length || 0} grupo(s)</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Os destinos do automatizador acompanham a selecao feita em Config. WhatsApp e sao aplicados quando o fluxo e salvo.
+                </p>
               </div>
             </div>
 
             <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
-              <label className="grid self-start gap-2 text-sm font-semibold">
-                Links desconhecidos
-                <select
-                  name="unknownLinkBehavior"
-                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
-                  defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
-                >
-                  <option value="keep">Manter link original</option>
-                  <option value="remove">Remover link</option>
-                  <option value="ignore_message">Ignorar mensagem inteira</option>
-                </select>
-              </label>
-              <label className="grid gap-2 text-sm font-semibold">
-                Rodape personalizado
-                <textarea
-                  name="customFooter"
-                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
-                  defaultValue={activeAutomation?.customFooter || ''}
-                  className="min-h-28 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 leading-6 disabled:cursor-not-allowed disabled:opacity-65"
-                  placeholder={'Visite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la'}
-                />
-                <span className="text-xs font-normal text-[var(--muted)]">Voce pode quebrar linhas livremente nesse rodape.</span>
-              </label>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
-                <label className={cn('inline-flex items-center gap-2', (!isAutomationEditing || readOnlyAccount || !affiliateModuleAllowed) && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed} /> Remover rodape original</label>
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Links desconhecidos</p>
+                <p className="mt-2 text-sm font-semibold">
+                  {activeAutomation?.unknownLinkBehavior === 'remove'
+                    ? 'Remover link'
+                    : activeAutomation?.unknownLinkBehavior === 'ignore_message'
+                      ? 'Ignorar mensagem inteira'
+                      : 'Manter link original'}
+                </p>
               </div>
-              <button
-                type="button"
-                disabled={readOnlyAccount || busy === 'affiliate-automation' || !affiliateModuleAllowed}
-                onClick={() => {
-                  if (!isAutomationEditing) {
-                    setAutomationEditing(true);
-                    return;
-                  }
-
-                  automationFormRef.current?.requestSubmit();
-                }}
-                className={affiliatePrimaryButtonClass}
-              >
-                {isAutomationEditing ? 'Salvar automacao' : 'Editar'}
-              </button>
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Rodape personalizado</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
+                  {activeAutomation?.customFooter || 'Nenhum rodape personalizado configurado.'}
+                </p>
+              </div>
             </div>
-          </form>
+          </section>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
@@ -3674,6 +3638,16 @@ function isWhatsAppConnectedStatus(value: string) {
 
 function normalizeRouteSourceId(value?: string | null) {
   return String(value ?? '').trim();
+}
+
+function getTelegramChatName(state: AppState, sourceId?: string | null) {
+  const normalizedSourceId = normalizeRouteSourceId(sourceId);
+
+  return (
+    state.telegram.availableChats?.find((chat) => normalizeRouteSourceId(chat.id) === normalizedSourceId)?.name ||
+    normalizedSourceId ||
+    'Nenhuma origem escolhida'
+  );
 }
 
 function Metric({
