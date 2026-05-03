@@ -183,7 +183,7 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/whatsapp/reset-session', requireWriteAccess, async (request, response) => {
+    app.post('/api/whatsapp/reset-session', requireAdmin, async (request, response) => {
       await runUserOperation(request, 'whatsapp:reset-session', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
         await runtime.resetWhatsAppSession();
@@ -199,7 +199,7 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/connections/reset-all', requireWriteAccess, async (request, response) => {
+    app.post('/api/connections/reset-all', requireAdmin, async (request, response) => {
       await runUserOperation(request, 'connections:reset-all', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
         await runtime.resetAllConnections();
@@ -916,7 +916,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.63';
+  const currentPanelVersion = 'Versao 0.64';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
