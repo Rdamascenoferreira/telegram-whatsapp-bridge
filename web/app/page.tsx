@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.68';
+const panelVersion = 'Versao 0.69';
 
 type AuthUser = {
   id: string;
@@ -1031,6 +1031,7 @@ function Overview({
   const progress = state.metrics.groupRefreshProgress;
   const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
   const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
+  const whatsappDestinationsUsed = state.config.selectedGroupIds?.length || 0;
   const automationLockReason =
     state.telegramStatus !== 'listening'
       ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
@@ -1136,11 +1137,48 @@ function Overview({
         </div>
       </section>
 
-        <section className="grid grid-cols-3 gap-3 max-xl:grid-cols-2 max-sm:grid-cols-1">
+      <section className="grid gap-3 xl:grid-cols-[1.2fr_1fr] max-xl:grid-cols-1">
+        <PlanUsageCard
+          title="Plano e limites"
+          planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
+          description="Acompanhe o que esta liberado no seu plano e quanto da estrutura atual ja esta em uso."
+          items={[
+            {
+              label: 'Destinos WhatsApp',
+              used: whatsappDestinationsUsed,
+              limit: state.planLimits?.whatsappDestinations || 0,
+              detail: `${whatsappDestinationsUsed} grupo(s) selecionado(s) no Config. WhatsApp`
+            },
+            {
+              label: 'Origens Telegram',
+              used: state.config.telegramChannel ? 1 : 0,
+              limit: state.planLimits?.telegramSources || 0,
+              detail: state.config.telegramChannel ? 'Uma origem ativa no fluxo atual' : 'Nenhuma origem salva no momento'
+            },
+            {
+              label: 'Automacoes de afiliados',
+              used: state.affiliate?.automations?.length || 0,
+              limit: state.planLimits?.affiliateAutomations || 0,
+              detail:
+                (state.affiliate?.automations?.length || 0) > 0
+                  ? `${state.affiliate?.automations?.length || 0} regra(s) criada(s)`
+                  : 'Nenhuma automacao criada ainda'
+            }
+          ]}
+          featureBadges={[
+            { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
+            { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
+            { label: 'Historico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
+            { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
+          ]}
+        />
+
+        <section className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
           <Metric icon={MessageSquare} label="Telegram" value={state.metrics.totalTelegramReceived || 0} detail={lastLabel(state.metrics.lastTelegramMessageAt)} />
           <Metric icon={Send} label="Encaminhadas" value={state.metrics.totalForwardedMessages || 0} detail={lastLabel(state.metrics.lastForwardedAt)} />
           <Metric icon={Users} label="Grupos" value={state.metrics.selectedGroupCount || 0} detail={groupProgressText} />
         </section>
+      </section>
 
       <section className="grid grid-cols-[1fr_360px] gap-5 max-xl:grid-cols-1">
         <OffersPanel state={state} compact />
@@ -1831,6 +1869,14 @@ function Groups({
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
   );
+  const hasSavedDestinations = selectedGroups.length > 0;
+  const whatsappInternalChecklist = [
+    { label: 'Iniciar sessao', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
+    { label: 'Escanear QR Code', done: whatsAppConnected, ready: hasQrCode && !whatsAppConnected },
+    { label: 'Atualizar grupos', done: Boolean(state.metrics.hasCachedGroups), ready: whatsAppConnected },
+    { label: 'Salvar destinos', done: hasSavedDestinations, ready: Boolean(state.metrics.hasCachedGroups) && !hasSavedDestinations }
+  ];
+  const whatsappChecklistComplete = whatsappInternalChecklist.every((step) => step.done);
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
     return state.groups
@@ -1890,6 +1936,13 @@ function Groups({
 
         <div className="grid gap-5 px-6 py-6 xl:grid-cols-[minmax(0,1.25fr)_330px] max-sm:px-4">
           <div className="grid gap-5">
+            <InternalSetupChecklist
+              title="Checklist do Config. WhatsApp"
+              steps={whatsappInternalChecklist}
+              complete={whatsappChecklistComplete}
+              completeLabel="WhatsApp 100% configurado"
+            />
+
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                 <div className="flex items-center gap-3">
@@ -3549,6 +3602,87 @@ function Metric({
       <strong className="mt-4 block text-3xl font-semibold">{formatNumber(value)}</strong>
       <p className="mt-2 text-xs text-[var(--muted)]">{detail}</p>
     </article>
+  );
+}
+
+function PlanUsageCard({
+  title,
+  planLabel,
+  description,
+  items,
+  featureBadges
+}: {
+  title: string;
+  planLabel: string;
+  description: string;
+  items: Array<{
+    label: string;
+    used: number;
+    limit: number;
+    detail: string;
+  }>;
+  featureBadges: Array<{
+    label: string;
+    enabled: boolean;
+    value?: string;
+  }>;
+}) {
+  return (
+    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+      <div className="flex items-start justify-between gap-4 max-md:flex-col">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{title}</p>
+          <h2 className="mt-1 text-xl font-semibold">{planLabel}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+        </div>
+        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+          Plano ativo
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        {items.map((item) => {
+          const safeLimit = Math.max(1, item.limit || 0);
+          const percent = Math.max(0, Math.min(100, Math.round((item.used / safeLimit) * 100)));
+
+          return (
+            <article key={item.label} className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">{item.label}</p>
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+                  {item.used}/{item.limit}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#25D366,#229ED9)] transition-all"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{item.detail}</p>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {featureBadges.map((feature) => (
+          <span
+            key={feature.label}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold',
+              feature.enabled
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                : 'border-white/10 bg-white/5 text-[var(--muted)]'
+            )}
+          >
+            <span className={cn('h-2 w-2 rounded-full', feature.enabled ? 'bg-[#25D366]' : 'bg-[var(--warning)]')} />
+            {feature.label}
+            {feature.value ? `: ${feature.value}` : feature.enabled ? ' liberado' : ' bloqueado'}
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
