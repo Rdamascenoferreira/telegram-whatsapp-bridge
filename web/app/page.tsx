@@ -1440,6 +1440,18 @@ function Connections({
     { label: 'Escolher fluxo de origem', done: hasSavedSource, ready: hasTelegramSession && sourceEditing && Boolean(selectedRouteSource.trim()) }
   ];
   const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
+  const telegramHeroStatusLabel = hasTelegramSession
+    ? 'Sessao ativa'
+    : authPhase === 'password_required'
+      ? 'Senha pendente'
+      : authPhase === 'code_required'
+        ? 'Codigo pendente'
+        : hasSavedCredentials
+          ? 'Credenciais salvas'
+          : 'Nao configurado';
+  const telegramHeroSessionLabel = hasTelegramConnection
+    ? telegramUserLabel || state.telegram.user?.phone || 'Sessao conectada'
+    : 'Sessao de usuario';
 
   function getTelegramSourceName(sourceId: string) {
     const normalizedSourceId = normalizeRouteSourceId(sourceId);
@@ -1513,23 +1525,43 @@ function Connections({
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Origem</p>
-            <h2 className="mt-1 text-xl font-semibold">Telegram</h2>
+      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
+        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
+          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Telegram</p>
+              <div className="mt-3 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+                  <MessageSquare size={22} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do Telegram</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    Conecte sua conta, valide o codigo de acesso e defina qual fluxo do Telegram vai alimentar sua operacao com seguranca.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100">
+                {telegramHeroStatusLabel}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
+                {telegramHeroSessionLabel}
+              </span>
+            </div>
           </div>
-          <StatusBadge label="Status" value={state.telegramStatus} />
         </div>
 
-        <InternalSetupChecklist
-          title="Checklist do Config. Telegram"
-          steps={telegramInternalChecklist}
-          complete={telegramChecklistComplete}
-          completeLabel="Telegram 100% configurado"
-        />
+        <div className="grid gap-5 px-6 py-6 max-sm:px-4">
+          <InternalSetupChecklist
+            title="Checklist do Config. Telegram"
+            steps={telegramInternalChecklist}
+            complete={telegramChecklistComplete}
+            completeLabel="Telegram 100% configurado"
+          />
 
-        <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+          <section className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
           <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 1</p>
@@ -1881,7 +1913,8 @@ function Connections({
               Conclua o login do Telegram na etapa 1 para liberar o dropdown de origem.
             </p>
           )}
-        </section>
+          </section>
+        </div>
       </section>
 
       <ConnectionSummary state={state} refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
