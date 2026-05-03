@@ -30,6 +30,7 @@ const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
 const pendingTelegramMessageLimit = 60;
 const pendingTelegramMessageTtlMs = 5 * 60 * 1000;
+const telegramUserExtractorMaxLimit = 200;
 const modernChromeUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
 const defaultWhatsAppHeadless = !['0', 'false', 'no', 'off'].includes(
@@ -953,6 +954,79 @@ export class UserBridgeRuntime {
         selected: String(dialog.id) === String(this.config.telegramChannel || '')
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+  }
+
+  async extractTelegramUsers(options = {}) {
+    if (!this.telegramClient || this.telegramStatus !== 'listening') {
+      throw new Error('Conecte o Telegram antes de usar o Extrator de Users.');
+    }
+
+    const sourceGroupId = String(options.sourceGroupId ?? '').trim();
+    if (!sourceGroupId) {
+      throw new Error('Escolha um grupo ou canal do Telegram para extrair users.');
+    }
+
+    const limit = clampInteger(options.limit, 50, 1, telegramUserExtractorMaxLimit);
+    const onlyActiveRecently = Boolean(options.onlyActiveRecently);
+    const includeBots = Boolean(options.includeBots);
+    const dialogs = await this.telegramClient.getDialogs({ limit: 200 });
+    const dialog = dialogs.find((item) => String(item.id) === sourceGroupId);
+
+    if (!dialog?.entity) {
+      throw new Error('Nao encontrei essa origem na sessao atual do Telegram. Atualize a lista de origens e tente novamente.');
+    }
+
+    if (!dialog.isGroup && !dialog.isChannel) {
+      throw new Error('A origem selecionada nao parece ser um grupo ou canal valido.');
+    }
+
+    const participants = await this.telegramClient.getParticipants(dialog.entity, {
+      limit,
+      showTotal: true
+    });
+    const rawUsers = Array.isArray(participants) ? participants : [];
+    const users = rawUsers
+      .map(sanitizeExtractedTelegramUser)
+      .filter((user) => includeBots || !user.isBot)
+      .filter((user) => !onlyActiveRecently || user.isActiveRecently);
+
+    const summary = users.reduce(
+      (accumulator, user) => {
+        accumulator.total += 1;
+        accumulator.withUsername += user.username ? 1 : 0;
+        accumulator.bots += user.isBot ? 1 : 0;
+        accumulator.activeRecently += user.isActiveRecently ? 1 : 0;
+        accumulator.online += user.status === 'online' ? 1 : 0;
+        return accumulator;
+      },
+      { total: 0, withUsername: 0, bots: 0, activeRecently: 0, online: 0 }
+    );
+
+    this.log(`Extrator de Users leu ${summary.total} participante(s) em ${dialog.title || dialog.name || sourceGroupId}.`, {
+      type: 'telegram_user_extractor',
+      metadata: {
+        sourceGroupId,
+        sourceGroupName: String(dialog.title || dialog.name || ''),
+        limit,
+        onlyActiveRecently,
+        includeBots
+      }
+    });
+
+    return {
+      source: {
+        id: sourceGroupId,
+        name: String(dialog.title || dialog.name || 'Origem do Telegram'),
+        type: dialog.isChannel && !dialog.isGroup ? 'channel' : 'group'
+      },
+      filters: {
+        limit,
+        onlyActiveRecently,
+        includeBots
+      },
+      summary,
+      users
+    };
   }
 
   async routeTelegramUserMessage(event) {
@@ -2310,6 +2384,84 @@ function matchesTelegramUserMessage(message, configuredChannel) {
 function describeTelegramEntity(chat, fallbackId = '') {
   const title = chat?.title || chat?.username || chat?.firstName || chat?.id || fallbackId || 'chat sem nome';
   return `${title} [${fallbackId || chat?.id || ''}]`;
+}
+
+function sanitizeExtractedTelegramUser(user) {
+  const id = String(user?.id ?? '').trim();
+  const firstName = String(user?.firstName || '').trim();
+  const lastName = String(user?.lastName || '').trim();
+  const username = String(user?.username || '').trim();
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim() || username || `User ${maskTelegramUserId(id)}`;
+  const status = describeExtractedTelegramUserStatus(user?.status);
+
+  return {
+    id: maskTelegramUserId(id),
+    name,
+    username: username ? `@${username}` : '',
+    status,
+    statusLabel: getTelegramUserStatusLabel(status),
+    isActiveRecently: status === 'online' || status === 'recently',
+    isBot: Boolean(user?.bot),
+    isPremium: Boolean(user?.premium),
+    hasPhoto: Boolean(user?.photo)
+  };
+}
+
+function describeExtractedTelegramUserStatus(status) {
+  if (status instanceof Api.UserStatusOnline) {
+    return 'online';
+  }
+
+  if (status instanceof Api.UserStatusRecently) {
+    return 'recently';
+  }
+
+  if (status instanceof Api.UserStatusOffline) {
+    return 'offline';
+  }
+
+  if (status instanceof Api.UserStatusLastWeek) {
+    return 'last_week';
+  }
+
+  if (status instanceof Api.UserStatusLastMonth) {
+    return 'last_month';
+  }
+
+  return 'unknown';
+}
+
+function getTelegramUserStatusLabel(status) {
+  const labels = {
+    online: 'Online',
+    recently: 'Recente',
+    offline: 'Offline',
+    last_week: 'Ultima semana',
+    last_month: 'Ultimo mes',
+    unknown: 'Sem status'
+  };
+
+  return labels[status] || labels.unknown;
+}
+
+function maskTelegramUserId(value) {
+  const id = String(value || '').replace(/\D/g, '');
+
+  if (!id) {
+    return 'anonimo';
+  }
+
+  return `user-${id.slice(-6).padStart(6, '*')}`;
+}
+
+function clampInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, parsed));
 }
 
 function getTelegramMessageNumericId(message) {
