@@ -1,10 +1,12 @@
 import { listWorkspaceUserIds } from './configStore.js';
 import { UserBridgeRuntime } from './userBridgeRuntime.js';
+import { UserOperationQueue } from './userOperationQueue.js';
 
 export class BridgeManager {
   constructor() {
     this.runtimes = new Map();
     this.runtimePromises = new Map();
+    this.operations = new UserOperationQueue();
   }
 
   async init() {
@@ -17,6 +19,14 @@ export class BridgeManager {
 
   async getRuntimeForUser(user) {
     return this.getRuntimeForUserId(user.id);
+  }
+
+  async runUserOperation(userId, operationName, task) {
+    return await this.operations.run(userId, operationName, task);
+  }
+
+  getOperationsSnapshot() {
+    return this.operations.getSnapshot();
   }
 
   async getRuntimeForUserId(userId) {

@@ -21,6 +21,7 @@ app.get('/api/health', (_request, response) => {
     service: 'telegram-whatsapp-bridge',
     environment: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.round(process.uptime()),
+    ...bridge.getHealthSnapshot(),
     timestamp: new Date().toISOString()
   });
 });
