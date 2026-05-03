@@ -26,7 +26,6 @@ app.get('/api/health', (_request, response) => {
   });
 });
 auth.configure(app);
-await bridge.init();
 bridge.attachRoutes(app);
 
 app.use((error, _request, response, next) => {
@@ -54,4 +53,8 @@ app.use((error, _request, response, next) => {
 
 app.listen(port, () => {
   console.log(`Telegram -> WhatsApp bridge listening on http://localhost:${port}`);
+});
+
+bridge.init().catch((error) => {
+  console.error(`Bridge background initialization failed: ${error.message}`);
 });

@@ -135,6 +135,5 @@ jobs:
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "set -euo pipefail; \
-            sleep 5; \
-            curl --fail --show-error --silent --retry 20 --retry-delay 3 --retry-connrefused http://127.0.0.1:3100/api/health; \
-            curl --fail --show-error --silent --retry 20 --retry-delay 3 --retry-connrefused -I http://127.0.0.1:3000 > /dev/null"
+            curl --fail --show-error --silent --retry 40 --retry-delay 3 --retry-connrefused http://127.0.0.1:3100/api/health; \
+            curl --fail --show-error --silent --retry 40 --retry-delay 3 --retry-connrefused -I http://127.0.0.1:3000 > /dev/null"

@@ -7,6 +7,29 @@ log_step() {
   echo "==> $1"
 }
 
+wait_for_http() {
+  local name="$1"
+  local url="$2"
+  local attempts="${3:-40}"
+  local delay_seconds="${4:-3}"
+
+  for attempt in $(seq 1 "$attempts"); do
+    if curl --fail --show-error --silent "$url" >/dev/null; then
+      echo "$name respondeu em $url"
+      return 0
+    fi
+
+    echo "Aguardando $name em $url ($attempt/$attempts)"
+    sleep "$delay_seconds"
+  done
+
+  echo "$name nao respondeu em $url" >&2
+  pm2 status || true
+  pm2 logs "$PM2_APP_NAME" --lines 80 --nostream || true
+  pm2 logs "$PM2_FRONTEND_APP_NAME" --lines 80 --nostream || true
+  return 1
+}
+
 APP_DIR="${APP_DIR:?APP_DIR is required}"
 RELEASE_ARCHIVE="${RELEASE_ARCHIVE:?RELEASE_ARCHIVE is required}"
 PM2_APP_NAME="${PM2_APP_NAME:-telegram-whatsapp-bridge}"
@@ -85,7 +108,8 @@ log_step "Salvando estado do PM2"
 pm2 save --force >/dev/null
 
 log_step "Aguardando processos estabilizarem"
-sleep 5
 pm2 status
+wait_for_http "Backend" "http://127.0.0.1:3100/api/health" 40 3
+wait_for_http "Frontend" "http://127.0.0.1:3000" 40 3
 
 log_step "Deploy concluido em $(date -u +%Y-%m-%dT%H:%M:%SZ)"
