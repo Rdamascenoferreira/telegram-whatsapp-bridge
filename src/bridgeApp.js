@@ -24,6 +24,7 @@ import {
 } from './authStore.js';
 import { BridgeManager } from './bridgeManager.js';
 import { loadConfigForUser } from './configStore.js';
+import { ensurePlanCount, ensurePlanFeature, getPlanLimits } from './planLimits.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
@@ -69,9 +70,11 @@ export class BridgeApp {
         ? await this.buildAdminState()
         : null;
       const affiliate = request.user ? await this.buildAffiliateState(request.user.id) : null;
+      const planLimits = request.user ? getPlanLimits(request.user.plan) : null;
 
       response.json({
         auth,
+        ...(planLimits ? { planLimits } : {}),
         ...(runtime ? await runtime.getState() : {}),
         ...(affiliate ? { affiliate } : {}),
         ...(admin ? { admin } : {})
@@ -159,6 +162,12 @@ export class BridgeApp {
         const selectedGroupIds = Array.isArray(request.body?.selectedGroupIds)
           ? request.body.selectedGroupIds.map(String)
           : [];
+        ensurePlanCount({
+          plan: request.user.plan,
+          key: 'whatsappDestinations',
+          count: selectedGroupIds.length,
+          label: 'A selecao de grupos WhatsApp'
+        });
 
         await runtime.updateGroups(selectedGroupIds);
       });
@@ -209,6 +218,7 @@ export class BridgeApp {
 
     app.post('/api/affiliate/account', requireWriteAccess, async (request, response) => {
       await runUserOperation(request, 'affiliate:account', async () => {
+        ensureAffiliateAccountPlan(request.user.plan, request.body || {});
         await upsertAffiliateAccount(request.user.id, request.body || {});
       });
       await respondWithState(request, response);
@@ -217,6 +227,8 @@ export class BridgeApp {
     app.post('/api/affiliate/automations', requireWriteAccess, async (request, response) => {
       await runUserOperation(request, 'affiliate:automation', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
+        const affiliateState = await this.buildAffiliateState(request.user.id);
+        ensureAffiliateAutomationPlan(request.user.plan, request.body || {}, affiliateState.automations || []);
         ensureAffiliateSourceIsNotUsedByTelegram(runtime.config.telegramChannel, request.body?.telegramSourceGroupId);
         await upsertAffiliateAutomation(request.user.id, request.body || {});
       });
@@ -344,6 +356,7 @@ export class BridgeApp {
 
       return {
         ...user,
+        planLimits: getPlanLimits(user.plan),
         isOnline: this.auth?.isUserOnline(user.id) ?? false,
         workspace: {
           bridgeEnabled: Boolean(config.bridgeEnabled),
@@ -781,6 +794,45 @@ export class BridgeApp {
   }
 }
 
+function ensureAffiliateAccountPlan(plan, payload = {}) {
+  if (payload.amazonEnabled) {
+    ensurePlanFeature({
+      plan,
+      key: 'amazonAffiliate',
+      message: 'Conversao Amazon esta disponivel a partir do plano Plus.'
+    });
+  }
+
+  if (payload.shopeeEnabled) {
+    ensurePlanFeature({
+      plan,
+      key: 'shopeeAffiliate',
+      message: 'Conversao Shopee esta disponivel a partir do plano Pro.'
+    });
+  }
+}
+
+function ensureAffiliateAutomationPlan(plan, payload = {}, automations = []) {
+  const automationId = String(payload.id ?? '').trim();
+  const existingAutomation = automations.find((automation) => String(automation.id) === automationId);
+  const creatingNewAutomation = !automationId || !existingAutomation;
+  const nextAutomationCount = creatingNewAutomation ? automations.length + 1 : automations.length;
+  const destinations = Array.isArray(payload.destinations) ? payload.destinations : [];
+
+  ensurePlanCount({
+    plan,
+    key: 'affiliateAutomations',
+    count: nextAutomationCount,
+    label: 'A quantidade de automacoes de afiliados'
+  });
+  ensurePlanCount({
+    plan,
+    key: 'whatsappDestinations',
+    count: destinations.length,
+    label: 'Os destinos WhatsApp desta automacao'
+  });
+}
+
 function normalizeAffiliateAutomationDraft(userId, payload = {}) {
   return {
     id: 'manual-test',
@@ -955,7 +1007,7 @@ function buildAdminSummary(users) {
 }
 
 function renderPage() {
-  const currentPanelVersion = 'Versao 0.66';
+  const currentPanelVersion = 'Versao 0.67';
   return `<!doctype html>
 <html lang="pt-BR">
   <head>

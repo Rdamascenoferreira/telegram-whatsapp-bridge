@@ -19,6 +19,7 @@ import {
   upsertCloudGoogleUser
 } from './cloudAuthStore.js';
 import { getWorkspacePaths } from './configStore.js';
+import { userPlanOptions } from './planLimits.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
@@ -26,7 +27,6 @@ const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
 const primaryAdminEmail = normalizeEmail('rdamascenoferreira@gmail.com');
 
 export const userRoleOptions = ['admin', 'member'];
-export const userPlanOptions = ['beta', 'starter', 'pro', 'enterprise'];
 export const userAccountStatusOptions = ['active', 'trial', 'suspended'];
 export const userBillingStatusOptions = ['beta', 'pending', 'paid', 'overdue'];
 const newUserDefaultAccountStatus = 'trial';

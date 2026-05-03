@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.66';
+const panelVersion = 'Versao 0.67';
 
 type AuthUser = {
   id: string;
@@ -133,6 +133,7 @@ type AffiliateLog = {
 type AdminUser = AuthUser & {
   providers?: string[];
   isOnline?: boolean;
+  planLimits?: PlanLimits;
   workspace?: {
     bridgeEnabled: boolean;
     selectedGroupCount: number;
@@ -148,6 +149,18 @@ type AdminUser = AuthUser & {
     lastForwardedAt?: string | null;
   };
   supervisor?: SupervisorSession | null;
+};
+
+type PlanLimits = {
+  plan: string;
+  label: string;
+  telegramSources: number;
+  whatsappDestinations: number;
+  affiliateAutomations: number;
+  amazonAffiliate: boolean;
+  shopeeAffiliate: boolean;
+  dailyMessages: number;
+  historyDays: number;
 };
 
 type SupervisorSession = {
@@ -189,6 +202,7 @@ type AppState = {
   whatsAppStatus: string;
   whatsAppPhone?: string | null;
   telegramStatus: string;
+  planLimits?: PlanLimits;
   qrDataUrl?: string | null;
   config: {
     telegramMode: 'user' | 'bot';
@@ -1038,7 +1052,7 @@ function Overview({
                 {panelVersion}
               </span>
               <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold">
-                Plano {humanize(state.auth.user?.plan || 'beta')}
+                Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
             <h2 className="mt-4 text-2xl font-semibold">Operacao da ponte</h2>
@@ -1795,6 +1809,9 @@ function Groups({
 }) {
   const readOnlyAccount = isReadOnlyAccount(state);
   const isAdmin = state.auth.user?.role === 'admin';
+  const planLimits = state.planLimits;
+  const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
+  const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
   const [showAdvancedActions, setShowAdvancedActions] = useState(false);
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
@@ -2175,10 +2192,11 @@ function Groups({
               {selectedGroups.length
                 ? `${selectedGroups.length} destino(s) pronto(s) para receber mensagens.`
                 : 'Nenhum destino selecionado ainda.'}
+              {hasWhatsAppDestinationLimit ? ` Limite do plano ${planLimits?.label}: ${whatsappDestinationLimit}.` : ''}
             </p>
           </div>
           <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-            {selectedGroups.length}
+            {hasWhatsAppDestinationLimit ? `${selectedGroups.length}/${whatsappDestinationLimit}` : selectedGroups.length}
           </span>
         </div>
 
@@ -2212,34 +2230,46 @@ function Groups({
 
       <div className="max-h-[560px] overflow-auto rounded-md border border-[var(--border)]">
         {filteredGroups.length ? (
-          filteredGroups.map((group) => (
-            <label key={group.id} className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 last:border-b-0 hover:bg-white/5">
-              <input
-                type="checkbox"
-                checked={selected.has(group.id)}
-                disabled={readOnlyAccount}
-                onChange={(event) => {
-                  const next = new Set(selected);
-                  if (event.target.checked) {
-                    next.add(group.id);
-                  } else {
-                    next.delete(group.id);
-                  }
-                  setSelected(next);
-                  setHasPendingSelectionChanges(true);
-                }}
-              />
-              <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
-              <GroupKindBadge group={group} />
-            </label>
-          ))
+          filteredGroups.map((group) => {
+            const checked = selected.has(group.id);
+            const disabledByLimit = !checked && selected.size >= whatsappDestinationLimit;
+
+            return (
+              <label key={group.id} className={cn('flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 last:border-b-0 hover:bg-white/5', disabledByLimit && 'opacity-55')}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={readOnlyAccount || disabledByLimit}
+                  onChange={(event) => {
+                    const next = new Set(selected);
+                    if (event.target.checked) {
+                      if (next.size >= whatsappDestinationLimit) {
+                        setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        return;
+                      }
+                      next.add(group.id);
+                    } else {
+                      next.delete(group.id);
+                    }
+                    setSelected(next);
+                    setHasPendingSelectionChanges(true);
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
+                <GroupKindBadge group={group} />
+              </label>
+            );
+          })
         ) : (
           <p className="p-4 text-sm text-[var(--muted)]">Nenhum grupo encontrado.</p>
         )}
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-        <p className="text-sm text-[var(--muted)]">{selected.size} grupo(s) selecionado(s)</p>
+        <p className="text-sm text-[var(--muted)]">
+          {selected.size} grupo(s) selecionado(s)
+          {hasWhatsAppDestinationLimit ? ` de ${whatsappDestinationLimit} liberado(s) no plano ${planLimits?.label}` : ''}
+        </p>
         <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
           {hasPendingSelectionChanges ? (
             <span className="text-xs font-semibold text-amber-200">Selecao alterada. Clique em salvar para manter esses destinos.</span>
@@ -2523,6 +2553,10 @@ function AffiliateAutomationPanel({
   setAutomationEditing: (value: boolean) => void;
 }) {
   const readOnlyAccount = isReadOnlyAccount(state);
+  const planLimits = state.planLimits;
+  const affiliateAutomationLimit = planLimits?.affiliateAutomations ?? Number.POSITIVE_INFINITY;
+  const affiliateModuleAllowed = affiliateAutomationLimit > 0;
+  const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
@@ -2551,6 +2585,10 @@ function AffiliateAutomationPanel({
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
       return;
     }
+    if (!affiliateModuleAllowed) {
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      return;
+    }
     setBusy('affiliate-account');
     const form = new FormData(event.currentTarget);
 
@@ -2575,6 +2613,10 @@ function AffiliateAutomationPanel({
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
       return;
     }
+    if (!affiliateModuleAllowed) {
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      return;
+    }
     setBusy('affiliate-automation');
     const form = new FormData(event.currentTarget);
     const sourceId = String(form.get('telegramSourceGroupId') ?? '');
@@ -2583,6 +2625,11 @@ function AffiliateAutomationPanel({
     const destinations = state.groups
       .filter((group) => selectedDestinationIds.has(group.id))
       .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
+    if (destinations.length > whatsappDestinationLimit) {
+      setBusy('');
+      setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp por automacao.`);
+      return;
+    }
 
     await postJson('/api/affiliate/automations', {
       id: form.get('automationId') || undefined,
@@ -2605,6 +2652,10 @@ function AffiliateAutomationPanel({
   async function runManualTest() {
     if (readOnlyAccount) {
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+    if (!affiliateModuleAllowed) {
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
       return;
     }
 
@@ -2665,6 +2716,12 @@ function AffiliateAutomationPanel({
           </p>
         ) : null}
 
+        {!affiliateModuleAllowed ? (
+          <p className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
+            Seu plano {planLimits?.label || 'atual'} esta em modo ponte simples. Automacao de Afiliados entra a partir do plano Plus.
+          </p>
+        ) : null}
+
         {!affiliate.termsAccepted ? (
           <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
             <p className="text-sm font-semibold text-amber-50">Aceite obrigatorio</p>
@@ -2697,7 +2754,7 @@ function AffiliateAutomationPanel({
                 Nome da automacao
                 <input
                   name="name"
-                  disabled={readOnlyAccount || !isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
                   defaultValue={activeAutomation?.name || ''}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                   placeholder="Ofertas Amazon"
@@ -2707,7 +2764,7 @@ function AffiliateAutomationPanel({
                 Grupo Telegram origem
                 <select
                   name="telegramSourceGroupId"
-                  disabled={readOnlyAccount || !isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
                   defaultValue={activeAutomation?.telegramSourceGroupId || ''}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                 >
@@ -2737,8 +2794,8 @@ function AffiliateAutomationPanel({
                 {state.groups.map((group) => {
                   const checked = Boolean(activeAutomation?.destinations?.some((destination) => destination.whatsappGroupId === group.id));
                   return (
-                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', (!isAutomationEditing || readOnlyAccount) && 'opacity-65')}>
-                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={readOnlyAccount || !isAutomationEditing} />
+                    <label key={group.id} className={cn('flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs', (!isAutomationEditing || readOnlyAccount || !affiliateModuleAllowed) && 'opacity-65')}>
+                      <input type="checkbox" name="destinations" value={group.id} defaultChecked={checked} disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed} />
                       <span className="truncate">{group.name}</span>
                     </label>
                   );
@@ -2751,7 +2808,7 @@ function AffiliateAutomationPanel({
                 Links desconhecidos
                 <select
                   name="unknownLinkBehavior"
-                  disabled={readOnlyAccount || !isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
                   defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
                   className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 disabled:cursor-not-allowed disabled:opacity-65"
                 >
@@ -2764,7 +2821,7 @@ function AffiliateAutomationPanel({
                 Rodape personalizado
                 <textarea
                   name="customFooter"
-                  disabled={readOnlyAccount || !isAutomationEditing}
+                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
                   defaultValue={activeAutomation?.customFooter || ''}
                   className="min-h-28 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 leading-6 disabled:cursor-not-allowed disabled:opacity-65"
                   placeholder={'Visite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la'}
@@ -2775,11 +2832,11 @@ function AffiliateAutomationPanel({
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-4 text-sm text-[var(--muted)]">
-                <label className={cn('inline-flex items-center gap-2', (!isAutomationEditing || readOnlyAccount) && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={readOnlyAccount || !isAutomationEditing} /> Remover rodape original</label>
+                <label className={cn('inline-flex items-center gap-2', (!isAutomationEditing || readOnlyAccount || !affiliateModuleAllowed) && 'opacity-65')}><input type="checkbox" name="removeOriginalFooter" defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)} disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed} /> Remover rodape original</label>
               </div>
               <button
                 type="button"
-                disabled={readOnlyAccount || busy === 'affiliate-automation'}
+                disabled={readOnlyAccount || busy === 'affiliate-automation' || !affiliateModuleAllowed}
                 onClick={() => {
                   if (!isAutomationEditing) {
                     setAutomationEditing(true);
@@ -2825,15 +2882,15 @@ function AffiliateAutomationPanel({
           <form onSubmit={submitAccount} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <p className="text-sm font-semibold">Contas de afiliado</p>
             <div className="mt-4 grid gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount} /> Converter Amazon</label>
-              <input name="amazonTag" disabled={readOnlyAccount} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="sua-tag-20" />
-              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount} /> Preparar Shopee</label>
-              <input name="shopeeAffiliateId" disabled={readOnlyAccount} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="ID/SubID Shopee" />
-              <input name="defaultSubId" disabled={readOnlyAccount} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="SubID padrao" />
-              <input name="shopeeAppId" disabled={readOnlyAccount} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
-              <input name="shopeeSecret" disabled={readOnlyAccount} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
+              <input name="amazonTag" disabled={readOnlyAccount || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
+              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} /> Preparar Shopee</label>
+              <input name="shopeeAffiliateId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'ID/SubID Shopee' : 'Disponivel no Pro'} />
+              <input name="defaultSubId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="SubID padrao" />
+              <input name="shopeeAppId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
+              <input name="shopeeSecret" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
             </div>
-            <button type="submit" disabled={readOnlyAccount || busy === 'affiliate-account'} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
+            <button type="submit" disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -3290,7 +3347,9 @@ function AdminPanel({
               >
                 <option value="beta">Beta</option>
                 <option value="starter">Starter</option>
+                <option value="plus">Plus</option>
                 <option value="pro">Pro</option>
+                <option value="business">Business</option>
                 <option value="enterprise">Enterprise</option>
               </select>
               <select
