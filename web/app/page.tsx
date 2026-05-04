@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.76';
+const panelVersion = 'Versao 0.77';
 
 type AuthUser = {
   id: string;
@@ -3364,6 +3364,39 @@ function AffiliateAutomationPanel({
     setBusy('');
   }
 
+  async function submitAffiliateRules(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (readOnlyAccount) {
+      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      return;
+    }
+    if (!affiliateModuleAllowed) {
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      return;
+    }
+    if (!activeAutomation?.id || !activeAutomation.telegramSourceGroupId) {
+      setNotice('Configure primeiro o Automatizador de Ofertas na aba Fluxos.');
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    setBusy('affiliate-rules');
+    await postJson('/api/affiliate/automations', {
+      id: activeAutomation.id,
+      name: activeAutomation.name || 'Automacao de afiliados',
+      telegramSourceGroupId: activeAutomation.telegramSourceGroupId,
+      telegramSourceGroupName: activeAutomation.telegramSourceGroupName || getTelegramChatName(state, activeAutomation.telegramSourceGroupId),
+      destinations: activeAutomation.destinations || [],
+      unknownLinkBehavior: form.get('unknownLinkBehavior'),
+      customFooter: form.get('customFooter'),
+      removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
+      isActive: activeAutomation.isActive
+    });
+    await refresh();
+    setNotice('Regras de afiliados salvas.');
+    setBusy('');
+  }
+
   async function acceptTerms() {
     if (readOnlyAccount) {
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
@@ -3455,24 +3488,71 @@ function AffiliateAutomationPanel({
               </div>
             </div>
 
-            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Links desconhecidos</p>
-                <p className="mt-2 text-sm font-semibold">
-                  {activeAutomation?.unknownLinkBehavior === 'remove'
-                    ? 'Remover link'
-                    : activeAutomation?.unknownLinkBehavior === 'ignore_message'
-                      ? 'Ignorar mensagem inteira'
-                      : 'Manter link original'}
-                </p>
+            <form onSubmit={submitAffiliateRules} className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+              <div className="flex items-start justify-between gap-3 max-md:flex-col">
+                <div>
+                  <p className="text-sm font-semibold">Regras de tratamento</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                    Defina o que fazer com links que nao sao Amazon/Shopee e personalize o rodape das mensagens convertidas.
+                  </p>
+                </div>
+                {!activeAutomation ? (
+                  <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                    Configure em Fluxos
+                  </span>
+                ) : null}
               </div>
-              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Rodape personalizado</p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
-                  {activeAutomation?.customFooter || 'Nenhum rodape personalizado configurado.'}
-                </p>
+
+              <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Links desconhecidos</span>
+                  <select
+                    name="unknownLinkBehavior"
+                    defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                    className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
+                  >
+                    <option value="keep">Manter link original</option>
+                    <option value="remove">Remover link</option>
+                    <option value="ignore_message">Ignorar mensagem inteira</option>
+                  </select>
+                  <span className="text-xs leading-5 text-[var(--muted)]">
+                    Recomendado: manter o link original para nao perder conteudo quando o marketplace nao for reconhecido.
+                  </span>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Rodape personalizado</span>
+                  <textarea
+                    name="customFooter"
+                    defaultValue={activeAutomation?.customFooter || ''}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                    placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la`}
+                    className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
+                  />
+                  <span className="text-xs leading-5 text-[var(--muted)]">Voce pode quebrar linhas livremente nesse rodape.</span>
+                </label>
               </div>
-            </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
+                <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+                  <input
+                    type="checkbox"
+                    name="removeOriginalFooter"
+                    defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                  />
+                  Remover rodape original da mensagem captada
+                </label>
+                <button
+                  type="submit"
+                  disabled={readOnlyAccount || busy === 'affiliate-rules' || !affiliateModuleAllowed || !activeAutomation}
+                  className={affiliatePrimaryButtonClass}
+                >
+                  {busy === 'affiliate-rules' ? 'Salvando...' : 'Salvar regras'}
+                </button>
+              </div>
+            </form>
           </section>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
