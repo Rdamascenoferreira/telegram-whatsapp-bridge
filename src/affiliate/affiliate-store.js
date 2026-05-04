@@ -202,6 +202,30 @@ export async function setAffiliateAutomationActive(userId, automationId, isActiv
   }
 }
 
+export async function updateAffiliateAutomationRules(userId, automationId, payload = {}) {
+  const rows = await supabaseRequest('/rest/v1/affiliate_automations', {
+    method: 'PATCH',
+    body: {
+      unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
+      custom_footer: cleanText(payload.customFooter),
+      remove_original_footer: Boolean(payload.removeOriginalFooter),
+      updated_at: new Date().toISOString()
+    },
+    searchParams: {
+      user_id: `eq.${userId}`,
+      id: `eq.${automationId}`,
+      select: 'id'
+    },
+    headers: {
+      Prefer: 'return=representation'
+    }
+  });
+
+  if (!rows.length) {
+    throw new Error('Automacao nao encontrada.');
+  }
+}
+
 export async function acceptAffiliateTerms(userId, metadata = {}) {
   await supabaseRequest('/rest/v1/affiliate_terms_acceptance', {
     method: 'POST',

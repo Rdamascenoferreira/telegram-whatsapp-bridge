@@ -8,6 +8,7 @@ import {
   getActiveAffiliateAutomationsBySource,
   getAffiliateState,
   setAffiliateAutomationActive,
+  updateAffiliateAutomationRules,
   upsertAffiliateAccount,
   upsertAffiliateAutomation
 } from './affiliate/affiliate-store.js';
@@ -249,6 +250,17 @@ export class BridgeApp {
           request.user.id,
           String(request.params.automationId ?? '').trim(),
           Boolean(request.body?.isActive)
+        );
+      });
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/affiliate/automations/:automationId/rules', requireWriteAccess, async (request, response) => {
+      await runUserOperation(request, 'affiliate:rules', async () => {
+        await updateAffiliateAutomationRules(
+          request.user.id,
+          String(request.params.automationId ?? '').trim(),
+          request.body || {}
         );
       });
       await respondWithState(request, response);

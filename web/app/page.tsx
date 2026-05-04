@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.77';
+const panelVersion = 'Versao 0.78';
 
 type AuthUser = {
   id: string;
@@ -3379,22 +3379,21 @@ function AffiliateAutomationPanel({
       return;
     }
 
-    const form = new FormData(event.currentTarget);
     setBusy('affiliate-rules');
-    await postJson('/api/affiliate/automations', {
-      id: activeAutomation.id,
-      name: activeAutomation.name || 'Automacao de afiliados',
-      telegramSourceGroupId: activeAutomation.telegramSourceGroupId,
-      telegramSourceGroupName: activeAutomation.telegramSourceGroupName || getTelegramChatName(state, activeAutomation.telegramSourceGroupId),
-      destinations: activeAutomation.destinations || [],
-      unknownLinkBehavior: form.get('unknownLinkBehavior'),
-      customFooter: form.get('customFooter'),
-      removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
-      isActive: activeAutomation.isActive
-    });
-    await refresh();
-    setNotice('Regras de afiliados salvas.');
-    setBusy('');
+    try {
+      const form = new FormData(event.currentTarget);
+      await postJson(`/api/affiliate/automations/${activeAutomation.id}/rules`, {
+        unknownLinkBehavior: form.get('unknownLinkBehavior'),
+        customFooter: form.get('customFooter'),
+        removeOriginalFooter: form.get('removeOriginalFooter') === 'on'
+      });
+      await refresh();
+      setNotice('Regras de afiliados salvas.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar as regras de afiliados.');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function acceptTerms() {
