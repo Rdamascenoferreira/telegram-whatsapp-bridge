@@ -188,6 +188,26 @@ async function ensureCloudSeeded() {
   await ensureCloudUsersSeeded(localUsers);
 }
 
+async function removeUserFromLocalStore(user) {
+  const userId = String(user?.id ?? '').trim();
+  const userEmail = normalizeEmail(user?.email);
+
+  if (!userId && !userEmail) {
+    return;
+  }
+
+  const users = await loadUsers();
+  const nextUsers = users.filter((entry) => {
+    const sameId = userId && String(entry?.id ?? '').trim() === userId;
+    const sameEmail = userEmail && normalizeEmail(entry?.email) === userEmail;
+    return !sameId && !sameEmail;
+  });
+
+  if (nextUsers.length !== users.length) {
+    await saveUsers(nextUsers);
+  }
+}
+
 export function sanitizeUser(user) {
   if (!user) {
     return null;
@@ -291,9 +311,9 @@ export async function deleteUserAccount(userId) {
   if (isCloudAuthEnabled()) {
     await ensureCloudSeeded();
     await deleteCloudUser(normalizedUserId);
+    await removeUserFromLocalStore(user);
   } else {
-    const users = await loadUsers();
-    await saveUsers(users.filter((entry) => entry.id !== normalizedUserId));
+    await removeUserFromLocalStore(user);
   }
 
   await removeUserWorkspaceArtifacts(user);
