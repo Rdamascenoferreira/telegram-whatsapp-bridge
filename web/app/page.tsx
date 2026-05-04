@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.79';
+const panelVersion = 'Versao 0.80';
 
 type AuthUser = {
   id: string;
@@ -3369,8 +3369,7 @@ function AffiliateAutomationPanel({
     setBusy('');
   }
 
-  async function submitAffiliateRules(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveAffiliateRules(formElement: HTMLFormElement) {
     if (readOnlyAccount) {
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
       return;
@@ -3383,14 +3382,10 @@ function AffiliateAutomationPanel({
       setNotice('Configure primeiro o Automatizador de Ofertas na aba Fluxos.');
       return;
     }
-    if (!affiliateRulesEditing) {
-      setAffiliateRulesEditing(true);
-      return;
-    }
 
     setBusy('affiliate-rules');
     try {
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(formElement);
       await postJson(`/api/affiliate/automations/${activeAutomation.id}/rules`, {
         unknownLinkBehavior: form.get('unknownLinkBehavior'),
         customFooter: form.get('customFooter'),
@@ -3497,7 +3492,7 @@ function AffiliateAutomationPanel({
               </div>
             </div>
 
-            <form onSubmit={submitAffiliateRules} className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+            <form onSubmit={(event) => event.preventDefault()} className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
               <div className="flex items-start justify-between gap-3 max-md:flex-col">
                 <div>
                   <p className="text-sm font-semibold">Regras de tratamento</p>
@@ -3562,10 +3557,15 @@ function AffiliateAutomationPanel({
                   Remover rodape original da mensagem captada
                 </label>
                 <button
-                  type={affiliateRulesEditing ? 'submit' : 'button'}
-                  onClick={() => {
+                  type="button"
+                  onClick={(event) => {
                     if (!affiliateRulesEditing) {
                       setAffiliateRulesEditing(true);
+                      return;
+                    }
+
+                    if (event.currentTarget.form) {
+                      void saveAffiliateRules(event.currentTarget.form);
                     }
                   }}
                   disabled={readOnlyAccount || busy === 'affiliate-rules' || !affiliateModuleAllowed || !activeAutomation}
