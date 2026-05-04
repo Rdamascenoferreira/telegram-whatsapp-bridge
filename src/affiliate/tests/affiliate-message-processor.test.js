@@ -69,11 +69,46 @@ test('processAffiliateMessage respects disabled Amazon conversion', async () => 
   assert.equal(result.processedMessage, 'Oferta https://amazon.com.br/dp/B0ABC12345');
 });
 
-test('convertShopeeLink returns controlled provider error', async () => {
+test('convertShopeeLink requires Shopee API credentials', async () => {
   const result = await convertShopeeLink('https://www.shopee.com.br/produto', {
     affiliateId: 'abc'
   });
 
   assert.equal(result.success, false);
-  assert.equal(result.error, 'Shopee affiliate conversion provider not configured');
+  assert.equal(result.error, 'Shopee App ID and Secret are required');
+});
+
+test('convertShopeeLink returns official short link from Shopee API', async () => {
+  let requestPayload = null;
+  const result = await convertShopeeLink('https://www.shopee.com.br/produto-i.123.456', {
+    appId: 'app-123',
+    secret: 'secret-123',
+    subId: 'campanha_01',
+    endpoint: 'https://open-api.affiliate.shopee.com.br/graphql',
+    nowFn: () => 1714500000,
+    fetchFn: async (_url, request) => {
+      requestPayload = {
+        headers: request.headers,
+        body: JSON.parse(request.body)
+      };
+
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          data: {
+            generateShortLink: {
+              shortLink: 'https://s.shopee.com.br/8V5NST2cSf'
+            }
+          }
+        })
+      };
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.affiliateUrl, 'https://s.shopee.com.br/8V5NST2cSf');
+  assert.equal(requestPayload.body.variables.originUrl, 'https://www.shopee.com.br/produto-i.123.456');
+  assert.deepEqual(requestPayload.body.variables.subIds, ['campanha_01']);
+  assert.match(requestPayload.headers.Authorization, /^SHA256 Credential=app-123, Timestamp=1714500000, Signature=[a-f0-9]{64}$/);
 });

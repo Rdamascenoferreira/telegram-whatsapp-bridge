@@ -1,6 +1,6 @@
 import { convertAmazonLink } from './converters/amazon-affiliate-converter.js';
 import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
-import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccount, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
+import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
 import { detectMarketplace } from './marketplace-detector.js';
 import { expandUrl } from './url-expander.js';
 import { extractUrls } from './url-extractor.js';
@@ -13,7 +13,7 @@ export async function processAffiliateMessage(params = {}) {
   const automationId = String(params.automationId ?? '').trim();
   const originalMessage = String(params.message ?? '').slice(0, maxMessageLength);
   const automation = params.automation || (automationId ? await getAffiliateAutomationById(userId, automationId) : null);
-  const account = params.account || (userId ? await getAffiliateAccount(userId) : null);
+  const account = params.account || (userId ? await getAffiliateAccountForProcessing(userId) : null);
   const dryRun = Boolean(params.dryRun);
   const expandUrlFn = params.expandUrlFn || expandUrl;
   const logEnabled = !dryRun;
@@ -96,7 +96,7 @@ export async function processAffiliateMessage(params = {}) {
         const shopeeResult = await convertShopeeLink(expandedUrl, {
           affiliateId: account.shopeeAffiliateId,
           appId: account.shopeeAppId,
-          secret: params.shopeeSecret,
+          secret: account.shopeeSecret || params.shopeeSecret,
           subId: account.defaultSubId
         });
         conversion = {

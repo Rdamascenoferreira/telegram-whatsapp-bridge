@@ -68,6 +68,18 @@ export async function getAffiliateAccount(userId) {
   return mapAffiliateAccount(rows[0]);
 }
 
+export async function getAffiliateAccountForProcessing(userId) {
+  const rows = await supabaseRequest('/rest/v1/affiliate_accounts', {
+    searchParams: {
+      select: '*',
+      user_id: `eq.${userId}`,
+      limit: '1'
+    }
+  });
+
+  return mapAffiliateAccount(rows[0], { includeSecret: true });
+}
+
 export async function upsertAffiliateAccount(userId, payload = {}) {
   const body = {
     user_id: userId,
@@ -331,12 +343,12 @@ function emptyAffiliateState() {
   };
 }
 
-function mapAffiliateAccount(row) {
+function mapAffiliateAccount(row, options = {}) {
   if (!row) {
     return null;
   }
 
-  return {
+  const account = {
     id: String(row.id ?? ''),
     userId: String(row.user_id ?? ''),
     amazonTag: String(row.amazon_tag ?? ''),
@@ -349,6 +361,12 @@ function mapAffiliateAccount(row) {
     createdAt: String(row.created_at ?? ''),
     updatedAt: String(row.updated_at ?? '')
   };
+
+  if (options.includeSecret) {
+    account.shopeeSecret = String(row.shopee_secret ?? '');
+  }
+
+  return account;
 }
 
 function mapAffiliateAutomation(row) {

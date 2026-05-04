@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.73';
+const panelVersion = 'Versao 0.74';
 
 type AuthUser = {
   id: string;
@@ -3182,7 +3182,7 @@ function AffiliateAutomationPanel({
             <div className="mt-4 grid gap-3">
               <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
               <input name="amazonTag" disabled={readOnlyAccount || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
-              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} /> Preparar Shopee</label>
+              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} /> Converter Shopee com link curto oficial</label>
               <input name="shopeeAffiliateId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'ID/SubID Shopee' : 'Disponivel no Pro'} />
               <input name="defaultSubId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="SubID padrao" />
               <input name="shopeeAppId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
