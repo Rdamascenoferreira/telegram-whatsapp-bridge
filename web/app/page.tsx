@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.75';
+const panelVersion = 'Versao 0.76';
 
 type AuthUser = {
   id: string;
@@ -227,9 +227,11 @@ type AppState = {
     pendingTelegramCount?: number;
     groupsRefreshing?: boolean;
     groupRefreshProgress?: {
+      phase?: string;
       total?: number;
       processed?: number;
       percent?: number;
+      foundAdmins?: number;
     };
     groupCacheRefreshedAt?: string;
     hasCachedGroups?: boolean;
@@ -2234,9 +2236,26 @@ function WhatsAppDestinationSelector({
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const groupsProgress = state.metrics.groupRefreshProgress;
+  const groupsPhase = groupsProgress?.phase || 'idle';
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
   const groupsProcessed = groupsProgress?.processed || 0;
   const groupsTotal = groupsProgress?.total || 0;
+  const groupsFoundAdmins = groupsProgress?.foundAdmins ?? state.metrics.availableAdminGroupCount ?? 0;
+  const groupsPhaseLabel =
+    groupsPhase === 'loading_groups'
+      ? 'Carregando lista de conversas'
+      : groupsPhase === 'checking_admins'
+        ? 'Verificando permissao de envio'
+        : groupsPhase === 'done'
+          ? 'Lista atualizada'
+          : groupsPhase === 'error'
+            ? 'Falha ao atualizar'
+            : 'Preparando leitura';
+  const groupsProgressLabel = groupsTotal
+    ? `${groupsProcessed}/${groupsTotal} verificados`
+    : groupsPhase === 'loading_groups'
+      ? 'Buscando grupos no WhatsApp'
+      : 'Aguardando total';
   const cachedAtLabel = state.metrics.groupCacheRefreshedAt
     ? formatDate(state.metrics.groupCacheRefreshedAt)
     : '';
@@ -2271,6 +2290,18 @@ function WhatsAppDestinationSelector({
     }
   }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
 
+  useEffect(() => {
+    if (!state.metrics.groupsRefreshing) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [refresh, state.metrics.groupsRefreshing]);
+
   return (
     <section className="rounded-[24px] border border-[var(--border)] bg-black/10 p-5">
       <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
@@ -2286,29 +2317,44 @@ function WhatsAppDestinationSelector({
           disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
-            await postJson('/api/refresh-groups');
-            await refresh();
-            setNotice('Atualizacao dos grupos iniciada.');
-            setBusy('');
+            setNotice('Sincronizacao dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
+            void postJson('/api/refresh-groups')
+              .then(async () => {
+                await refresh();
+                setNotice('Lista de grupos do WhatsApp atualizada.');
+              })
+              .catch(() => {
+                setNotice('Nao foi possivel atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
+              })
+              .finally(() => setBusy(''));
+            window.setTimeout(() => {
+              void refresh().catch(() => undefined);
+            }, 600);
           }}
-          className={secondaryButton}
+          className={cn(secondaryButton, state.metrics.groupsRefreshing && 'animate-pulse')}
         >
-          <RefreshCcw size={16} />
+          <RefreshCcw size={16} className={state.metrics.groupsRefreshing ? 'animate-spin' : ''} />
           {state.metrics.groupsRefreshing
-            ? `Buscando ${state.metrics.groupRefreshProgress?.percent || 0}%`
+            ? `Sincronizando ${groupsPercent}%`
             : 'Atualizar grupos'}
         </button>
       </div>
 
       {state.metrics.groupsRefreshing ? (
-        <div className="mb-4 rounded-lg border border-emerald-400/15 bg-emerald-500/8 p-4">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.14),transparent_34%),rgba(16,185,129,0.08)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-start justify-between gap-3 max-md:flex-col">
             <div>
-              <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.9)]" />
+                <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
+                  {groupsPhaseLabel}
+                </span>
+              </div>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
-                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados ate agora.`
-                  : 'Preparando a leitura dos grupos. Na primeira sincronizacao isso pode levar alguns minutos.'}
+                  ? 'Estamos analisando seus grupos e separando apenas os destinos validos para envio.'
+                  : 'O WhatsApp ainda esta devolvendo a lista inicial. Na primeira sincronizacao isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -2316,14 +2362,34 @@ function WhatsAppDestinationSelector({
             </span>
           </div>
 
-          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/6">
+          <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/8">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-300 transition-[width] duration-500 ease-out"
-              style={{ width: `${groupsTotal ? groupsPercent : 12}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-300 to-lime-300 transition-[width] duration-700 ease-out"
+              style={{ width: `${groupsTotal ? Math.max(8, groupsPercent) : 14}%` }}
             />
           </div>
 
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Progresso real</p>
+              <p className="mt-1 text-sm font-semibold">{groupsProgressLabel}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos validos</p>
+              <p className="mt-1 text-sm font-semibold">{groupsFoundAdmins} encontrado(s)</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Lista anterior</p>
+              <p className="mt-1 text-sm font-semibold">{cachedAtLabel || 'Ainda sem cache'}</p>
+            </div>
+          </div>
+
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
+            <span>Voce pode continuar no painel enquanto a sincronizacao roda em segundo plano.</span>
+            <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} conversas analisadas` : 'Aguardando o WhatsApp informar o total'}</span>
+          </div>
+
+          <div className="hidden">
             <span>
               {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}
               {state.metrics.hasCachedGroups && cachedAtLabel ? ` · exibindo lista salva de ${cachedAtLabel}` : ''}
