@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.78';
+const panelVersion = 'Versao 0.79';
 
 type AuthUser = {
   id: string;
@@ -3301,6 +3301,7 @@ function AffiliateAutomationPanel({
   const affiliate = state.affiliate || { account: null, automations: [], logs: [], termsAccepted: false };
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
+  const [affiliateRulesEditing, setAffiliateRulesEditing] = useState(false);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -3308,6 +3309,10 @@ function AffiliateAutomationPanel({
     convertedUrls: AffiliateLog['convertedUrls'];
     status: string;
   } | null>(null);
+
+  useEffect(() => {
+    setAffiliateRulesEditing(false);
+  }, [activeAutomation?.id]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3378,6 +3383,10 @@ function AffiliateAutomationPanel({
       setNotice('Configure primeiro o Automatizador de Ofertas na aba Fluxos.');
       return;
     }
+    if (!affiliateRulesEditing) {
+      setAffiliateRulesEditing(true);
+      return;
+    }
 
     setBusy('affiliate-rules');
     try {
@@ -3388,6 +3397,7 @@ function AffiliateAutomationPanel({
         removeOriginalFooter: form.get('removeOriginalFooter') === 'on'
       });
       await refresh();
+      setAffiliateRulesEditing(false);
       setNotice('Regras de afiliados salvas.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar as regras de afiliados.');
@@ -3499,7 +3509,15 @@ function AffiliateAutomationPanel({
                   <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100">
                     Configure em Fluxos
                   </span>
-                ) : null}
+                ) : affiliateRulesEditing ? (
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                    Edicao liberada
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
+                    Travado
+                  </span>
+                )}
               </div>
 
               <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
@@ -3508,7 +3526,7 @@ function AffiliateAutomationPanel({
                   <select
                     name="unknownLinkBehavior"
                     defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                     className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
                   >
                     <option value="keep">Manter link original</option>
@@ -3525,7 +3543,7 @@ function AffiliateAutomationPanel({
                   <textarea
                     name="customFooter"
                     defaultValue={activeAutomation?.customFooter || ''}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                     placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la`}
                     className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
                   />
@@ -3539,16 +3557,21 @@ function AffiliateAutomationPanel({
                     type="checkbox"
                     name="removeOriginalFooter"
                     defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                   />
                   Remover rodape original da mensagem captada
                 </label>
                 <button
-                  type="submit"
+                  type={affiliateRulesEditing ? 'submit' : 'button'}
+                  onClick={() => {
+                    if (!affiliateRulesEditing) {
+                      setAffiliateRulesEditing(true);
+                    }
+                  }}
                   disabled={readOnlyAccount || busy === 'affiliate-rules' || !affiliateModuleAllowed || !activeAutomation}
                   className={affiliatePrimaryButtonClass}
                 >
-                  {busy === 'affiliate-rules' ? 'Salvando...' : 'Salvar regras'}
+                  {busy === 'affiliate-rules' ? 'Salvando...' : affiliateRulesEditing ? 'Salvar regras' : 'Editar'}
                 </button>
               </div>
             </form>
