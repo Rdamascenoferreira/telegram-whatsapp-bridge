@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.74';
+const panelVersion = 'Versao 0.75';
 
 type AuthUser = {
   id: string;
@@ -440,8 +440,6 @@ export default function Home() {
           {view === 'groups' ? (
             <Groups
               state={state}
-              filter={groupFilter}
-              setFilter={setGroupFilter}
               setNotice={setNotice}
               setBusy={setBusy}
               busy={busy}
@@ -455,6 +453,8 @@ export default function Home() {
               setBusy={setBusy}
               busy={busy}
               refresh={loadState}
+              groupFilter={groupFilter}
+              setGroupFilter={setGroupFilter}
               isAutomationEditing={affiliateAutomationEditing}
               setAutomationEditing={setAffiliateAutomationEditing}
             />
@@ -1160,7 +1160,7 @@ function Overview({
               label: 'Destinos WhatsApp',
               used: whatsappDestinationsUsed,
               limit: state.planLimits?.whatsappDestinations || 0,
-              detail: `${whatsappDestinationsUsed} grupo(s) selecionado(s) no Config. WhatsApp`
+              detail: `${whatsappDestinationsUsed} grupo(s) selecionado(s) em Fluxos`
             },
             {
               label: 'Origens Telegram',
@@ -1855,6 +1855,8 @@ function FlowsPanel({
   setBusy,
   busy,
   refresh,
+  groupFilter,
+  setGroupFilter,
   isAutomationEditing,
   setAutomationEditing
 }: {
@@ -1863,6 +1865,8 @@ function FlowsPanel({
   setBusy: (value: string) => void;
   busy: string;
   refresh: () => Promise<void>;
+  groupFilter: string;
+  setGroupFilter: (value: string) => void;
   isAutomationEditing: boolean;
   setAutomationEditing: (value: boolean) => void;
 }) {
@@ -1919,7 +1923,7 @@ function FlowsPanel({
     }
 
     if (!selectedWhatsAppDestinationCount) {
-      setNotice('Escolha ao menos um destino em Config. WhatsApp antes de salvar o fluxo.');
+      setNotice('Escolha ao menos um destino WhatsApp nesta tela antes de salvar o fluxo.');
       return;
     }
 
@@ -2137,7 +2141,7 @@ function FlowsPanel({
                   Fluxo atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Os dois fluxos usam os destinos escolhidos em Config. WhatsApp. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
+                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
                 </p>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
@@ -2190,13 +2194,23 @@ function FlowsPanel({
               </div>
             </div>
           </form>
+
+          <WhatsAppDestinationSelector
+            state={state}
+            filter={groupFilter}
+            setFilter={setGroupFilter}
+            setNotice={setNotice}
+            setBusy={setBusy}
+            busy={busy}
+            refresh={refresh}
+          />
         </div>
       </section>
     </div>
   );
 }
 
-function Groups({
+function WhatsAppDestinationSelector({
   state,
   filter,
   setFilter,
@@ -2214,7 +2228,255 @@ function Groups({
   refresh: () => Promise<void>;
 }) {
   const readOnlyAccount = isReadOnlyAccount(state);
+  const planLimits = state.planLimits;
+  const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
+  const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
+  const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
+  const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
+  const groupsProgress = state.metrics.groupRefreshProgress;
+  const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
+  const groupsProcessed = groupsProgress?.processed || 0;
+  const groupsTotal = groupsProgress?.total || 0;
+  const cachedAtLabel = state.metrics.groupCacheRefreshedAt
+    ? formatDate(state.metrics.groupCacheRefreshedAt)
+    : '';
+  const selectedGroups = useMemo(
+    () => state.groups.filter((group) => selected.has(group.id)),
+    [selected, state.groups]
+  );
+  const filteredGroups = useMemo(() => {
+    const normalized = normalizeText(filter);
+    return state.groups
+      .filter((group) => normalizeText(group.name).includes(normalized))
+      .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
+  }, [filter, selected, state.groups]);
+
+  useEffect(() => {
+    const nextSelected = new Set(state.config.selectedGroupIds);
+
+    setSelected((currentSelected) => {
+      if (hasPendingSelectionChanges && !areSameSet(currentSelected, nextSelected)) {
+        return currentSelected;
+      }
+
+      if (areSameSet(currentSelected, nextSelected)) {
+        return currentSelected;
+      }
+
+      return nextSelected;
+    });
+
+    if (hasPendingSelectionChanges && areSameSet(selected, nextSelected)) {
+      setHasPendingSelectionChanges(false);
+    }
+  }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
+
+  return (
+    <section className="rounded-[24px] border border-[var(--border)] bg-black/10 p-5">
+      <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos WhatsApp</p>
+          <h2 className="mt-1 text-xl font-semibold">Grupos que recebem os fluxos</h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A autenticacao do WhatsApp continua em Config. WhatsApp.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
+          onClick={async () => {
+            setBusy('groups');
+            await postJson('/api/refresh-groups');
+            await refresh();
+            setNotice('Atualizacao dos grupos iniciada.');
+            setBusy('');
+          }}
+          className={secondaryButton}
+        >
+          <RefreshCcw size={16} />
+          {state.metrics.groupsRefreshing
+            ? `Buscando ${state.metrics.groupRefreshProgress?.percent || 0}%`
+            : 'Atualizar grupos'}
+        </button>
+      </div>
+
+      {state.metrics.groupsRefreshing ? (
+        <div className="mb-4 rounded-lg border border-emerald-400/15 bg-emerald-500/8 p-4">
+          <div className="flex items-start justify-between gap-3 max-md:flex-col">
+            <div>
+              <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                {groupsTotal
+                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados ate agora.`
+                  : 'Preparando a leitura dos grupos. Na primeira sincronizacao isso pode levar alguns minutos.'}
+              </p>
+            </div>
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
+              {groupsTotal ? `${groupsPercent}%` : 'Preparando'}
+            </span>
+          </div>
+
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/6">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-300 transition-[width] duration-500 ease-out"
+              style={{ width: `${groupsTotal ? groupsPercent : 12}%` }}
+            />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
+            <span>
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` · exibindo lista salva de ${cachedAtLabel}` : ''}
+            </span>
+            <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
+        <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. Voce pode usar essa lista imediatamente enquanto uma nova sincronizacao nao for necessaria.
+        </div>
+      ) : null}
+
+      <div className="mb-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/10 px-3 py-2">
+        <Search size={17} className="text-[var(--muted)]" />
+        <input
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Buscar grupo pelo nome"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
+        />
+      </div>
+
+      <div className="mb-4 rounded-md border border-[var(--border)] bg-black/10 p-3">
+        <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
+          <div>
+            <p className="text-sm font-semibold">Grupos selecionados</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {selectedGroups.length
+                ? `${selectedGroups.length} destino(s) pronto(s) para receber mensagens.`
+                : 'Nenhum destino selecionado ainda.'}
+              {hasWhatsAppDestinationLimit ? ` Limite do plano ${planLimits?.label}: ${whatsappDestinationLimit}.` : ''}
+            </p>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+            {hasWhatsAppDestinationLimit ? `${selectedGroups.length}/${whatsappDestinationLimit}` : selectedGroups.length}
+          </span>
+        </div>
+
+        {selectedGroups.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selectedGroups.map((group) => (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => {
+                  if (readOnlyAccount) {
+                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    return;
+                  }
+                  const next = new Set(selected);
+                  next.delete(group.id);
+                  setSelected(next);
+                  setHasPendingSelectionChanges(true);
+                }}
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-left text-xs font-semibold text-emerald-50 transition hover:bg-emerald-400/15"
+                title="Remover dos selecionados"
+              >
+                <span className="truncate">{group.name}</span>
+                <GroupKindBadge group={group} />
+                <X size={13} className="text-emerald-100/70" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="max-h-[560px] overflow-auto rounded-md border border-[var(--border)]">
+        {filteredGroups.length ? (
+          filteredGroups.map((group) => {
+            const checked = selected.has(group.id);
+            const disabledByLimit = !checked && selected.size >= whatsappDestinationLimit;
+
+            return (
+              <label key={group.id} className={cn('flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 last:border-b-0 hover:bg-white/5', disabledByLimit && 'opacity-55')}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={readOnlyAccount || disabledByLimit}
+                  onChange={(event) => {
+                    const next = new Set(selected);
+                    if (event.target.checked) {
+                      if (next.size >= whatsappDestinationLimit) {
+                        setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        return;
+                      }
+                      next.add(group.id);
+                    } else {
+                      next.delete(group.id);
+                    }
+                    setSelected(next);
+                    setHasPendingSelectionChanges(true);
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
+                <GroupKindBadge group={group} />
+              </label>
+            );
+          })
+        ) : (
+          <p className="p-4 text-sm text-[var(--muted)]">Nenhum grupo encontrado.</p>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+        <p className="text-sm text-[var(--muted)]">
+          {selected.size} grupo(s) selecionado(s)
+          {hasWhatsAppDestinationLimit ? ` de ${whatsappDestinationLimit} liberado(s) no plano ${planLimits?.label}` : ''}
+        </p>
+        <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
+          {hasPendingSelectionChanges ? (
+            <span className="text-xs font-semibold text-amber-200">Selecao alterada. Clique em salvar para manter esses destinos.</span>
+          ) : null}
+          <button
+            type="button"
+            disabled={readOnlyAccount || busy === 'save-groups'}
+            className={primaryButton}
+            onClick={async () => {
+              setBusy('save-groups');
+              await postJson('/api/groups', { selectedGroupIds: [...selected] });
+              await refresh();
+              setHasPendingSelectionChanges(false);
+              setNotice('Grupos de destino salvos no fluxo.');
+              setBusy('');
+            }}
+          >
+            Salvar destinos
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Groups({
+  state,
+  setNotice,
+  setBusy,
+  busy,
+  refresh
+}: {
+  state: AppState;
+  setNotice: (message: string) => void;
+  setBusy: (value: string) => void;
+  busy: string;
+  refresh: () => Promise<void>;
+}) {
+  const readOnlyAccount = isReadOnlyAccount(state);
   const isAdmin = state.auth.user?.role === 'admin';
+  const filter = '';
+  const setFilter = (_value: string) => undefined;
   const planLimits = state.planLimits;
   const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
   const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
@@ -2228,29 +2490,26 @@ function Groups({
   const cachedAtLabel = state.metrics.groupCacheRefreshedAt
     ? formatDate(state.metrics.groupCacheRefreshedAt)
     : '';
-  const whatsAppReady = state.whatsAppStatus === 'ready';
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const hasQrCode = Boolean(state.qrDataUrl);
   const whatsAppReconnecting = ['connecting', 'authenticated', 'reconnecting'].includes(String(state.whatsAppStatus || '').toLowerCase());
   const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sessao';
   const selectedGroups = useMemo(
-    () => state.groups.filter((group) => selected.has(group.id)),
-    [selected, state.groups]
+    () => state.groups.filter((group) => (state.config.selectedGroupIds || []).includes(group.id)),
+    [state.config.selectedGroupIds, state.groups]
   );
   const hasSavedDestinations = selectedGroups.length > 0;
   const whatsappInternalChecklist = [
     { label: 'Iniciar sessao', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
     { label: 'Escanear QR Code', done: whatsAppConnected, ready: hasQrCode && !whatsAppConnected },
     { label: 'Atualizar grupos', done: Boolean(state.metrics.hasCachedGroups), ready: whatsAppConnected },
-    { label: 'Salvar destinos', done: hasSavedDestinations, ready: Boolean(state.metrics.hasCachedGroups) && !hasSavedDestinations }
+    { label: 'Salvar destinos em Fluxos', done: hasSavedDestinations, ready: Boolean(state.metrics.hasCachedGroups) && !hasSavedDestinations }
   ];
   const whatsappChecklistComplete = whatsappInternalChecklist.every((step) => step.done);
   const filteredGroups = useMemo(() => {
-    const normalized = normalizeText(filter);
     return state.groups
-      .filter((group) => normalizeText(group.name).includes(normalized))
       .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
-  }, [filter, selected, state.groups]);
+  }, [selected, state.groups]);
 
   useEffect(() => {
     const nextSelected = new Set(state.config.selectedGroupIds);
@@ -2286,7 +2545,7 @@ function Groups({
                 <div>
                   <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do WhatsApp</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, acompanhe o QR Code e gerencie todos os grupos de destino em um fluxo unico, limpo e pronto para operacao.
+                    Conecte sua conta, acompanhe o QR Code e mantenha a sessao pronta. A escolha dos grupos de destino agora fica concentrada na aba Fluxos.
                   </p>
                 </div>
               </div>
@@ -2338,7 +2597,7 @@ function Groups({
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  Grupos prontos para receber as mensagens encaminhadas pela ponte.
+                  A selecao de destinos agora e feita na aba Fluxos.
                 </p>
               </div>
 
@@ -2525,13 +2784,13 @@ function Groups({
             </div>
 
             <div className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-3 text-xs leading-5 text-[var(--muted)]">
-              Dica: mantenha esta tela aberta apenas quando for autenticar ou trocar a conta. Depois disso, basta gerenciar os grupos e deixar a automacao seguir normalmente.
+              Dica: mantenha esta tela aberta apenas quando for autenticar ou trocar a conta. Depois disso, configure origens e destinos diretamente em Fluxos.
             </div>
           </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+      <section className="hidden">
       <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos</p>
@@ -3125,7 +3384,7 @@ function AffiliateAutomationPanel({
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos ativos</p>
                 <p className="mt-2 text-sm font-semibold">{activeAutomation?.destinations?.length || 0} grupo(s)</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Os destinos do automatizador acompanham a selecao feita em Config. WhatsApp e sao aplicados quando o fluxo e salvo.
+                  Os destinos do automatizador acompanham a selecao feita na aba Fluxos e sao aplicados quando o fluxo e salvo.
                 </p>
               </div>
             </div>
