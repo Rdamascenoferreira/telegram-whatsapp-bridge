@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.73';
+const panelVersion = 'Versao 0.72';
 
 type AuthUser = {
   id: string;
@@ -85,39 +85,6 @@ type TelegramChat = {
   id: string;
   name: string;
   type: 'group' | 'channel';
-};
-
-type ExtractedTelegramUser = {
-  id: string;
-  name: string;
-  username?: string;
-  status: 'online' | 'recently' | 'offline' | 'last_week' | 'last_month' | 'unknown';
-  statusLabel: string;
-  isActiveRecently: boolean;
-  isBot: boolean;
-  isPremium?: boolean;
-  hasPhoto?: boolean;
-};
-
-type UserExtractorResult = {
-  source: {
-    id: string;
-    name: string;
-    type: 'group' | 'channel';
-  };
-  filters: {
-    limit: number;
-    onlyActiveRecently: boolean;
-    includeBots: boolean;
-  };
-  summary: {
-    total: number;
-    withUsername: number;
-    bots: number;
-    activeRecently: number;
-    online: number;
-  };
-  users: ExtractedTelegramUser[];
 };
 
 type AffiliateAccount = {
@@ -311,16 +278,7 @@ type AppState = {
   } | null;
 };
 
-type ViewKey =
-  | 'overview'
-  | 'connections'
-  | 'groups'
-  | 'flows'
-  | 'affiliate'
-  | 'userExtractor'
-  | 'activity'
-  | 'account'
-  | 'admin';
+type ViewKey = 'overview' | 'connections' | 'groups' | 'flows' | 'affiliate' | 'activity' | 'account' | 'admin';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
@@ -328,7 +286,6 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'groups', label: 'Config. WhatsApp', icon: Users },
   { key: 'flows', label: 'Fluxos', icon: ArrowRight },
   { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
-  { key: 'userExtractor', label: 'Extrator de Users', icon: Search },
   { key: 'activity', label: 'Historico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
@@ -503,15 +460,6 @@ export default function Home() {
           ) : null}
           {view === 'affiliate' ? (
             <AffiliateAutomationPanel
-              state={state}
-              setNotice={setNotice}
-              setBusy={setBusy}
-              busy={busy}
-              refresh={loadState}
-            />
-          ) : null}
-          {view === 'userExtractor' ? (
-            <UserExtractorPanel
               state={state}
               setNotice={setNotice}
               setBusy={setBusy}
@@ -3079,296 +3027,6 @@ function AffiliateAutomationPanel({
   );
 }
 
-function UserExtractorPanel({
-  state,
-  setNotice,
-  setBusy,
-  busy,
-  refresh
-}: {
-  state: AppState;
-  setNotice: (message: string) => void;
-  setBusy: (value: string) => void;
-  busy: string;
-  refresh: () => Promise<void>;
-}) {
-  const readOnlyAccount = isReadOnlyAccount(state);
-  const [sourceGroupId, setSourceGroupId] = useState(state.telegram.availableChats?.[0]?.id || '');
-  const [limit, setLimit] = useState(100);
-  const [onlyActiveRecently, setOnlyActiveRecently] = useState(true);
-  const [includeBots, setIncludeBots] = useState(false);
-  const [result, setResult] = useState<UserExtractorResult | null>(null);
-  const [filter, setFilter] = useState('');
-  const chats = state.telegram.availableChats || [];
-  const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
-  const filteredUsers = (result?.users || []).filter((user) =>
-    normalizeText(`${user.name} ${user.username} ${user.statusLabel}`).includes(normalizeText(filter))
-  );
-
-  useEffect(() => {
-    if (!sourceGroupId && chats[0]?.id) {
-      setSourceGroupId(chats[0].id);
-    }
-  }, [chats, sourceGroupId]);
-
-  async function runExtraction() {
-    if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
-      return;
-    }
-
-    if (!hasTelegramSession) {
-      setNotice('Conecte o Telegram antes de usar o Extrator de Users.');
-      return;
-    }
-
-    if (!sourceGroupId) {
-      setNotice('Escolha uma origem do Telegram para extrair users.');
-      return;
-    }
-
-    setBusy('user-extractor');
-
-    try {
-      const response = await postJson<UserExtractorResult>('/api/telegram/user-extractor/preview', {
-        sourceGroupId,
-        limit,
-        onlyActiveRecently,
-        includeBots
-      });
-      setResult(response);
-      setNotice(`Extracao concluida: ${response.summary.total} user(s) encontrados.`);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  async function refreshSources() {
-    if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
-      return;
-    }
-
-    setBusy('telegram-refresh');
-    try {
-      await postJson('/api/telegram/refresh-chats');
-      await refresh();
-      setNotice('Origens do Telegram atualizadas.');
-    } finally {
-      setBusy('');
-    }
-  }
-
-  function exportCsv() {
-    if (!result?.users?.length) {
-      setNotice('Rode uma extracao antes de exportar.');
-      return;
-    }
-
-    const rows = [
-      ['nome', 'username', 'status', 'bot', 'premium', 'id_mascarado'],
-      ...result.users.map((user) => [
-        user.name,
-        user.username || '',
-        user.statusLabel,
-        user.isBot ? 'sim' : 'nao',
-        user.isPremium ? 'sim' : 'nao',
-        user.id
-      ])
-    ];
-    const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `extrator-users-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="grid gap-5">
-      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.1),transparent_32%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.1),transparent_28%)] px-6 py-5 max-sm:px-4">
-          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-            <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Extrator de Users</p>
-              <div className="mt-3 flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-                  <Users size={22} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Leia, segmente e exporte users do Telegram</h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                    Use a sessao conectada para analisar participantes de grupos e canais acessiveis. Esta ferramenta nao adiciona,
-                    convida ou dispara mensagens automaticamente.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className={cn('rounded-full border px-3 py-2 text-xs font-semibold', hasTelegramSession ? 'border-emerald-400/25 bg-emerald-400/12 text-emerald-100' : 'border-amber-400/25 bg-amber-400/10 text-amber-100')}>
-                Telegram: {state.telegramStatus}
-              </span>
-              <span className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
-                Leitura segura
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-5 p-6 max-sm:p-4">
-          <section className="grid gap-4 rounded-[22px] border border-[var(--border)] bg-white/[0.025] p-5">
-            <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-              <div>
-                <p className="text-sm font-semibold">Origem e filtros</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">Escolha um grupo/canal e rode uma leitura controlada dos participantes.</p>
-              </div>
-              <button
-                type="button"
-                onClick={refreshSources}
-                disabled={readOnlyAccount || busy === 'telegram-refresh'}
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/15 disabled:opacity-60"
-              >
-                <RefreshCcw size={16} />
-                Atualizar origens
-              </button>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-[1.4fr_0.5fr]">
-              <label className="grid gap-2 text-sm font-semibold">
-                Grupo ou canal Telegram
-                <select
-                  value={sourceGroupId}
-                  onChange={(event) => setSourceGroupId(event.target.value)}
-                  disabled={readOnlyAccount || !hasTelegramSession}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {chats.length ? chats.map((chat) => (
-                    <option key={chat.id} value={chat.id}>{chat.name} ({chat.type})</option>
-                  )) : (
-                    <option value="">Conecte o Telegram e atualize as origens</option>
-                  )}
-                </select>
-              </label>
-
-              <label className="grid gap-2 text-sm font-semibold">
-                Limite por leitura
-                <select
-                  value={limit}
-                  onChange={(event) => setLimit(Number(event.target.value))}
-                  disabled={readOnlyAccount}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value={50}>50 users</option>
-                  <option value={100}>100 users</option>
-                  <option value={150}>150 users</option>
-                  <option value={200}>200 users</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--muted)]">
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={onlyActiveRecently} onChange={(event) => setOnlyActiveRecently(event.target.checked)} disabled={readOnlyAccount} />
-                Somente online/recentes
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={includeBots} onChange={(event) => setIncludeBots(event.target.checked)} disabled={readOnlyAccount} />
-                Incluir bots
-              </label>
-            </div>
-
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50/90">
-              Use apenas em grupos onde voce tem autorizacao. A ferramenta mostra users para analise/exportacao e nao faz convite automatico.
-            </div>
-
-            <button
-              type="button"
-              onClick={runExtraction}
-              disabled={readOnlyAccount || !hasTelegramSession || busy === 'user-extractor'}
-              className="w-fit rounded-xl border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(37,211,102,0.96),rgba(34,158,217,0.92))] px-5 py-3 font-semibold text-slate-950 shadow-[0_14px_30px_rgba(25,140,102,0.28)] transition hover:-translate-y-[1px] disabled:translate-y-0 disabled:opacity-60"
-            >
-              {busy === 'user-extractor' ? 'Extraindo...' : 'Extrair users'}
-            </button>
-          </section>
-
-          {result ? (
-            <section className="grid gap-4">
-              <div className="grid gap-3 md:grid-cols-4">
-                <UserExtractorMetric label="Users lidos" value={result.summary.total} />
-                <UserExtractorMetric label="Online/recentes" value={result.summary.activeRecently} />
-                <UserExtractorMetric label="Com username" value={result.summary.withUsername} />
-                <UserExtractorMetric label="Bots" value={result.summary.bots} />
-              </div>
-
-              <div className="rounded-[22px] border border-[var(--border)] bg-white/[0.025] p-5">
-                <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-                  <div>
-                    <p className="text-sm font-semibold">Resultado de {result.source.name}</p>
-                    <p className="mt-1 text-sm text-[var(--muted)]">{filteredUsers.length} user(s) na visualizacao atual.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="relative">
-                      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
-                      <input
-                        value={filter}
-                        onChange={(event) => setFilter(event.target.value)}
-                        placeholder="Filtrar users"
-                        className="rounded-xl border border-[var(--border)] bg-white/[0.04] py-2 pl-9 pr-3 text-sm"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={exportCsv}
-                      className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-400/15"
-                    >
-                      Exportar CSV
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-[var(--border)]">
-                  <div className="grid min-w-[760px] grid-cols-[1.3fr_1fr_0.7fr_0.5fr] border-b border-[var(--border)] bg-white/[0.03] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                    <span>Nome</span>
-                    <span>Username</span>
-                    <span>Status</span>
-                    <span>Tipo</span>
-                  </div>
-                  {filteredUsers.length ? filteredUsers.map((user) => (
-                    <div key={`${user.id}-${user.username}-${user.name}`} className="grid min-w-[760px] grid-cols-[1.3fr_1fr_0.7fr_0.5fr] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-0">
-                      <div>
-                        <p className="font-semibold">{user.name}</p>
-                        <p className="text-xs text-[var(--muted)]">{user.id}</p>
-                      </div>
-                      <span className="text-[var(--muted)]">{user.username || 'Sem username'}</span>
-                      <span className={cn('w-fit rounded-full border px-2.5 py-1 text-xs font-semibold', user.isActiveRecently ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-[var(--border)] bg-white/[0.03] text-[var(--muted)]')}>
-                        {user.statusLabel}
-                      </span>
-                      <span className="text-[var(--muted)]">{user.isBot ? 'Bot' : 'User'}</span>
-                    </div>
-                  )) : (
-                    <p className="px-4 py-8 text-center text-sm text-[var(--muted)]">Nenhum user encontrado com estes filtros.</p>
-                  )}
-                </div>
-              </div>
-            </section>
-          ) : null}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function UserExtractorMetric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{formatNumber(value)}</p>
-    </div>
-  );
-}
-
 function ActivityLog({ state, compact = false }: { state: AppState; compact?: boolean }) {
   const dedupedEvents = useMemo(() => {
     return state.activity.filter((event, index, events) => {
@@ -4190,11 +3848,6 @@ async function postJson<T = unknown>(url: string, body?: unknown): Promise<T> {
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-}
-
-function escapeCsvCell(value: string | number | boolean) {
-  const text = String(value ?? '');
-  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function formatNumber(value: number) {

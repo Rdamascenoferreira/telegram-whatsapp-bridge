@@ -156,15 +156,6 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
-    app.post('/api/telegram/user-extractor/preview', requireWriteAccess, async (request, response) => {
-      const result = await runUserOperation(request, 'telegram:user-extractor-preview', async () => {
-        const runtime = await this.manager.getRuntimeForUser(request.user);
-        return await runtime.extractTelegramUsers(request.body || {});
-      });
-
-      response.json(result);
-    });
-
     app.post('/api/groups', requireWriteAccess, async (request, response) => {
       await runUserOperation(request, 'whatsapp:save-groups', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
