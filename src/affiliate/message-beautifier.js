@@ -146,7 +146,9 @@ function isLikelyPromotionalFooterLine(line) {
 
   return [
     /^convide\s+seus\s+amigos\s*:?\s*$/,
-    /^(?:link\s*(?:do\s*)?(?:produto|oferta)|produto|anuncio|anuncios?)\s*:?\s*$/,
+    /^(?:preco|valor|oferta)\s*:?\s*$/,
+    /^#?\s*(?:link\s*(?:do\s*)?(?:produto|oferta)|produto|anuncio|anuncios?)\s*:?\s*$/,
+    /^resgate\s+(?:os\s+)?cupons?\s*:?\s*$/,
     /\bmais\b.*\b(?:grupo|grupos|oferta|ofertas|cupom|cupons)\b/,
     /\b(?:grupo|grupos)\b.*\b(?:oferta|ofertas|promocao|promocoes|cupom|cupons)\b/,
     /\bresgate\b.*\b(?:cupom|cupons)\b.*\b(?:pagina|site|grupo|canal)\b/,

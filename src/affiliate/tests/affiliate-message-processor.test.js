@@ -183,6 +183,37 @@ test('beautifyAffiliateMessage prefers product link and drops loose labels', () 
   assert.doesNotMatch(result, /Convide Seus Amigos/);
 });
 
+test('beautifyAffiliateMessage removes standalone coupon and price labels', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      'Placa Mae Maxsun Challenger B850M-K WIFI, Chipset B850, AMD AM5',
+      '',
+      'Resgate os cupons',
+      'https://s.shopee.com.br/cupom',
+      '',
+      'Link do Produto',
+      'https://s.shopee.com.br/produto',
+      '',
+      'PRECO:',
+      'R$ 573',
+      '',
+      'Participe do nosso outro grupo de ofertas',
+      'Promocoes gerais - https://t.me/huskypromocoes',
+      '#anuncio'
+    ].join('\n'),
+    { style: 'clean' }
+  );
+
+  assert.match(result, /Placa Mae Maxsun Challenger/);
+  assert.match(result, /R\$ 573/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/s\.shopee\.com\.br\/produto/);
+  assert.doesNotMatch(result, /Resgate os cupons/);
+  assert.doesNotMatch(result, /PRECO:/);
+  assert.doesNotMatch(result, /Participe do nosso outro grupo/);
+  assert.doesNotMatch(result, /Promocoes gerais/);
+  assert.doesNotMatch(result, /#anuncio/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
