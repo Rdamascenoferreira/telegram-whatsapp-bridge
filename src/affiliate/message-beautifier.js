@@ -30,27 +30,16 @@ export function beautifyAffiliateMessage(message, options = {}) {
   const price = findFirstMatch(input, /R\$\s?[\d.]+(?:,\d{2})?/i);
   const coupon = findCoupon(lines);
   const primaryUrlIndex = findPrimaryUrlIndex(lines, urls);
-  const details = lines
-    .filter((line) => !lineContainsKnownUrl(line, urls))
-    .filter((line) => line !== title)
-    .filter((line) => !/^(?:cupom|coupon)\b/i.test(line))
-    .filter((line) => !/R\$\s?[\d.]+(?:,\d{2})?/i.test(line))
-    .filter((line) => !/^[_-]\s*$/.test(line))
-    .filter((line) => !isLikelyPromotionalFooterLine(line))
-    .slice(0, 2);
-
   const primaryUrl = urls[primaryUrlIndex] || urls[0];
+  const couponUrls = findCouponUrls(lines, urls, primaryUrlIndex);
   const extraUrls = urls
     .filter((_, index) => index !== primaryUrlIndex)
+    .filter((url) => !couponUrls.includes(url))
     .filter((url) => !isCommunityPromoUrl(url, lines));
   const blocks = [];
 
   blocks.push(getHeadline(style));
   blocks.push(title);
-
-  if (details.length) {
-    blocks.push(details.join('\n'));
-  }
 
   const commercialLines = [];
 
@@ -68,8 +57,12 @@ export function beautifyAffiliateMessage(message, options = {}) {
 
   blocks.push(style === 'plain' ? `Link da oferta:\n${primaryUrl}` : `\u{1F6D2} Link da oferta:\n${primaryUrl}`);
 
+  if (couponUrls.length) {
+    blocks.push(style === 'plain' ? `Cupons:\n${couponUrls.join('\n')}` : `\u{1F3F7} Cupons:\n${couponUrls.join('\n')}`);
+  }
+
   if (extraUrls.length) {
-    blocks.push(style === 'plain' ? `Links adicionais:\n${extraUrls.join('\n')}` : `\u{1F517} Links adicionais:\n${extraUrls.join('\n')}`);
+    blocks.push(style === 'plain' ? `Links uteis:\n${extraUrls.join('\n')}` : `\u{1F517} Links uteis:\n${extraUrls.join('\n')}`);
   }
 
   if (style === 'urgent') {
@@ -149,6 +142,7 @@ function isLikelyPromotionalFooterLine(line) {
     /^(?:preco|valor|oferta)\s*:?\s*$/,
     /^#?\s*(?:link\s*(?:do\s*)?(?:produto|oferta)|produto|anuncio|anuncios?)\s*:?\s*$/,
     /^resgate\s+(?:os\s+)?cupons?\s*:?\s*$/,
+    /^(?:promocoes?|ofertas?)\s+(?:gerais|no\s+whatsapp|no\s+telegram)\s*[-:]?\s*$/,
     /\bmais\b.*\b(?:grupo|grupos|oferta|ofertas|cupom|cupons)\b/,
     /\b(?:grupo|grupos)\b.*\b(?:oferta|ofertas|promocao|promocoes|cupom|cupons)\b/,
     /\bresgate\b.*\b(?:cupom|cupons)\b.*\b(?:pagina|site|grupo|canal)\b/,
@@ -195,6 +189,21 @@ function isCommunityPromoUrl(url, lines) {
     /\blinktr\.ee\b/,
     /\b(?:nerdofertas|badmeme|mc8mb)\b/
   ].some((pattern) => pattern.test(context));
+}
+
+function findCouponUrls(lines, urls, primaryUrlIndex) {
+  return urls.filter((url, index) => {
+    if (index === primaryUrlIndex || isCommunityPromoUrl(url, lines)) {
+      return false;
+    }
+
+    const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+    const currentLine = normalizeForMatching(lines[lineIndex] || '');
+    const previousLine = normalizeForMatching(findPreviousNonEmptyLine(lines, lineIndex));
+    const context = `${previousLine} ${currentLine}`;
+
+    return /\b(?:cupom|cupons|resgate)\b/.test(context);
+  });
 }
 
 function findPreviousNonEmptyLine(lines, index) {
