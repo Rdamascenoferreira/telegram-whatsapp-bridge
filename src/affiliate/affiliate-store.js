@@ -151,13 +151,15 @@ export async function getActiveAffiliateAutomationsBySource(userId, sourceGroupI
 
 export async function upsertAffiliateAutomation(userId, payload = {}) {
   const automationId = cleanText(payload.id);
+  const currentAutomation = automationId ? await getAffiliateAutomationById(userId, automationId) : null;
+  const mergedRulesPayload = mergeAffiliateAutomationRulesPayload(currentAutomation, payload);
   const body = {
     user_id: userId,
     name: cleanText(payload.name) || 'Automacao de afiliados',
     telegram_source_group_id: cleanText(payload.telegramSourceGroupId),
     telegram_source_group_name: cleanText(payload.telegramSourceGroupName),
     unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-    custom_footer: encodeCustomFooterRules(payload),
+    custom_footer: encodeCustomFooterRules(mergedRulesPayload),
     remove_original_footer: Boolean(payload.removeOriginalFooter),
     is_active: Boolean(payload.isActive),
     updated_at: new Date().toISOString()
@@ -205,11 +207,13 @@ export async function setAffiliateAutomationActive(userId, automationId, isActiv
 }
 
 export async function updateAffiliateAutomationRules(userId, automationId, payload = {}) {
+  const currentAutomation = await getAffiliateAutomationById(userId, automationId);
+  const mergedRulesPayload = mergeAffiliateAutomationRulesPayload(currentAutomation, payload);
   const rows = await supabaseRequest('/rest/v1/affiliate_automations', {
     method: 'PATCH',
     body: {
       unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-      custom_footer: encodeCustomFooterRules(payload),
+      custom_footer: encodeCustomFooterRules(mergedRulesPayload),
       remove_original_footer: Boolean(payload.removeOriginalFooter),
       updated_at: new Date().toISOString()
     },
@@ -415,6 +419,9 @@ function mapAffiliateAutomation(row) {
     customFooter: footerRules.customFooter,
     messageBeautifierEnabled: footerRules.messageBeautifierEnabled,
     messageBeautifierStyle: footerRules.messageBeautifierStyle,
+    telegramForwardEnabled: footerRules.telegramForwardEnabled,
+    telegramDestinationGroupId: footerRules.telegramDestinationGroupId,
+    telegramDestinationGroupName: footerRules.telegramDestinationGroupName,
     removeOriginalFooter: Boolean(row.remove_original_footer),
     isActive: Boolean(row.is_active),
     destinations: destinations.map((destination) => ({
@@ -484,10 +491,19 @@ function encodeCustomFooterRules(payload = {}) {
   const customFooter = cleanText(payload.customFooter);
   const rules = {
     messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
-    messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle)
+    messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle),
+    telegramForwardEnabled: Boolean(payload.telegramForwardEnabled),
+    telegramDestinationGroupId: cleanText(payload.telegramDestinationGroupId),
+    telegramDestinationGroupName: cleanText(payload.telegramDestinationGroupName)
   };
 
-  if (!rules.messageBeautifierEnabled && rules.messageBeautifierStyle === 'clean') {
+  if (
+    !rules.messageBeautifierEnabled &&
+    rules.messageBeautifierStyle === 'clean' &&
+    !rules.telegramForwardEnabled &&
+    !rules.telegramDestinationGroupId &&
+    !rules.telegramDestinationGroupName
+  ) {
     return customFooter;
   }
 
@@ -501,7 +517,10 @@ function decodeCustomFooterRules(value) {
     return {
       customFooter: raw,
       messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean'
+      messageBeautifierStyle: 'clean',
+      telegramForwardEnabled: false,
+      telegramDestinationGroupId: '',
+      telegramDestinationGroupName: ''
     };
   }
 
@@ -511,7 +530,10 @@ function decodeCustomFooterRules(value) {
     return {
       customFooter: raw,
       messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean'
+      messageBeautifierStyle: 'clean',
+      telegramForwardEnabled: false,
+      telegramDestinationGroupId: '',
+      telegramDestinationGroupName: ''
     };
   }
 
@@ -524,15 +546,48 @@ function decodeCustomFooterRules(value) {
     return {
       customFooter,
       messageBeautifierEnabled: Boolean(rules.messageBeautifierEnabled),
-      messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle)
+      messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle),
+      telegramForwardEnabled: Boolean(rules.telegramForwardEnabled),
+      telegramDestinationGroupId: cleanText(rules.telegramDestinationGroupId),
+      telegramDestinationGroupName: cleanText(rules.telegramDestinationGroupName)
     };
   } catch (_error) {
     return {
       customFooter,
       messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean'
+      messageBeautifierStyle: 'clean',
+      telegramForwardEnabled: false,
+      telegramDestinationGroupId: '',
+      telegramDestinationGroupName: ''
     };
   }
+}
+
+function mergeAffiliateAutomationRulesPayload(currentAutomation, payload = {}) {
+  return {
+    customFooter:
+      payload.customFooter !== undefined ? payload.customFooter : currentAutomation?.customFooter || '',
+    messageBeautifierEnabled:
+      payload.messageBeautifierEnabled !== undefined
+        ? payload.messageBeautifierEnabled
+        : currentAutomation?.messageBeautifierEnabled,
+    messageBeautifierStyle:
+      payload.messageBeautifierStyle !== undefined
+        ? payload.messageBeautifierStyle
+        : currentAutomation?.messageBeautifierStyle,
+    telegramForwardEnabled:
+      payload.telegramForwardEnabled !== undefined
+        ? payload.telegramForwardEnabled
+        : currentAutomation?.telegramForwardEnabled,
+    telegramDestinationGroupId:
+      payload.telegramDestinationGroupId !== undefined
+        ? payload.telegramDestinationGroupId
+        : currentAutomation?.telegramDestinationGroupId,
+    telegramDestinationGroupName:
+      payload.telegramDestinationGroupName !== undefined
+        ? payload.telegramDestinationGroupName
+        : currentAutomation?.telegramDestinationGroupName
+  };
 }
 
 function cleanText(value) {

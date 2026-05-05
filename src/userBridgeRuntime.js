@@ -1071,25 +1071,64 @@ export class UserBridgeRuntime {
       }
 
       const delivery = await this.sendAffiliateMessageToWhatsAppGroups(result.processedMessage, targetGroupIds);
+      const telegramForwardResult = {
+        enabled: Boolean(automation.telegramForwardEnabled && automation.telegramDestinationGroupId),
+        sent: false,
+        error: ''
+      };
+
+      if (telegramForwardResult.enabled) {
+        if (!this.telegramClient || this.telegramStatus !== 'listening') {
+          telegramForwardResult.error = `Telegram indisponivel: ${this.telegramStatus || 'offline'}`;
+        } else {
+          try {
+            await this.sendAffiliateMessageToTelegramDestination(
+              result.processedMessage,
+              automation.telegramDestinationGroupId
+            );
+            telegramForwardResult.sent = true;
+            this.log(`Automacao de afiliados "${automation.name}" tambem enviada para o Telegram.`, {
+              type: 'affiliate_telegram_sent',
+              metadata: {
+                automationId: automation.id,
+                destinationId: automation.telegramDestinationGroupId,
+                destinationName: automation.telegramDestinationGroupName || automation.telegramDestinationGroupId
+              }
+            });
+          } catch (error) {
+            telegramForwardResult.error = error.message;
+          }
+        }
+      }
+
+      const errorMessages = delivery.failed.map((failure) => `${failure.groupId}: ${failure.error}`);
+      if (telegramForwardResult.error) {
+        errorMessages.push(`telegram:${automation.telegramDestinationGroupId}: ${telegramForwardResult.error}`);
+      }
+
       await updateAffiliateMessageLog(result.messageLogId, {
-        status: delivery.failed.length ? 'error' : 'sent',
-        errorMessage: delivery.failed.map((failure) => `${failure.groupId}: ${failure.error}`).join(' | '),
-        sentAt: delivery.sent.length ? new Date().toISOString() : null
+        status: errorMessages.length ? 'error' : 'sent',
+        errorMessage: errorMessages.join(' | '),
+        sentAt: delivery.sent.length || telegramForwardResult.sent ? new Date().toISOString() : null
       });
 
-      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s).`, {
-        type: delivery.failed.length ? 'affiliate_partial_error' : 'affiliate_sent',
+      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}.`, {
+        type: errorMessages.length ? 'affiliate_partial_error' : 'affiliate_sent',
         increments: {
           forwardBatches: 1,
           forwardedMessages: 1,
           whatsAppDeliveries: delivery.sent.length,
-          errors: delivery.failed.length
+          errors: errorMessages.length
         },
         metadata: {
           automationId: automation.id,
           groups: targetGroupIds.length,
           sent: delivery.sent.length,
-          failed: delivery.failed.length
+          failed: delivery.failed.length,
+          telegramForwardEnabled: telegramForwardResult.enabled,
+          telegramForwardSent: telegramForwardResult.sent,
+          telegramDestinationId: automation.telegramDestinationGroupId || '',
+          telegramDestinationName: automation.telegramDestinationGroupName || ''
         }
       });
     }
@@ -1121,6 +1160,19 @@ export class UserBridgeRuntime {
 
       return { sent, failed };
     });
+  }
+
+  async sendAffiliateMessageToTelegramDestination(messageText, destinationId) {
+    if (!this.telegramClient) {
+      throw new Error('Cliente do Telegram indisponivel.');
+    }
+
+    if (!destinationId) {
+      throw new Error('Destino Telegram nao configurado.');
+    }
+
+    await this.telegramClient.sendMessage(destinationId, { message: messageText });
+    return { destinationId };
   }
 
   async handleTelegramMessage(message, options = {}) {

@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.96';
+const panelVersion = 'Versao 0.97';
 
 type AuthUser = {
   id: string;
@@ -108,6 +108,9 @@ type AffiliateAutomation = {
   removeOriginalFooter?: boolean;
   messageBeautifierEnabled?: boolean;
   messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
+  telegramForwardEnabled?: boolean;
+  telegramDestinationGroupId?: string;
+  telegramDestinationGroupName?: string;
   isActive: boolean;
   destinations: Array<{
     whatsappGroupId: string;
@@ -1887,6 +1890,12 @@ function FlowsPanel({
   const [telegramFlow, setTelegramFlow] = useState<'bridge' | 'affiliate'>(savedTelegramFlow);
   const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
   const [affiliateTelegramChannel, setAffiliateTelegramChannel] = useState(savedAffiliateSource);
+  const [affiliateTelegramForwardEnabled, setAffiliateTelegramForwardEnabled] = useState(
+    Boolean(activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId)
+  );
+  const [affiliateTelegramDestinationId, setAffiliateTelegramDestinationId] = useState(
+    activeAutomation?.telegramDestinationGroupId || ''
+  );
   const flowFormRef = useRef<HTMLFormElement | null>(null);
   const selectedWhatsAppDestinations = state.groups
     .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
@@ -1898,6 +1907,10 @@ function FlowsPanel({
   const affiliateModuleAllowed = (planLimits?.affiliateAutomations ?? 0) > 0;
   const selectedBridgeName = getTelegramChatName(state, state.config.telegramChannel);
   const selectedAffiliateName = getTelegramChatName(state, savedAffiliateSource);
+  const selectedAffiliateTelegramDestinationName = getTelegramChatName(
+    state,
+    activeAutomation?.telegramDestinationGroupId
+  );
   const flowChecklist = [
     { label: 'Telegram conectado', done: hasTelegramSession, ready: Boolean(state.config.telegramApiId) },
     { label: 'Destinos WhatsApp prontos', done: selectedWhatsAppDestinationCount > 0, ready: state.groups.length > 0 },
@@ -1909,9 +1922,20 @@ function FlowsPanel({
     if (!isAutomationEditing) {
       setTelegramChannel(state.config.telegramChannel || '');
       setAffiliateTelegramChannel(savedAffiliateSource);
+      setAffiliateTelegramForwardEnabled(
+        Boolean(activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId)
+      );
+      setAffiliateTelegramDestinationId(activeAutomation?.telegramDestinationGroupId || '');
       setTelegramFlow(savedTelegramFlow);
     }
-  }, [isAutomationEditing, state.config.telegramChannel, savedAffiliateSource, savedTelegramFlow]);
+  }, [
+    activeAutomation?.telegramDestinationGroupId,
+    activeAutomation?.telegramForwardEnabled,
+    isAutomationEditing,
+    savedAffiliateSource,
+    savedTelegramFlow,
+    state.config.telegramChannel
+  ]);
 
   useEffect(() => {
     if (!hasSavedSource && !readOnlyAccount) {
@@ -1981,6 +2005,12 @@ function FlowsPanel({
           unknownLinkBehavior: activeAutomation?.unknownLinkBehavior || 'keep',
           customFooter: activeAutomation?.customFooter || '',
           removeOriginalFooter: Boolean(activeAutomation?.removeOriginalFooter),
+          telegramForwardEnabled: affiliateTelegramForwardEnabled,
+          telegramDestinationGroupId: affiliateTelegramForwardEnabled ? affiliateTelegramDestinationId : '',
+          telegramDestinationGroupName:
+            affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
+              ? getTelegramChatName(state, affiliateTelegramDestinationId)
+              : '',
           isActive: true
         });
         setNotice('Fluxo Automatizador de Ofertas salvo com sucesso.');
@@ -2139,6 +2169,62 @@ function FlowsPanel({
                     placeholder="-100..."
                     disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
                   />
+                  <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
+                    <input
+                      type="checkbox"
+                      checked={affiliateTelegramForwardEnabled}
+                      onChange={(event) => {
+                        const enabled = event.target.checked;
+                        setAffiliateTelegramForwardEnabled(enabled);
+                        if (!enabled) {
+                          setAffiliateTelegramDestinationId('');
+                        }
+                      }}
+                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                      className="mt-1 h-4 w-4 rounded border-white/15 bg-transparent accent-emerald-400"
+                    />
+                    <span>
+                      <span className="block font-semibold text-white">Encaminhar tambem para Telegram</span>
+                      <span className="mt-1 block text-xs leading-5">
+                        Opcional. Depois de tratar a oferta com seu link de afiliado, a SaaS tambem pode publicar a mensagem final em um grupo ou canal do Telegram onde sua conta tenha permissao.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="grid gap-2 text-sm font-semibold">
+                    Destino opcional no Telegram
+                    <select
+                      value={affiliateTelegramDestinationId}
+                      onChange={(event) => setAffiliateTelegramDestinationId(event.target.value)}
+                      className={inputClass}
+                      disabled={
+                        readOnlyAccount ||
+                        !isAutomationEditing ||
+                        telegramFlow !== 'affiliate' ||
+                        !affiliateModuleAllowed ||
+                        !affiliateTelegramForwardEnabled
+                      }
+                    >
+                      <option value="">Nao encaminhar para Telegram</option>
+                      {(state.telegram.availableChats || []).map((chat) => (
+                        <option key={`forward-${chat.id}`} value={chat.id}>
+                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field
+                    label="ID manual do destino opcional"
+                    value={affiliateTelegramDestinationId}
+                    onChange={setAffiliateTelegramDestinationId}
+                    placeholder="-100..."
+                    disabled={
+                      readOnlyAccount ||
+                      !isAutomationEditing ||
+                      telegramFlow !== 'affiliate' ||
+                      !affiliateModuleAllowed ||
+                      !affiliateTelegramForwardEnabled
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -2159,6 +2245,12 @@ function FlowsPanel({
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
                     <p className="font-semibold text-cyan-100">Automatizador salvo</p>
                     <p className="mt-1 leading-5 text-[var(--muted)]">{selectedAffiliateName}</p>
+                    <p className="mt-2 leading-5 text-[var(--muted)]">
+                      Telegram opcional:{' '}
+                      {activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId
+                        ? selectedAffiliateTelegramDestinationName
+                        : 'desligado'}
+                    </p>
                   </div>
                 </div>
               </div>
