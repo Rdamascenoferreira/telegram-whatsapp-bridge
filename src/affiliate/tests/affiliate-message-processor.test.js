@@ -133,6 +133,28 @@ test('beautifyAffiliateMessage supports plain style without emojis', () => {
   assert.doesNotMatch(result, /[\p{Extended_Pictographic}\uFE0F]/u);
 });
 
+test('beautifyAffiliateMessage removes promotional footer lines from offer details', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      'Monitor Gamer TGT Altay TS6, 23.8 Pol, IPS, FHD, 1ms, 165Hz',
+      '',
+      'R$ 446',
+      'Resgate todos os cupons desta pagina: s.shopee.com.br/50VePQsPMC',
+      '',
+      'https://s.shopee.com.br/5q4jmvCvmL',
+      '',
+      'Mais grupos de ofertas e cupons: nerdofertas.com'
+    ].join('\n'),
+    { style: 'plain' }
+  );
+
+  assert.match(result, /Monitor Gamer TGT Altay TS6/);
+  assert.match(result, /R\$ 446/);
+  assert.match(result, /Link da oferta:/);
+  assert.doesNotMatch(result, /Mais grupos de ofertas e cupons:/);
+  assert.doesNotMatch(result, /Resgate todos os cupons desta pagina:/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

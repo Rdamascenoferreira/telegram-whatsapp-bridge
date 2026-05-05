@@ -30,11 +30,12 @@ export function beautifyAffiliateMessage(message, options = {}) {
   const price = findFirstMatch(input, /R\$\s?[\d.]+(?:,\d{2})?/i);
   const coupon = findFirstMatch(input, /(?:cupom|coupon)\s*[:\-]?\s*([A-Z0-9_-]{3,})/i, 1);
   const details = lines
-    .filter((line) => !urls.some((url) => line.includes(url)))
+    .filter((line) => !lineContainsKnownUrl(line, urls))
     .filter((line) => line !== title)
     .filter((line) => !/^(?:cupom|coupon)\b/i.test(line))
     .filter((line) => !/R\$\s?[\d.]+(?:,\d{2})?/i.test(line))
     .filter((line) => !/^[_-]\s*$/.test(line))
+    .filter((line) => !isLikelyPromotionalFooterLine(line))
     .slice(0, 2);
 
   const primaryUrl = urls[0];
@@ -111,7 +112,7 @@ function normalizeLineForStyle(line, style) {
 
 function findTitle(lines, urls) {
   const title = lines.find((line) => {
-    if (urls.some((url) => line.includes(url))) {
+    if (lineContainsKnownUrl(line, urls)) {
       return false;
     }
 
@@ -127,10 +128,48 @@ function findTitle(lines, urls) {
       return false;
     }
 
+    if (isLikelyPromotionalFooterLine(line)) {
+      return false;
+    }
+
     return line.length >= 4;
   });
 
   return title || 'Oferta especial';
+}
+
+function isLikelyPromotionalFooterLine(line) {
+  const normalized = normalizeForMatching(line);
+
+  return [
+    /\bmais\b.*\b(?:grupo|grupos|oferta|ofertas|cupom|cupons)\b/,
+    /\b(?:grupo|grupos)\b.*\b(?:oferta|ofertas|promocao|promocoes|cupom|cupons)\b/,
+    /\bresgate\b.*\b(?:cupom|cupons)\b.*\b(?:pagina|site|grupo|canal)\b/,
+    /\b(?:siga|acesse|visite|entre|participe|convide)\b.*\b(?:instagram|linktree|grupo|grupos|canal|comunidade)\b/,
+    /\b(?:instagram|linktree|tiktok|telegram|whatsapp)\b\s*:/,
+    /\b(?:nerdofertas|badmeme|mc8mb)\b/
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function lineContainsKnownUrl(line, urls) {
+  const value = String(line ?? '');
+
+  return urls.some((url) => {
+    const normalizedUrl = String(url ?? '');
+    const withoutProtocol = normalizedUrl.replace(/^https?:\/\//i, '');
+    const withoutWww = withoutProtocol.replace(/^www\./i, '');
+
+    return [normalizedUrl, withoutProtocol, withoutWww]
+      .filter(Boolean)
+      .some((candidate) => value.includes(candidate));
+  });
+}
+
+function normalizeForMatching(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 function findFirstMatch(text, regex, group = 0) {
