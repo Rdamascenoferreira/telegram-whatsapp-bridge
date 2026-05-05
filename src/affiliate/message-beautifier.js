@@ -28,7 +28,8 @@ export function beautifyAffiliateMessage(message, options = {}) {
 
   const title = findTitle(lines, urls);
   const price = findFirstMatch(input, /R\$\s?[\d.]+(?:,\d{2})?/i);
-  const coupon = findFirstMatch(input, /(?:cupom|coupon)\s*[:\-]?\s*([A-Z0-9_-]{3,})/i, 1);
+  const coupon = findCoupon(lines);
+  const primaryUrlIndex = findPrimaryUrlIndex(lines, urls);
   const details = lines
     .filter((line) => !lineContainsKnownUrl(line, urls))
     .filter((line) => line !== title)
@@ -38,8 +39,10 @@ export function beautifyAffiliateMessage(message, options = {}) {
     .filter((line) => !isLikelyPromotionalFooterLine(line))
     .slice(0, 2);
 
-  const primaryUrl = urls[0];
-  const extraUrls = urls.slice(1);
+  const primaryUrl = urls[primaryUrlIndex] || urls[0];
+  const extraUrls = urls
+    .filter((_, index) => index !== primaryUrlIndex)
+    .filter((url) => !isCommunityPromoUrl(url, lines));
   const blocks = [];
 
   blocks.push(getHeadline(style));
@@ -142,6 +145,8 @@ function isLikelyPromotionalFooterLine(line) {
   const normalized = normalizeForMatching(line);
 
   return [
+    /^convide\s+seus\s+amigos\s*:?\s*$/,
+    /^(?:link\s*(?:do\s*)?(?:produto|oferta)|produto|anuncio|anuncios?)\s*:?\s*$/,
     /\bmais\b.*\b(?:grupo|grupos|oferta|ofertas|cupom|cupons)\b/,
     /\b(?:grupo|grupos)\b.*\b(?:oferta|ofertas|promocao|promocoes|cupom|cupons)\b/,
     /\bresgate\b.*\b(?:cupom|cupons)\b.*\b(?:pagina|site|grupo|canal)\b/,
@@ -149,6 +154,55 @@ function isLikelyPromotionalFooterLine(line) {
     /\b(?:instagram|linktree|tiktok|telegram|whatsapp)\b\s*:/,
     /\b(?:nerdofertas|badmeme|mc8mb)\b/
   ].some((pattern) => pattern.test(normalized));
+}
+
+function findPrimaryUrlIndex(lines, urls) {
+  const productIndex = urls.findIndex((url) => {
+    const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+    const previousLabel = findPreviousNonEmptyLine(lines, lineIndex);
+    const normalizedLabel = normalizeForMatching(previousLabel);
+
+    return /\b(?:link\s*(?:do\s*)?produto|produto|link\s*(?:da\s*)?oferta)\b/.test(normalizedLabel);
+  });
+
+  if (productIndex >= 0) {
+    return productIndex;
+  }
+
+  const nonCouponIndex = urls.findIndex((url) => {
+    const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+    const previousLabel = normalizeForMatching(findPreviousNonEmptyLine(lines, lineIndex));
+
+    return !/\b(?:cupom|cupons|resgate|pagina)\b/.test(previousLabel);
+  });
+
+  return nonCouponIndex >= 0 ? nonCouponIndex : 0;
+}
+
+function isCommunityPromoUrl(url, lines) {
+  const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+  const currentLine = normalizeForMatching(lines[lineIndex] || '');
+  const previousLine = normalizeForMatching(findPreviousNonEmptyLine(lines, lineIndex));
+  const context = `${previousLine} ${currentLine}`;
+
+  return [
+    /\bconvide\s+seus\s+amigos\b/,
+    /\bmais\b.*\b(?:grupo|grupos|oferta|ofertas|cupom|cupons)\b/,
+    /\b(?:telegram|whatsapp|instagram|linktree|tiktok)\b/,
+    /\bt\.me\b/,
+    /\blinktr\.ee\b/,
+    /\b(?:nerdofertas|badmeme|mc8mb)\b/
+  ].some((pattern) => pattern.test(context));
+}
+
+function findPreviousNonEmptyLine(lines, index) {
+  for (let current = index - 1; current >= 0; current -= 1) {
+    if (String(lines[current] ?? '').trim()) {
+      return lines[current];
+    }
+  }
+
+  return '';
 }
 
 function lineContainsKnownUrl(line, urls) {
@@ -169,10 +223,23 @@ function normalizeForMatching(value) {
   return String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .trim()
     .toLowerCase();
 }
 
 function findFirstMatch(text, regex, group = 0) {
   const match = String(text ?? '').match(regex);
   return match ? String(match[group] ?? '').trim() : '';
+}
+
+function findCoupon(lines) {
+  const couponLine = lines.find((line) => /(?:cupom|coupon)/i.test(line) && !lineContainsKnownUrl(line, []));
+
+  if (!couponLine) {
+    return '';
+  }
+
+  const match = couponLine.match(/(?:cupom|coupon)\s*[:\-]?\s*([A-Z0-9_-]{3,})/i);
+  return match ? String(match[1] ?? '').trim() : '';
 }

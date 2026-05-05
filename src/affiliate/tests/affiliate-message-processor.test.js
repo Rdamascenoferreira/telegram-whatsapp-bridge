@@ -155,6 +155,34 @@ test('beautifyAffiliateMessage removes promotional footer lines from offer detai
   assert.doesNotMatch(result, /Resgate todos os cupons desta pagina:/);
 });
 
+test('beautifyAffiliateMessage prefers product link and drops loose labels', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      'Micro-ondas Panasonic 27L Prata 220v Mais Rapido Pratico e Limpo',
+      '',
+      'R$ 348',
+      'Resgate todos os cupons desta pagina:',
+      'https://s.shopee.com.br/cupom',
+      '',
+      'Link produto:',
+      'https://s.shopee.com.br/produto',
+      '',
+      'anuncio',
+      '',
+      'Convide Seus Amigos:',
+      'Telegram: https://t.me/achadoshardware'
+    ].join('\n'),
+    { style: 'clean' }
+  );
+
+  assert.match(result, /Micro-ondas Panasonic/);
+  assert.match(result, /R\$ 348/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/s\.shopee\.com\.br\/produto/);
+  assert.doesNotMatch(result, /Link produto:\s*anuncio/);
+  assert.doesNotMatch(result, /\banuncio\b/);
+  assert.doesNotMatch(result, /Convide Seus Amigos/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
