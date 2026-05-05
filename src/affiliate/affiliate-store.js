@@ -477,7 +477,7 @@ function normalizeUnknownBehavior(value) {
 
 function normalizeBeautifierStyle(value) {
   const style = String(value ?? '').trim().toLowerCase();
-  return ['clean', 'sales', 'urgent'].includes(style) ? style : 'clean';
+  return ['clean', 'sales', 'urgent', 'plain'].includes(style) ? style : 'clean';
 }
 
 function encodeCustomFooterRules(payload = {}) {

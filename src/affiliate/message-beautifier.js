@@ -1,6 +1,6 @@
 import { extractUrls } from './url-extractor.js';
 
-const supportedStyles = new Set(['clean', 'sales', 'urgent']);
+const supportedStyles = new Set(['clean', 'sales', 'urgent', 'plain']);
 
 export function normalizeBeautifierStyle(style) {
   const normalized = String(style ?? '').trim().toLowerCase();
@@ -17,13 +17,13 @@ export function beautifyAffiliateMessage(message, options = {}) {
   const urls = extractUrls(input);
 
   if (!urls.length) {
-    return input;
+    return normalizeLineForStyle(input, normalizeBeautifierStyle(options.style)).trim();
   }
 
   const style = normalizeBeautifierStyle(options.style);
   const lines = input
     .split('\n')
-    .map((line) => line.trim())
+    .map((line) => normalizeLineForStyle(line, style).trim())
     .filter(Boolean);
 
   const title = findTitle(lines, urls);
@@ -41,14 +41,7 @@ export function beautifyAffiliateMessage(message, options = {}) {
   const extraUrls = urls.slice(1);
   const blocks = [];
 
-  if (style === 'urgent') {
-    blocks.push('⚡ Oferta relampago');
-  } else if (style === 'sales') {
-    blocks.push('🔥 Oferta garimpada para voce');
-  } else {
-    blocks.push('✨ Oferta selecionada');
-  }
-
+  blocks.push(getHeadline(style));
   blocks.push(title);
 
   if (details.length) {
@@ -58,27 +51,27 @@ export function beautifyAffiliateMessage(message, options = {}) {
   const commercialLines = [];
 
   if (price) {
-    commercialLines.push(`💰 ${price}`);
+    commercialLines.push(style === 'plain' ? price : `\u{1F4B0} ${price}`);
   }
 
   if (coupon) {
-    commercialLines.push(`🏷 Cupom: ${coupon}`);
+    commercialLines.push(style === 'plain' ? `Cupom: ${coupon}` : `\u{1F3F7} Cupom: ${coupon}`);
   }
 
   if (commercialLines.length) {
     blocks.push(commercialLines.join('\n'));
   }
 
-  blocks.push(`🛒 Link da oferta:\n${primaryUrl}`);
+  blocks.push(style === 'plain' ? `Link da oferta:\n${primaryUrl}` : `\u{1F6D2} Link da oferta:\n${primaryUrl}`);
 
   if (extraUrls.length) {
-    blocks.push(`🔗 Links adicionais:\n${extraUrls.join('\n')}`);
+    blocks.push(style === 'plain' ? `Links adicionais:\n${extraUrls.join('\n')}` : `\u{1F517} Links adicionais:\n${extraUrls.join('\n')}`);
   }
 
   if (style === 'urgent') {
-    blocks.push('⏳ Aproveite enquanto a oferta estiver disponivel.');
+    blocks.push('\u{23F3} Aproveite enquanto a oferta estiver disponivel.');
   } else if (style === 'sales') {
-    blocks.push('✅ Garanta antes que o preco mude.');
+    blocks.push('\u{2705} Garanta antes que o preco mude.');
   }
 
   return blocks
@@ -86,6 +79,34 @@ export function beautifyAffiliateMessage(message, options = {}) {
     .join('\n\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function getHeadline(style) {
+  if (style === 'plain') {
+    return 'Oferta selecionada';
+  }
+
+  if (style === 'urgent') {
+    return '\u{26A1} Oferta relampago';
+  }
+
+  if (style === 'sales') {
+    return '\u{1F525} Oferta garimpada para voce';
+  }
+
+  return '\u{2728} Oferta selecionada';
+}
+
+function normalizeLineForStyle(line, style) {
+  const value = String(line ?? '');
+
+  if (style !== 'plain') {
+    return value;
+  }
+
+  return value
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/\s{2,}/g, ' ');
 }
 
 function findTitle(lines, urls) {

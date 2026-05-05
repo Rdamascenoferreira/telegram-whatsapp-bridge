@@ -119,6 +119,20 @@ test('beautifyAffiliateMessage formats offer without changing converted links', 
   assert.match(result, /https:\/\/s\.shopee\.com\.br\/abc123/);
 });
 
+test('beautifyAffiliateMessage supports plain style without emojis', () => {
+  const result = beautifyAffiliateMessage(
+    '🔥 Monitor Gamer TGT Altay TS6 😱\n\nCupom: OFERTAOFF\nR$ 446\nhttps://s.shopee.com.br/abc123',
+    { style: 'plain' }
+  );
+
+  assert.match(result, /Oferta selecionada/);
+  assert.match(result, /Monitor Gamer TGT Altay TS6/);
+  assert.match(result, /R\$ 446/);
+  assert.match(result, /Cupom: OFERTAOFF/);
+  assert.match(result, /https:\/\/s\.shopee\.com\.br\/abc123/);
+  assert.doesNotMatch(result, /[\p{Extended_Pictographic}\uFE0F]/u);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

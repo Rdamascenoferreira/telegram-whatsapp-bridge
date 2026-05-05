@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.91';
+const panelVersion = 'Versao 0.92';
 
 type AuthUser = {
   id: string;
@@ -107,7 +107,7 @@ type AffiliateAutomation = {
   customFooter?: string;
   removeOriginalFooter?: boolean;
   messageBeautifierEnabled?: boolean;
-  messageBeautifierStyle?: 'clean' | 'sales' | 'urgent';
+  messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
   isActive: boolean;
   destinations: Array<{
     whatsappGroupId: string;
@@ -3606,6 +3606,7 @@ function AffiliateAutomationPanel({
                       <option value="clean">Clean</option>
                       <option value="sales">Vendedor</option>
                       <option value="urgent">Urgencia</option>
+                      <option value="plain">Sem Emojis</option>
                     </select>
                   </label>
                 </div>
