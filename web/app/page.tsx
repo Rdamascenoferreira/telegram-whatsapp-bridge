@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.84';
+const panelVersion = 'Versao 0.85';
 
 type AuthUser = {
   id: string;
@@ -3307,6 +3307,7 @@ function AffiliateAutomationPanel({
   const activeAutomation = firstAutomation;
   const [affiliateRulesEditing, setAffiliateRulesEditing] = useState(false);
   const [affiliateAccountEditing, setAffiliateAccountEditing] = useState(false);
+  const affiliateAccountFormRef = useRef<HTMLFormElement>(null);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -3323,8 +3324,12 @@ function AffiliateAutomationPanel({
     setAffiliateAccountEditing(false);
   }, [affiliate.account?.id]);
 
-  async function submitAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitAccount(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const formElement = event?.currentTarget || affiliateAccountFormRef.current;
+    if (!formElement) {
+      return;
+    }
     if (readOnlyAccount) {
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
       return;
@@ -3334,7 +3339,7 @@ function AffiliateAutomationPanel({
       return;
     }
     setBusy('affiliate-account');
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
 
     await postJson('/api/affiliate/account', {
       amazonEnabled: form.get('amazonEnabled') === 'on',
@@ -3628,7 +3633,7 @@ function AffiliateAutomationPanel({
         </div>
 
         <div className="grid gap-5">
-          <form onSubmit={submitAccount} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
+          <form ref={affiliateAccountFormRef} onSubmit={(event) => event.preventDefault()} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3">
               <p className="text-sm font-semibold">Contas de afiliado</p>
               {affiliate.account?.id ? (
@@ -3674,18 +3679,33 @@ function AffiliateAutomationPanel({
                 <span className="text-xs leading-5 text-[var(--muted)]">Usado apenas na comunicacao segura com a Shopee. Nao sera exibido novamente.</span>
               </label>
             </div>
-            <button
-              type={affiliateAccountLocked ? 'button' : 'submit'}
-              onClick={() => {
-                if (affiliateAccountLocked) {
+            {affiliateAccountLocked ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
                   setAffiliateAccountEditing(true);
-                }
-              }}
-              disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
-              className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
-            >
-              {busy === 'affiliate-account' ? 'Salvando...' : affiliateAccountLocked ? 'Editar' : 'Salvar dados'}
-            </button>
+                }}
+                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
+                className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
+              >
+                Editar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void submitAccount();
+                }}
+                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
+                className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
+              >
+                {busy === 'affiliate-account' ? 'Salvando...' : 'Salvar dados'}
+              </button>
+            )}
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
