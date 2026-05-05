@@ -1,4 +1,4 @@
-const maxSubIdLength = 40;
+const maxSubIdLength = 32;
 
 export function sanitizeSubId(value, fallback = 'unknown') {
   const normalizedFallback = normalizeValue(fallback) || 'unknown';
@@ -58,8 +58,5 @@ function normalizeValue(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/[^a-z0-9]/g, '');
 }
