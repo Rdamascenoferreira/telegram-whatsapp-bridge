@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { detectMarketplace } from '../marketplace-detector.js';
+import { buildShopeeSubIds, toShopeeSubIdArray } from './shopee-subids.js';
 
 const defaultShopeeAffiliateEndpoint = 'https://open-api.affiliate.shopee.com.br/graphql';
 const requestTimeoutMs = 8000;
@@ -16,6 +17,7 @@ export async function convertShopeeLink(expandedUrl, userShopeeConfig = {}) {
 
   const appId = cleanText(userShopeeConfig.appId);
   const secret = cleanText(userShopeeConfig.secret);
+  const affiliateId = cleanText(userShopeeConfig.affiliateId);
 
   if (!appId || !secret) {
     return {
@@ -27,13 +29,19 @@ export async function convertShopeeLink(expandedUrl, userShopeeConfig = {}) {
   }
 
   const endpoint = cleanText(userShopeeConfig.endpoint || process.env.SHOPEE_AFFILIATE_API_URL) || defaultShopeeAffiliateEndpoint;
-  const subIds = buildSubIds(userShopeeConfig);
+  const subIdMap = userShopeeConfig.subIds || buildShopeeSubIds(userShopeeConfig);
+  const subIds = toShopeeSubIdArray(subIdMap);
   const fetchFn = userShopeeConfig.fetchFn || fetch;
   const nowFn = userShopeeConfig.nowFn || (() => Math.floor(Date.now() / 1000));
 
   try {
     validateHttpUrl(endpoint, 'Shopee API endpoint');
     validateHttpUrl(expandedUrl, 'Shopee URL');
+    logShopeeDebug('Shopee link detected for conversion', {
+      affiliateId,
+      originalUrl: expandedUrl,
+      subIds
+    });
 
     const shortLinkResult = await requestShopeeShortLink({
       endpoint,
@@ -46,7 +54,12 @@ export async function convertShopeeLink(expandedUrl, userShopeeConfig = {}) {
     });
 
     if (shortLinkResult.shortLink) {
-      return buildSuccess(expandedUrl, shortLinkResult.shortLink);
+      logShopeeDebug('Shopee short link generated', {
+        affiliateId,
+        finalUrl: shortLinkResult.shortLink,
+        subIds
+      });
+      return buildSuccess(expandedUrl, shortLinkResult.shortLink, subIdMap, affiliateId);
     }
 
     return buildError(expandedUrl, shortLinkResult.error || 'Shopee short link was not returned');
@@ -131,20 +144,15 @@ function extractGraphQlErrors(payload) {
     .join('; ');
 }
 
-function buildSubIds(userShopeeConfig) {
-  return [userShopeeConfig.subId, userShopeeConfig.affiliateId]
-    .map((value) => cleanText(value).replace(/[^\w-]/g, '').slice(0, 80))
-    .filter(Boolean)
-    .filter((value, index, values) => values.indexOf(value) === index)
-    .slice(0, 5);
-}
-
-function buildSuccess(expandedUrl, shortLink) {
+function buildSuccess(expandedUrl, shortLink, subIds, affiliateId) {
   return {
     success: true,
     marketplace: 'shopee',
     originalExpandedUrl: String(expandedUrl ?? ''),
-    affiliateUrl: shortLink
+    affiliateUrl: shortLink,
+    affiliateId,
+    subIds,
+    utmContent: toShopeeSubIdArray(subIds).join('-')
   };
 }
 
@@ -171,4 +179,21 @@ function cleanText(value) {
 
 function safeErrorText(value) {
   return cleanText(value).replace(/[A-Za-z0-9_-]{32,}/g, '[redacted]').slice(0, 500);
+}
+
+function logShopeeDebug(message, metadata = {}) {
+  console.info(message, {
+    ...metadata,
+    affiliateId: maskAffiliateId(metadata.affiliateId)
+  });
+}
+
+function maskAffiliateId(value) {
+  const text = cleanText(value);
+
+  if (text.length <= 4) {
+    return text ? '[configured]' : '';
+  }
+
+  return `${text.slice(0, 2)}***${text.slice(-2)}`;
 }

@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.82';
+const panelVersion = 'Versao 0.83';
 
 type AuthUser = {
   id: string;
@@ -122,6 +122,9 @@ type AffiliateLog = {
     expandedUrl?: string;
     marketplace: 'amazon' | 'shopee' | 'unknown';
     affiliateUrl?: string;
+    affiliateId?: string;
+    subIds?: Record<string, string>;
+    utmContent?: string;
     status: 'converted' | 'ignored' | 'error';
     error?: string;
   }>;
@@ -3595,6 +3598,18 @@ function AffiliateAutomationPanel({
                     <p className="font-semibold">{url.marketplace} - {url.status}</p>
                     <p className="mt-1 break-all text-[var(--muted)]">Original: {url.originalUrl}</p>
                     <p className="mt-1 break-all text-[var(--muted)]">Final: {url.affiliateUrl || url.expandedUrl || '-'}</p>
+                    {url.marketplace === 'shopee' && url.affiliateId ? (
+                      <p className="mt-1 break-all text-[var(--muted)]">Affiliate ID aplicado: {url.affiliateId}</p>
+                    ) : null}
+                    {url.marketplace === 'shopee' && url.subIds ? (
+                      <div className="mt-2 grid gap-1 rounded-lg border border-white/10 bg-black/10 p-2 text-[var(--muted)]">
+                        <p className="font-semibold text-[var(--foreground)]">SUBIDs aplicados:</p>
+                        {Object.entries(url.subIds).map(([key, value]) => (
+                          <p key={key}>{key.replace('subId', 'sub_id_')}: {value}</p>
+                        ))}
+                        {url.utmContent ? <p className="break-all">utm_content final: {url.utmContent}</p> : null}
+                      </div>
+                    ) : null}
                     {url.error ? <p className="mt-1 text-amber-100">{url.error}</p> : null}
                   </div>
                 ))}
@@ -3609,11 +3624,39 @@ function AffiliateAutomationPanel({
             <div className="mt-4 grid gap-3">
               <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
               <input name="amazonTag" disabled={readOnlyAccount || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
-              <label className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--muted)]"><input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} /> Converter Shopee com link curto oficial</label>
-              <input name="shopeeAffiliateId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'ID/SubID Shopee' : 'Disponivel no Pro'} />
-              <input name="defaultSubId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="SubID padrao" />
-              <input name="shopeeAppId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
-              <input name="shopeeSecret" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret Shopee'} />
+
+              <div className="mt-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] p-4">
+                <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+                  <input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} />
+                  Converter Shopee com link curto oficial
+                </label>
+                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                  SUBIDs sao opcionais e servem apenas para rastrear de onde veio a venda. O link funciona sem eles, mas recomendamos usar para relatorios.
+                </p>
+              </div>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Affiliate ID Shopee</span>
+                <input name="shopeeAffiliateId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'Ex: 18393040998' : 'Disponivel no Pro'} />
+                <span className="text-xs leading-5 text-[var(--muted)]">Seu ID de afiliado da Shopee. Usado para gerar o link comissionado.</span>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padrao</span>
+                <input name="defaultSubId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="Ex: auto" />
+                <span className="text-xs leading-5 text-[var(--muted)]">Usado no SUBID para identificar origem das conversoes. Exemplo: auto, maio2026, grupo-vip.</span>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">App ID Shopee</span>
+                <input name="shopeeAppId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
+                <input name="shopeeSecret" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret/API Secret'} />
+                <span className="text-xs leading-5 text-[var(--muted)]">Usado apenas na comunicacao segura com a Shopee. Nao sera exibido novamente.</span>
+              </label>
             </div>
             <button type="submit" disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
           </form>

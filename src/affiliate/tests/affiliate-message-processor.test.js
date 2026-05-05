@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { processAffiliateMessage } from '../affiliate-message-processor.js';
 import { convertShopeeLink } from '../converters/shopee-affiliate-converter.js';
+import { buildShopeeSubIds, sanitizeSubId } from '../converters/shopee-subids.js';
 
 const automation = {
   id: 'automation-1',
@@ -81,9 +82,13 @@ test('convertShopeeLink requires Shopee API credentials', async () => {
 test('convertShopeeLink returns official short link from Shopee API', async () => {
   let requestPayload = null;
   const result = await convertShopeeLink('https://www.shopee.com.br/produto-i.123.456', {
+    affiliateId: '18393040998',
     appId: 'app-123',
     secret: 'secret-123',
-    subId: 'campanha_01',
+    userId: '245',
+    sourceGroupName: 'Grupo de Captação',
+    destinationGroupName: 'WhatsApp VIP',
+    campaign: 'campanha_01',
     endpoint: 'https://open-api.affiliate.shopee.com.br/graphql',
     nowFn: () => 1714500000,
     fetchFn: async (_url, request) => {
@@ -111,6 +116,64 @@ test('convertShopeeLink returns official short link from Shopee API', async () =
   assert.match(requestPayload.body.query, /ShortLinkInput!/);
   assert.doesNotMatch(requestPayload.body.query, /GenerateShortLinkInput/);
   assert.equal(requestPayload.body.variables.input.originUrl, 'https://www.shopee.com.br/produto-i.123.456');
-  assert.deepEqual(requestPayload.body.variables.input.subIds, ['campanha_01']);
+  assert.deepEqual(requestPayload.body.variables.input.subIds, ['u245', 'telegram', 'grupo-de-captacao', 'whatsapp-vip', 'campanha_01']);
+  assert.equal(result.affiliateId, '18393040998');
+  assert.equal(result.utmContent, 'u245-telegram-grupo-de-captacao-whatsapp-vip-campanha_01');
   assert.match(requestPayload.headers.Authorization, /^SHA256 Credential=app-123, Timestamp=1714500000, Signature=[a-f0-9]{64}$/);
+});
+
+test('sanitizeSubId keeps safe tracking values only', () => {
+  assert.equal(sanitizeSubId(' Grupo de Captação 01! ', 'origem'), 'grupo-de-captacao-01');
+  assert.equal(sanitizeSubId('@@@', 'auto'), 'auto');
+  assert.equal(sanitizeSubId('ABC 123_Oferta-VIP', 'auto'), 'abc-123_oferta-vip');
+  assert.equal(sanitizeSubId('x'.repeat(80), 'auto'), 'x'.repeat(40));
+});
+
+test('buildShopeeSubIds does not repeat affiliate id by default', () => {
+  const subIds = buildShopeeSubIds({
+    userId: '245',
+    sourceChannel: 'telegram',
+    sourceGroupId: 'Grupo Origem',
+    destinationGroupId: 'Grupo Destino',
+    campaign: ''
+  });
+
+  assert.deepEqual(subIds, {
+    subId1: 'u245',
+    subId2: 'telegram',
+    subId3: 'grupo-origem',
+    subId4: 'grupo-destino',
+    subId5: 'auto'
+  });
+  assert.ok(!Object.values(subIds).includes('18393040998'));
+});
+
+test('convertShopeeLink works with generated fallback subids', async () => {
+  let requestPayload = null;
+  const result = await convertShopeeLink('https://www.shopee.com.br/produto-i.123.456', {
+    affiliateId: '18393040998',
+    appId: 'app-123',
+    secret: 'secret-123',
+    endpoint: 'https://open-api.affiliate.shopee.com.br/graphql',
+    nowFn: () => 1714500000,
+    fetchFn: async (_url, request) => {
+      requestPayload = JSON.parse(request.body);
+
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          data: {
+            generateShortLink: {
+              shortLink: 'https://s.shopee.com.br/fallback'
+            }
+          }
+        })
+      };
+    }
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.affiliateUrl, 'https://s.shopee.com.br/fallback');
+  assert.deepEqual(requestPayload.variables.input.subIds, ['user', 'telegram', 'origem', 'destino', 'auto']);
 });

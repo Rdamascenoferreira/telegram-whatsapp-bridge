@@ -97,11 +97,21 @@ export async function processAffiliateMessage(params = {}) {
           affiliateId: account.shopeeAffiliateId,
           appId: account.shopeeAppId,
           secret: account.shopeeSecret || params.shopeeSecret,
-          subId: account.defaultSubId
+          userId,
+          sourceChannel: 'telegram',
+          sourceGroupId: automation.telegramSourceGroupId,
+          sourceGroupName: automation.telegramSourceGroupName,
+          destinationGroupId: automation.destinations?.[0]?.whatsappGroupId,
+          destinationGroupName: automation.destinations?.[0]?.whatsappGroupName,
+          destinationCount: automation.destinations?.length || 0,
+          campaign: account.defaultSubId
         });
         conversion = {
           ...conversion,
           affiliateUrl: shopeeResult.affiliateUrl,
+          affiliateId: shopeeResult.affiliateId,
+          subIds: shopeeResult.subIds,
+          utmContent: shopeeResult.utmContent,
           status: shopeeResult.success ? 'converted' : 'error',
           error: shopeeResult.error
         };
