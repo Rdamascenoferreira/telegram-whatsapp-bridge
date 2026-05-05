@@ -70,6 +70,41 @@ test('processAffiliateMessage respects disabled Amazon conversion', async () => 
   assert.equal(result.processedMessage, 'Oferta https://amazon.com.br/dp/B0ABC12345');
 });
 
+test('processAffiliateMessage replaces converted links that were written without protocol', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta amzn.to/abc\nMais cupons: nerdofertas.com',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('amzn.to') ? 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20' : url,
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /amzn\.to\/abc/);
+  assert.match(result.processedMessage, /nerdofertas\.com/);
+});
+
+test('processAffiliateMessage removes unknown links that were written without protocol', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: { ...automation, unknownLinkBehavior: 'remove' },
+    account: { ...account, amazonEnabled: false },
+    dryRun: true,
+    message: 'Mais cupons: nerdofertas.com'
+  });
+
+  assert.equal(result.status, 'ignored');
+  assert.equal(result.processedMessage, 'Mais cupons:');
+});
+
 test('convertShopeeLink requires Shopee API credentials', async () => {
   const result = await convertShopeeLink('https://www.shopee.com.br/produto', {
     affiliateId: 'abc'

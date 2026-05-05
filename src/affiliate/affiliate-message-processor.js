@@ -3,7 +3,7 @@ import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
 import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
 import { detectMarketplace } from './marketplace-detector.js';
 import { expandUrl } from './url-expander.js';
-import { extractUrls } from './url-extractor.js';
+import { extractUrlMatches } from './url-extractor.js';
 
 const maxMessageLength = 12000;
 const maxLinksPerMessage = 20;
@@ -52,7 +52,8 @@ export async function processAffiliateMessage(params = {}) {
   }
 
   try {
-    const originalUrls = extractUrls(originalMessage).slice(0, maxLinksPerMessage);
+    const urlMatches = extractUrlMatches(originalMessage).slice(0, maxLinksPerMessage);
+    const originalUrls = urlMatches.map((item) => item.normalizedUrl);
 
     if (!originalUrls.length) {
       const ignored = buildResult({
@@ -73,7 +74,9 @@ export async function processAffiliateMessage(params = {}) {
     const convertedUrls = [];
     let shouldIgnoreEntireMessage = false;
 
-    for (const originalUrl of originalUrls) {
+    for (const urlMatch of urlMatches) {
+      const originalUrl = urlMatch.normalizedUrl;
+      const replacementTarget = urlMatch.rawUrl;
       const expanded = await expandUrlFn(originalUrl);
       const expandedUrl = expanded.expandedUrl || originalUrl;
       const marketplace = detectMarketplace(expandedUrl);
@@ -117,14 +120,14 @@ export async function processAffiliateMessage(params = {}) {
         };
       } else if (marketplace === 'unknown') {
         if (automation.unknownLinkBehavior === 'remove') {
-          replacements.set(originalUrl, '');
+          addReplacement(replacements, originalUrl, replacementTarget, '');
         } else if (automation.unknownLinkBehavior === 'ignore_message') {
           shouldIgnoreEntireMessage = true;
         }
       }
 
       if (conversion.status === 'converted' && conversion.affiliateUrl) {
-        replacements.set(originalUrl, conversion.affiliateUrl);
+        addReplacement(replacements, originalUrl, replacementTarget, conversion.affiliateUrl);
       }
 
       convertedUrls.push(conversion);
@@ -220,6 +223,14 @@ function applyUrlReplacements(message, replacements) {
   }
 
   return processed.replace(/[ \t]+\n/g, '\n').trimEnd();
+}
+
+function addReplacement(replacements, normalizedUrl, rawUrl, replacement) {
+  replacements.set(rawUrl, replacement);
+
+  if (normalizedUrl !== rawUrl) {
+    replacements.set(normalizedUrl, replacement);
+  }
 }
 
 function removeLikelyFooter(message) {
