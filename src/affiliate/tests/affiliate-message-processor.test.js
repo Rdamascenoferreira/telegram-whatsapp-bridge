@@ -108,7 +108,8 @@ test('convertShopeeLink returns official short link from Shopee API', async () =
 
   assert.equal(result.success, true);
   assert.equal(result.affiliateUrl, 'https://s.shopee.com.br/8V5NST2cSf');
-  assert.equal(requestPayload.body.variables.originUrl, 'https://www.shopee.com.br/produto-i.123.456');
-  assert.deepEqual(requestPayload.body.variables.subIds, ['campanha_01']);
+  assert.match(requestPayload.body.query, /generateShortLink\(originUrl: "https:\/\/www\.shopee\.com\.br\/produto-i\.123\.456"/);
+  assert.match(requestPayload.body.query, /subIds: \["campanha_01"\]/);
+  assert.doesNotMatch(requestPayload.body.query, /GenerateShortLinkInput/);
   assert.match(requestPayload.headers.Authorization, /^SHA256 Credential=app-123, Timestamp=1714500000, Signature=[a-f0-9]{64}$/);
 });

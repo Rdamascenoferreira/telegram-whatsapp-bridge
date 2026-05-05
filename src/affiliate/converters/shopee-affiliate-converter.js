@@ -35,44 +35,28 @@ export async function convertShopeeLink(expandedUrl, userShopeeConfig = {}) {
     validateHttpUrl(endpoint, 'Shopee API endpoint');
     validateHttpUrl(expandedUrl, 'Shopee URL');
 
-    const directResult = await requestShopeeShortLink({
+    const shortLinkResult = await requestShopeeShortLink({
       endpoint,
       appId,
       secret,
       originUrl: expandedUrl,
       subIds,
       fetchFn,
-      nowFn,
-      mutationStyle: 'direct'
+      nowFn
     });
 
-    if (directResult.shortLink) {
-      return buildSuccess(expandedUrl, directResult.shortLink);
+    if (shortLinkResult.shortLink) {
+      return buildSuccess(expandedUrl, shortLinkResult.shortLink);
     }
 
-    const inputResult = await requestShopeeShortLink({
-      endpoint,
-      appId,
-      secret,
-      originUrl: expandedUrl,
-      subIds,
-      fetchFn,
-      nowFn,
-      mutationStyle: 'input'
-    });
-
-    if (inputResult.shortLink) {
-      return buildSuccess(expandedUrl, inputResult.shortLink);
-    }
-
-    return buildError(expandedUrl, inputResult.error || directResult.error || 'Shopee short link was not returned');
+    return buildError(expandedUrl, shortLinkResult.error || 'Shopee short link was not returned');
   } catch (error) {
     return buildError(expandedUrl, error.message);
   }
 }
 
-async function requestShopeeShortLink({ endpoint, appId, secret, originUrl, subIds, fetchFn, nowFn, mutationStyle }) {
-  const body = buildShopeePayload(originUrl, subIds, mutationStyle);
+async function requestShopeeShortLink({ endpoint, appId, secret, originUrl, subIds, fetchFn, nowFn }) {
+  const body = buildShopeePayload(originUrl, subIds);
   const payload = JSON.stringify(body);
   const timestamp = Number(nowFn());
   const signature = crypto.createHash('sha256').update(`${appId}${timestamp}${payload}${secret}`, 'utf8').digest('hex');
@@ -100,9 +84,7 @@ async function requestShopeeShortLink({ endpoint, appId, secret, originUrl, subI
     }
 
     const data = responseText.trim() ? JSON.parse(responseText) : {};
-    const graphQlError = Array.isArray(data.errors) && data.errors.length
-      ? data.errors.map((item) => item?.message).filter(Boolean).join('; ')
-      : '';
+    const graphQlError = extractGraphQlErrors(data);
     const shortLink = extractShortLink(data);
 
     return {
@@ -114,29 +96,15 @@ async function requestShopeeShortLink({ endpoint, appId, secret, originUrl, subI
   }
 }
 
-function buildShopeePayload(originUrl, subIds, mutationStyle) {
-  if (mutationStyle === 'input') {
-    return {
-      query:
-        'mutation GenerateShortLink($input: GenerateShortLinkInput!) { generateShortLink(input: $input) { shortLink } }',
-      operationName: 'GenerateShortLink',
-      variables: {
-        input: {
-          originUrl,
-          subIds
-        }
-      }
-    };
+function buildShopeePayload(originUrl, subIds) {
+  const args = [`originUrl: ${JSON.stringify(originUrl)}`];
+
+  if (subIds.length) {
+    args.push(`subIds: ${JSON.stringify(subIds)}`);
   }
 
   return {
-    query:
-      'mutation GenerateShortLink($originUrl: String!, $subIds: [String]) { generateShortLink(originUrl: $originUrl, subIds: $subIds) { shortLink } }',
-    operationName: 'GenerateShortLink',
-    variables: {
-      originUrl,
-      subIds
-    }
+    query: `mutation { generateShortLink(${args.join(', ')}) { shortLink } }`
   };
 }
 
@@ -147,7 +115,18 @@ function extractShortLink(payload) {
     return result;
   }
 
-  return cleanText(result?.shortLink);
+  return cleanText(result?.shortLink || result?.short_link || result?.shortUrl || result?.short_url || result?.link);
+}
+
+function extractGraphQlErrors(payload) {
+  if (!Array.isArray(payload?.errors) || !payload.errors.length) {
+    return '';
+  }
+
+  return payload.errors
+    .map((item) => item?.message || item?.extensions?.message)
+    .filter(Boolean)
+    .join('; ');
 }
 
 function buildSubIds(userShopeeConfig) {
