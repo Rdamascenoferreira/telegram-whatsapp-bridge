@@ -116,16 +116,16 @@ test('convertShopeeLink returns official short link from Shopee API', async () =
   assert.match(requestPayload.body.query, /ShortLinkInput!/);
   assert.doesNotMatch(requestPayload.body.query, /GenerateShortLinkInput/);
   assert.equal(requestPayload.body.variables.input.originUrl, 'https://www.shopee.com.br/produto-i.123.456');
-  assert.deepEqual(requestPayload.body.variables.input.subIds, ['u245', 'telegram', 'grupo-de-captacao', 'whatsapp-vip', 'campanha_01']);
+  assert.deepEqual(requestPayload.body.variables.input.subIds, ['u245', 'telegram', 'grupo_de_captacao', 'whatsapp_vip', 'campanha_01']);
   assert.equal(result.affiliateId, '18393040998');
-  assert.equal(result.utmContent, 'u245-telegram-grupo-de-captacao-whatsapp-vip-campanha_01');
+  assert.equal(result.utmContent, 'u245-telegram-grupo_de_captacao-whatsapp_vip-campanha_01');
   assert.match(requestPayload.headers.Authorization, /^SHA256 Credential=app-123, Timestamp=1714500000, Signature=[a-f0-9]{64}$/);
 });
 
 test('sanitizeSubId keeps safe tracking values only', () => {
-  assert.equal(sanitizeSubId(' Grupo de Captação 01! ', 'origem'), 'grupo-de-captacao-01');
+  assert.equal(sanitizeSubId(' Grupo de Captação 01! ', 'origem'), 'grupo_de_captacao_01');
   assert.equal(sanitizeSubId('@@@', 'auto'), 'auto');
-  assert.equal(sanitizeSubId('ABC 123_Oferta-VIP', 'auto'), 'abc-123_oferta-vip');
+  assert.equal(sanitizeSubId('ABC 123_Oferta-VIP', 'auto'), 'abc_123_ofertavip');
   assert.equal(sanitizeSubId('x'.repeat(80), 'auto'), 'x'.repeat(40));
 });
 
@@ -141,8 +141,8 @@ test('buildShopeeSubIds does not repeat affiliate id by default', () => {
   assert.deepEqual(subIds, {
     subId1: 'u245',
     subId2: 'telegram',
-    subId3: 'grupo-origem',
-    subId4: 'grupo-destino',
+    subId3: 'grupo_origem',
+    subId4: 'grupo_destino',
     subId5: 'auto'
   });
   assert.ok(!Object.values(subIds).includes('18393040998'));
