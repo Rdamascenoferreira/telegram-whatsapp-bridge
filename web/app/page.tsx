@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.83';
+const panelVersion = 'Versao 0.84';
 
 type AuthUser = {
   id: string;
@@ -88,6 +88,7 @@ type TelegramChat = {
 };
 
 type AffiliateAccount = {
+  id?: string;
   amazonTag?: string;
   shopeeAffiliateId?: string;
   shopeeAppId?: string;
@@ -3305,6 +3306,7 @@ function AffiliateAutomationPanel({
   const firstAutomation = affiliate.automations?.[0];
   const activeAutomation = firstAutomation;
   const [affiliateRulesEditing, setAffiliateRulesEditing] = useState(false);
+  const [affiliateAccountEditing, setAffiliateAccountEditing] = useState(false);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
@@ -3316,6 +3318,10 @@ function AffiliateAutomationPanel({
   useEffect(() => {
     setAffiliateRulesEditing(false);
   }, [activeAutomation?.id]);
+
+  useEffect(() => {
+    setAffiliateAccountEditing(false);
+  }, [affiliate.account?.id]);
 
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3341,6 +3347,7 @@ function AffiliateAutomationPanel({
     });
 
     await refresh();
+    setAffiliateAccountEditing(false);
     setNotice('Dados de afiliado salvos.');
     setBusy('');
   }
@@ -3421,6 +3428,8 @@ function AffiliateAutomationPanel({
     'rounded-xl border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(37,211,102,0.96),rgba(34,158,217,0.92))] px-5 py-3 font-semibold text-slate-950 shadow-[0_14px_30px_rgba(25,140,102,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_38px_rgba(25,140,102,0.36)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none';
   const affiliateSecondaryButtonClass =
     'rounded-xl border border-cyan-400/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(34,158,217,0.2))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.24),rgba(34,158,217,0.28))] hover:text-white disabled:opacity-60';
+  const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
+  const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || affiliateAccountLocked || busy === 'affiliate-account';
 
   return (
     <div className="grid gap-5">
@@ -3620,14 +3629,21 @@ function AffiliateAutomationPanel({
 
         <div className="grid gap-5">
           <form onSubmit={submitAccount} className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
-            <p className="text-sm font-semibold">Contas de afiliado</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold">Contas de afiliado</p>
+              {affiliate.account?.id ? (
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${affiliateAccountEditing ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/[0.04] text-[var(--muted)]'}`}>
+                  {affiliateAccountEditing ? 'Edicao liberada' : 'Travado'}
+                </span>
+              ) : null}
+            </div>
             <div className="mt-4 grid gap-3">
-              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={readOnlyAccount || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
-              <input name="amazonTag" disabled={readOnlyAccount || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
+              <input name="amazonTag" disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
 
               <div className="mt-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] p-4">
                 <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
-                  <input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} />
+                  <input type="checkbox" name="shopeeEnabled" defaultChecked={Boolean(affiliate.account?.shopeeEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} />
                   Converter Shopee com link curto oficial
                 </label>
                 <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
@@ -3637,28 +3653,39 @@ function AffiliateAutomationPanel({
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Affiliate ID Shopee</span>
-                <input name="shopeeAffiliateId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'Ex: 18393040998' : 'Disponivel no Pro'} />
+                <input name="shopeeAffiliateId" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAffiliateId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.shopeeAffiliate ? 'Ex: 18393040998' : 'Disponivel no Pro'} />
                 <span className="text-xs leading-5 text-[var(--muted)]">Seu ID de afiliado da Shopee. Usado para gerar o link comissionado.</span>
               </label>
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padrao</span>
-                <input name="defaultSubId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="Ex: auto" />
+                <input name="defaultSubId" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="Ex: auto" />
                 <span className="text-xs leading-5 text-[var(--muted)]">Usado no SUBID para identificar origem das conversoes. Exemplo: auto, maio2026, grupo-vip.</span>
               </label>
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">App ID Shopee</span>
-                <input name="shopeeAppId" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
+                <input name="shopeeAppId" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.shopeeAppId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="App ID Shopee" />
               </label>
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
-                <input name="shopeeSecret" disabled={readOnlyAccount || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret/API Secret'} />
+                <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret/API Secret'} />
                 <span className="text-xs leading-5 text-[var(--muted)]">Usado apenas na comunicacao segura com a Shopee. Nao sera exibido novamente.</span>
               </label>
             </div>
-            <button type="submit" disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed} className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}>Salvar dados</button>
+            <button
+              type={affiliateAccountLocked ? 'button' : 'submit'}
+              onClick={() => {
+                if (affiliateAccountLocked) {
+                  setAffiliateAccountEditing(true);
+                }
+              }}
+              disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
+              className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
+            >
+              {busy === 'affiliate-account' ? 'Salvando...' : affiliateAccountLocked ? 'Editar' : 'Salvar dados'}
+            </button>
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
