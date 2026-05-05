@@ -1,6 +1,8 @@
 const supabaseUrl = String(process.env.SUPABASE_URL ?? '').trim().replace(/\/$/, '');
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
 const cloudEnabled = Boolean(supabaseUrl && supabaseServiceRoleKey);
+const affiliateRulesMarkerPrefix = '<!--portal-affiliate-rules:';
+const affiliateRulesMarkerSuffix = '-->';
 
 export const affiliateTermsVersion = 'affiliate-automation-v1';
 
@@ -155,7 +157,7 @@ export async function upsertAffiliateAutomation(userId, payload = {}) {
     telegram_source_group_id: cleanText(payload.telegramSourceGroupId),
     telegram_source_group_name: cleanText(payload.telegramSourceGroupName),
     unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-    custom_footer: cleanText(payload.customFooter),
+    custom_footer: encodeCustomFooterRules(payload),
     remove_original_footer: Boolean(payload.removeOriginalFooter),
     is_active: Boolean(payload.isActive),
     updated_at: new Date().toISOString()
@@ -207,7 +209,7 @@ export async function updateAffiliateAutomationRules(userId, automationId, paylo
     method: 'PATCH',
     body: {
       unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-      custom_footer: cleanText(payload.customFooter),
+      custom_footer: encodeCustomFooterRules(payload),
       remove_original_footer: Boolean(payload.removeOriginalFooter),
       updated_at: new Date().toISOString()
     },
@@ -398,6 +400,7 @@ function mapAffiliateAutomation(row) {
     return null;
   }
 
+  const footerRules = decodeCustomFooterRules(row.custom_footer);
   const destinations = Array.isArray(row.affiliate_automation_destinations)
     ? row.affiliate_automation_destinations
     : [];
@@ -409,7 +412,9 @@ function mapAffiliateAutomation(row) {
     telegramSourceGroupId: String(row.telegram_source_group_id ?? ''),
     telegramSourceGroupName: String(row.telegram_source_group_name ?? ''),
     unknownLinkBehavior: normalizeUnknownBehavior(row.unknown_link_behavior),
-    customFooter: String(row.custom_footer ?? ''),
+    customFooter: footerRules.customFooter,
+    messageBeautifierEnabled: footerRules.messageBeautifierEnabled,
+    messageBeautifierStyle: footerRules.messageBeautifierStyle,
     removeOriginalFooter: Boolean(row.remove_original_footer),
     isActive: Boolean(row.is_active),
     destinations: destinations.map((destination) => ({
@@ -468,6 +473,66 @@ function mapMessageLogPayload(payload, patch = false) {
 function normalizeUnknownBehavior(value) {
   const behavior = String(value ?? '').trim();
   return ['keep', 'remove', 'ignore_message'].includes(behavior) ? behavior : 'keep';
+}
+
+function normalizeBeautifierStyle(value) {
+  const style = String(value ?? '').trim().toLowerCase();
+  return ['clean', 'sales', 'urgent'].includes(style) ? style : 'clean';
+}
+
+function encodeCustomFooterRules(payload = {}) {
+  const customFooter = cleanText(payload.customFooter);
+  const rules = {
+    messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
+    messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle)
+  };
+
+  if (!rules.messageBeautifierEnabled && rules.messageBeautifierStyle === 'clean') {
+    return customFooter;
+  }
+
+  return `${affiliateRulesMarkerPrefix}${JSON.stringify(rules)}${affiliateRulesMarkerSuffix}\n${customFooter}`.trim();
+}
+
+function decodeCustomFooterRules(value) {
+  const raw = String(value ?? '').trim();
+
+  if (!raw.startsWith(affiliateRulesMarkerPrefix)) {
+    return {
+      customFooter: raw,
+      messageBeautifierEnabled: false,
+      messageBeautifierStyle: 'clean'
+    };
+  }
+
+  const endIndex = raw.indexOf(affiliateRulesMarkerSuffix);
+
+  if (endIndex < 0) {
+    return {
+      customFooter: raw,
+      messageBeautifierEnabled: false,
+      messageBeautifierStyle: 'clean'
+    };
+  }
+
+  const encodedRules = raw.slice(affiliateRulesMarkerPrefix.length, endIndex);
+  const customFooter = raw.slice(endIndex + affiliateRulesMarkerSuffix.length).trim();
+
+  try {
+    const rules = JSON.parse(encodedRules);
+
+    return {
+      customFooter,
+      messageBeautifierEnabled: Boolean(rules.messageBeautifierEnabled),
+      messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle)
+    };
+  } catch (_error) {
+    return {
+      customFooter,
+      messageBeautifierEnabled: false,
+      messageBeautifierStyle: 'clean'
+    };
+  }
 }
 
 function cleanText(value) {

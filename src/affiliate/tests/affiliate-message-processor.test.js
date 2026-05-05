@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { processAffiliateMessage } from '../affiliate-message-processor.js';
 import { convertShopeeLink } from '../converters/shopee-affiliate-converter.js';
 import { buildShopeeSubIds, sanitizeSubId } from '../converters/shopee-subids.js';
+import { beautifyAffiliateMessage } from '../message-beautifier.js';
 
 const automation = {
   id: 'automation-1',
@@ -103,6 +104,44 @@ test('processAffiliateMessage removes unknown links that were written without pr
 
   assert.equal(result.status, 'ignored');
   assert.equal(result.processedMessage, 'Mais cupons:');
+});
+
+test('beautifyAffiliateMessage formats offer without changing converted links', () => {
+  const result = beautifyAffiliateMessage(
+    'Monitor Gamer TGT Altay TS6\n\nCupom: OFERTAOFF\nR$ 446\nhttps://s.shopee.com.br/abc123',
+    { style: 'sales' }
+  );
+
+  assert.match(result, /Oferta garimpada/);
+  assert.match(result, /Monitor Gamer TGT Altay TS6/);
+  assert.match(result, /R\$ 446/);
+  assert.match(result, /Cupom: OFERTAOFF/);
+  assert.match(result, /https:\/\/s\.shopee\.com\.br\/abc123/);
+});
+
+test('processAffiliateMessage applies beautifier after link conversion', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      messageBeautifierEnabled: true,
+      messageBeautifierStyle: 'urgent'
+    },
+    account,
+    dryRun: true,
+    message: 'Monitor Gamer\n\nCupom: QUINTOUU\nR$ 639,00\nhttps://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /Oferta relampago/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /amzn\.to\/abc/);
 });
 
 test('convertShopeeLink requires Shopee API credentials', async () => {

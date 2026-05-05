@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.90';
+const panelVersion = 'Versao 0.91';
 
 type AuthUser = {
   id: string;
@@ -106,6 +106,8 @@ type AffiliateAutomation = {
   unknownLinkBehavior?: 'keep' | 'remove' | 'ignore_message';
   customFooter?: string;
   removeOriginalFooter?: boolean;
+  messageBeautifierEnabled?: boolean;
+  messageBeautifierStyle?: 'clean' | 'sales' | 'urgent';
   isActive: boolean;
   destinations: Array<{
     whatsappGroupId: string;
@@ -3375,7 +3377,9 @@ function AffiliateAutomationPanel({
         telegramSourceGroupId: state.telegram.availableChats?.[0]?.id || '',
         unknownLinkBehavior: 'keep',
         removeOriginalFooter: false,
-        customFooter: ''
+        customFooter: '',
+        messageBeautifierEnabled: false,
+        messageBeautifierStyle: 'clean'
       },
       message: testMessage
     });
@@ -3404,7 +3408,9 @@ function AffiliateAutomationPanel({
       await postJson(`/api/affiliate/automations/${activeAutomation.id}/rules`, {
         unknownLinkBehavior: form.get('unknownLinkBehavior'),
         customFooter: form.get('customFooter'),
-        removeOriginalFooter: form.get('removeOriginalFooter') === 'on'
+        removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
+        messageBeautifierEnabled: form.get('messageBeautifierEnabled') === 'on',
+        messageBeautifierStyle: form.get('messageBeautifierStyle')
       });
       await refresh();
       setAffiliateRulesEditing(false);
@@ -3571,6 +3577,38 @@ function AffiliateAutomationPanel({
                     Recomendado: manter o link original para nao perder conteudo quando o marketplace nao for reconhecido.
                   </span>
                 </label>
+
+                <div className="grid gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
+                  <label className="inline-flex items-start gap-2 text-sm text-[var(--muted)]">
+                    <input
+                      type="checkbox"
+                      name="messageBeautifierEnabled"
+                      defaultChecked={Boolean(activeAutomation?.messageBeautifierEnabled)}
+                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block font-semibold text-[var(--foreground)]">Embelezar mensagem automaticamente</span>
+                      <span className="mt-1 block text-xs leading-5">
+                        Reorganiza titulo, preco, cupom e links em um template mais limpo, mantendo os links convertidos.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estilo da mensagem</span>
+                    <select
+                      name="messageBeautifierStyle"
+                      defaultValue={activeAutomation?.messageBeautifierStyle || 'clean'}
+                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                      className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
+                    >
+                      <option value="clean">Clean</option>
+                      <option value="sales">Vendedor</option>
+                      <option value="urgent">Urgencia</option>
+                    </select>
+                  </label>
+                </div>
 
                 <label className="grid gap-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Rodape personalizado</span>

@@ -2,6 +2,7 @@ import { convertAmazonLink } from './converters/amazon-affiliate-converter.js';
 import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
 import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
 import { detectMarketplace } from './marketplace-detector.js';
+import { beautifyAffiliateMessage } from './message-beautifier.js';
 import { expandUrl } from './url-expander.js';
 import { extractUrlMatches } from './url-extractor.js';
 
@@ -162,6 +163,12 @@ export async function processAffiliateMessage(params = {}) {
 
     if (automation.removeOriginalFooter) {
       processedMessage = removeLikelyFooter(processedMessage);
+    }
+
+    if (automation.messageBeautifierEnabled) {
+      processedMessage = beautifyAffiliateMessage(processedMessage, {
+        style: automation.messageBeautifierStyle
+      });
     }
 
     if (automation.customFooter) {
