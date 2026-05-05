@@ -248,6 +248,34 @@ test('beautifyAffiliateMessage builds output only from useful offer fields', () 
   assert.doesNotMatch(result, /#anuncio/);
 });
 
+test('beautifyAffiliateMessage keeps pix and installment prices while ignoring source promo footer', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      '[Shopee] Controle Joy-Con 2 (Azul Claro/ Vermelho Claro)',
+      '',
+      'https://jogobara.to/KNJl4',
+      'Cupom: G4NH3H',
+      '• R$ 525,53 no pix',
+      '• R$ 579,92 em ate 12x (no app)',
+      '',
+      'Canais de Promocoes do Jogo Barato (https://www.jogobarato.com.br/redes-sociais)',
+      '',
+      'https://s.shopee.com.br/produto'
+    ].join('\n'),
+    { style: 'clean' }
+  );
+
+  assert.match(result, /Controle Joy-Con 2/);
+  assert.doesNotMatch(result, /\[Shopee\]/);
+  assert.match(result, /R\$ 525,53 no pix/);
+  assert.match(result, /R\$ 579,92 em ate 12x \(no app\)/);
+  assert.match(result, /Cupom: G4NH3H/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/s\.shopee\.com\.br\/produto/);
+  assert.doesNotMatch(result, /Jogo Barato/);
+  assert.doesNotMatch(result, /redes-sociais/);
+  assert.doesNotMatch(result, /jogobara\.to/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
