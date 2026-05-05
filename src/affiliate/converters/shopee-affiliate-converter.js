@@ -97,14 +97,16 @@ async function requestShopeeShortLink({ endpoint, appId, secret, originUrl, subI
 }
 
 function buildShopeePayload(originUrl, subIds) {
-  const args = [`originUrl: ${JSON.stringify(originUrl)}`];
-
-  if (subIds.length) {
-    args.push(`subIds: ${JSON.stringify(subIds)}`);
-  }
-
   return {
-    query: `mutation { generateShortLink(${args.join(', ')}) { shortLink } }`
+    query:
+      'mutation GenerateShortLink($input: ShortLinkInput!) { generateShortLink(input: $input) { shortLink } }',
+    operationName: 'GenerateShortLink',
+    variables: {
+      input: {
+        originUrl,
+        subIds
+      }
+    }
   };
 }
 
