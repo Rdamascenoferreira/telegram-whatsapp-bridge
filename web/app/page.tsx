@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.89';
+const panelVersion = 'Versao 0.90';
 
 type AuthUser = {
   id: string;
@@ -3435,6 +3435,28 @@ function AffiliateAutomationPanel({
     'rounded-xl border border-cyan-400/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(34,158,217,0.2))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.24),rgba(34,158,217,0.28))] hover:text-white disabled:opacity-60';
   const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
   const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || affiliateAccountLocked || busy === 'affiliate-account';
+  const testLinks = testResult?.convertedUrls || [];
+  const testConvertedCount = testLinks.filter((url) => url.status === 'converted').length;
+  const testIgnoredCount = testLinks.filter((url) => url.status === 'ignored').length;
+  const testErrorCount = testLinks.filter((url) => url.status === 'error').length;
+  const testStatusClass = (status: string) => {
+    if (status === 'converted') {
+      return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100';
+    }
+    if (status === 'error') {
+      return 'border-red-400/25 bg-red-400/10 text-red-100';
+    }
+    return 'border-amber-400/25 bg-amber-400/10 text-amber-100';
+  };
+  const testStatusLabel = (status: string) => {
+    if (status === 'converted') {
+      return 'Convertido';
+    }
+    if (status === 'error') {
+      return 'Erro';
+    }
+    return 'Mantido';
+  };
 
   return (
     <div className="grid gap-5">
@@ -3597,36 +3619,113 @@ function AffiliateAutomationPanel({
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-sm font-semibold">Testar conversao</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Simule a conversao sem enviar ao WhatsApp.</p>
+                <p className="text-sm font-semibold">Simulador de mensagem final</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Cole uma oferta e veja exatamente como ela sera entregue, sem enviar nada ao WhatsApp.
+                </p>
               </div>
-              <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>Rodar teste</button>
+              <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>
+                {busy === 'affiliate-test' ? 'Testando...' : 'Rodar teste'}
+              </button>
             </div>
-            <textarea value={testMessage} disabled={readOnlyAccount} onChange={(event) => setTestMessage(event.target.value)} className="mt-4 min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6 disabled:cursor-not-allowed disabled:opacity-65" />
+
+            <label className="mt-4 grid gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Mensagem recebida para teste</span>
+              <textarea
+                value={testMessage}
+                disabled={readOnlyAccount}
+                onChange={(event) => setTestMessage(event.target.value)}
+                className="min-h-40 w-full rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3 text-sm leading-6 disabled:cursor-not-allowed disabled:opacity-65"
+              />
+            </label>
+
             {testResult ? (
-              <div className="mt-4 grid gap-3">
-                <p className="text-sm font-semibold">Resultado: {testResult.status}</p>
-                <pre className="whitespace-pre-wrap rounded-2xl border border-[var(--border)] bg-black/20 p-4 text-xs leading-5 text-[var(--muted)]">{testResult.processedMessage}</pre>
-                {testResult.convertedUrls?.map((url, index) => (
-                  <div key={`${url.originalUrl}-${index}`} className="rounded-xl border border-[var(--border)] bg-white/[0.03] p-3 text-xs">
-                    <p className="font-semibold">{url.marketplace} - {url.status}</p>
-                    <p className="mt-1 break-all text-[var(--muted)]">Original: {url.originalUrl}</p>
-                    <p className="mt-1 break-all text-[var(--muted)]">Final: {url.affiliateUrl || url.expandedUrl || '-'}</p>
-                    {url.marketplace === 'shopee' && url.affiliateId ? (
-                      <p className="mt-1 break-all text-[var(--muted)]">Affiliate ID aplicado: {url.affiliateId}</p>
-                    ) : null}
-                    {url.marketplace === 'shopee' && url.subIds ? (
-                      <div className="mt-2 grid gap-1 rounded-lg border border-white/10 bg-black/10 p-2 text-[var(--muted)]">
-                        <p className="font-semibold text-[var(--foreground)]">SUBIDs aplicados:</p>
-                        {Object.entries(url.subIds).map(([key, value]) => (
-                          <p key={key}>{key.replace('subId', 'sub_id_')}: {value}</p>
-                        ))}
-                        {url.utmContent ? <p className="break-all">utm_content final: {url.utmContent}</p> : null}
-                      </div>
-                    ) : null}
-                    {url.error ? <p className="mt-1 text-amber-100">{url.error}</p> : null}
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-2xl border border-emerald-400/15 bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(34,158,217,0.08))] p-4">
+                  <div className="flex items-start justify-between gap-3 max-sm:flex-col">
+                    <div>
+                      <p className="text-sm font-semibold">Resumo do teste</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                        Conferencia rapida do que foi convertido, mantido ou bloqueado antes do envio real.
+                      </p>
+                    </div>
+                    <span className={cn('rounded-full border px-3 py-1 text-xs font-semibold capitalize', testStatusClass(testResult.status))}>
+                      {testStatusLabel(testResult.status)}
+                    </span>
                   </div>
-                ))}
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-xl border border-emerald-400/15 bg-black/15 p-3">
+                      <p className="text-2xl font-semibold text-emerald-100">{testConvertedCount}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Convertido(s)</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-400/15 bg-black/15 p-3">
+                      <p className="text-2xl font-semibold text-amber-100">{testIgnoredCount}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Mantido(s)</p>
+                    </div>
+                    <div className="rounded-xl border border-red-400/15 bg-black/15 p-3">
+                      <p className="text-2xl font-semibold text-red-100">{testErrorCount}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Erro(s)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-[var(--border)] bg-black/15 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entrada original</p>
+                    <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-[var(--muted)]">
+                      {testResult.originalMessage}
+                    </pre>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Saida que sera enviada</p>
+                    <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-emerald-400/15 bg-black/20 p-4 text-xs leading-5 text-emerald-50/90">
+                      {testResult.processedMessage}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold">Links analisados</p>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-[var(--muted)]">
+                      {testLinks.length} link(s)
+                    </span>
+                  </div>
+
+                  {testLinks.length ? testLinks.map((url, index) => (
+                    <div key={`${url.originalUrl}-${index}`} className={cn('rounded-2xl border p-4 text-xs', testStatusClass(url.status))}>
+                      <div className="flex items-start justify-between gap-3 max-sm:flex-col">
+                        <div>
+                          <p className="font-semibold capitalize">{url.marketplace} - {testStatusLabel(url.status)}</p>
+                          <p className="mt-1 break-all text-[var(--muted)]">Original: {url.originalUrl}</p>
+                          <p className="mt-1 break-all text-[var(--muted)]">Final: {url.affiliateUrl || url.expandedUrl || '-'}</p>
+                        </div>
+                        <span className="rounded-full border border-current/20 px-3 py-1 font-semibold">
+                          {url.status}
+                        </span>
+                      </div>
+
+                      {url.marketplace === 'shopee' && url.affiliateId ? (
+                        <p className="mt-3 break-all text-[var(--muted)]">Affiliate ID aplicado: {url.affiliateId}</p>
+                      ) : null}
+                      {url.marketplace === 'shopee' && url.subIds ? (
+                        <div className="mt-3 grid gap-1 rounded-xl border border-white/10 bg-black/15 p-3 text-[var(--muted)]">
+                          <p className="font-semibold text-[var(--foreground)]">SUBIDs aplicados:</p>
+                          {Object.entries(url.subIds).map(([key, value]) => (
+                            <p key={key}>{key.replace('subId', 'sub_id_')}: {value}</p>
+                          ))}
+                          {url.utmContent ? <p className="break-all">utm_content final: {url.utmContent}</p> : null}
+                        </div>
+                      ) : null}
+                      {url.error ? <p className="mt-3 text-amber-100">Erro: {url.error}</p> : null}
+                    </div>
+                  )) : (
+                    <p className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-sm text-[var(--muted)]">
+                      Nenhum link foi encontrado nessa mensagem.
+                    </p>
+                  )}
+                </div>
               </div>
             ) : null}
           </section>
