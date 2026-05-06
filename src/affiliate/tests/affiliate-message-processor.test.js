@@ -223,6 +223,75 @@ test('processAffiliateMessage converts Shopee coupon and product links in the sa
   assert.equal(result.convertedUrls.filter((item) => item.status === 'converted').length, 2);
 });
 
+test('processAffiliateMessage removes unsupported marketplace blocks when preserve mode is enabled', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      preserveOriginalTextEnabled: true,
+      unknownLinkBehavior: 'remove'
+    },
+    account: {
+      ...account,
+      amazonEnabled: false,
+      shopeeEnabled: true,
+      shopeeAffiliateId: '18393040998',
+      shopeeAppId: '18393040998',
+      shopeeSecret: 'secret'
+    },
+    dryRun: true,
+    message: [
+      'PRAGMATA - Nintendo Switch 2',
+      '',
+      'Kabum',
+      '👉 https://desconto.games/CV5YyB8',
+      '🏷 Cupom: PARTYTIME',
+      'R$ 292,11 no PIX',
+      'R$ 314,10 em até 10x',
+      '',
+      'Shopee',
+      'Resgate o cupom de R$ 40 OFF',
+      '👉 https://s.shopee.com.br/8095klGUHF',
+      '',
+      'Compre aqui:',
+      '👉 https://s.shopee.com.br/6VKGPnyEBv',
+      'R$ 309,89 em até 6x'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url,
+      success: true
+    }),
+    convertShopeeLinkFn: async (url) => ({
+      success: true,
+      marketplace: 'shopee',
+      originalExpandedUrl: url,
+      affiliateUrl: url.includes('8095klGUHF')
+        ? 'https://s.shopee.com.br/cupom-convertido'
+        : 'https://s.shopee.com.br/produto-convertido',
+      affiliateId: '18393040998',
+      subIds: {
+        subId1: 'u245',
+        subId2: 'telegram',
+        subId3: 'captacao01',
+        subId4: 'whatsapp01',
+        subId5: 'auto'
+      },
+      utmContent: 'u245-telegram-captacao01-whatsapp01-auto'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /PRAGMATA - Nintendo Switch 2/);
+  assert.match(result.processedMessage, /\bShopee\b/);
+  assert.doesNotMatch(result.processedMessage, /\bKabum\b/);
+  assert.doesNotMatch(result.processedMessage, /PARTYTIME/);
+  assert.doesNotMatch(result.processedMessage, /R\$ 292,11 no PIX/);
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/cupom-convertido/);
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/produto-convertido/);
+});
+
 test('beautifyAffiliateMessage formats offer without changing converted links', () => {
   const result = beautifyAffiliateMessage(
     'Monitor Gamer TGT Altay TS6\n\nCupom: OFERTAOFF\nR$ 446\nhttps://s.shopee.com.br/abc123',

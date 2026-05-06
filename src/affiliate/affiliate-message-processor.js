@@ -475,17 +475,30 @@ function filterPreservedMessageBySupportedBlocks(message, convertedUrls = []) {
       urlMatches.map((match) => normalizeComparableUrl(match.normalizedUrl || match.rawUrl))
     );
 
+    const headerLine = String(blockLines[0] ?? '').trim();
+    const hasMarketplaceHeader = isMarketplaceHeaderLine(headerLine);
     const hasConvertedLink = normalizedLinks.some((url) => convertedLinkSet.has(url));
     const hasMarketplaceLink = normalizedLinks.some((url) => isLikelyMarketplaceUrl(url));
 
     blocks.push({
       text: blockText,
+      hasMarketplaceHeader,
       hasConvertedLink,
       hasMarketplaceLink
     });
   }
 
-  const keptBlocks = blocks.filter((block) => block.hasConvertedLink || !block.hasMarketplaceLink);
+  const keptBlocks = blocks.filter((block) => {
+    if (block.hasConvertedLink) {
+      return true;
+    }
+
+    if (block.hasMarketplaceHeader) {
+      return false;
+    }
+
+    return !block.hasMarketplaceLink;
+  });
 
   if (!keptBlocks.length || keptBlocks.length === blocks.length) {
     return text;
