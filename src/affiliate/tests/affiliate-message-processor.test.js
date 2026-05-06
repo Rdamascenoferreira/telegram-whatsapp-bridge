@@ -549,6 +549,64 @@ test('processAffiliateMessage uses deterministic rewrite for multi-offer message
   assert.match(result.processedMessage, /B0PRODB123\?tag=tagdocliente-20/);
 });
 
+test('processAffiliateMessage can preserve original text and only replace converted links', async () => {
+  let rewriteCalled = false;
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      preserveOriginalTextEnabled: true,
+      aiRewriteEnabled: true,
+      messageBeautifierEnabled: true,
+      removeOriginalFooter: true,
+      customFooter: 'Meu rodape'
+    },
+    account,
+    dryRun: true,
+    message: [
+      'Jogos de PS5',
+      '___',
+      '',
+      '- Produto A',
+      'R$ 100 no pix',
+      'https://amzn.to/produto-a',
+      '___',
+      '',
+      'Grupo de Promocoes do Memory Card:',
+      'https://linktr.ee/mc8mb'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('produto-a')
+        ? 'https://www.amazon.com.br/produto-a/dp/B0PRODA123?tag=old-20'
+        : url,
+      success: true
+    }),
+    rewriteAffiliateMessageFn: async () => {
+      rewriteCalled = true;
+      return {
+        success: true,
+        provider: 'groq',
+        model: 'mock',
+        message: 'wrong'
+      };
+    }
+  });
+
+  assert.equal(rewriteCalled, false);
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'link_replace_only');
+  assert.match(result.processedMessage, /Jogos de PS5/);
+  assert.match(result.processedMessage, /- Produto A/);
+  assert.match(result.processedMessage, /R\$ 100 no pix/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0PRODA123\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /Meu rodape/);
+  assert.doesNotMatch(result.processedMessage, /amzn\.to\/produto-a/);
+  assert.doesNotMatch(result.processedMessage, /linktr\.ee\/mc8mb/);
+  assert.doesNotMatch(result.processedMessage, /Oferta selecionada/);
+});
+
 test('processAffiliateMessage does not mix coupon from another marketplace block', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

@@ -179,37 +179,43 @@ export async function processAffiliateMessage(params = {}) {
 
     let rewriteMode = '';
     let rewriteError = '';
-    const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
-    const preferredPrimaryUrl = selectPreferredPrimaryUrl(convertedUrls);
-    const hasMultipleConvertedOffers = convertedUrls.filter((item) => item.status === 'converted' && item.affiliateUrl).length > 1;
-    const shouldUseDeterministicRewrite = hasMultipleConvertedOffers || hasMultipleOfferSections(processedMessage);
+    const preserveOriginalTextEnabled = Boolean(automation.preserveOriginalTextEnabled || params.preserveOriginalTextEnabled);
 
-    if (automation.aiRewriteEnabled && shouldUseDeterministicRewrite) {
-      rewriteError = 'Multiple offers require deterministic local rewrite';
-      console.warn(`Affiliate AI rewrite fallback: ${rewriteError}`);
-    } else if (automation.aiRewriteEnabled) {
-      const aiRewrite = await rewriteAffiliateMessageFn({
-        message: processedMessage,
-        originalMessage,
-        style: preferredRewriteStyle,
-        primaryUrl: preferredPrimaryUrl
-      });
+    if (preserveOriginalTextEnabled) {
+      rewriteMode = 'link_replace_only';
+    } else {
+      const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
+      const preferredPrimaryUrl = selectPreferredPrimaryUrl(convertedUrls);
+      const hasMultipleConvertedOffers = convertedUrls.filter((item) => item.status === 'converted' && item.affiliateUrl).length > 1;
+      const shouldUseDeterministicRewrite = hasMultipleConvertedOffers || hasMultipleOfferSections(processedMessage);
 
-      if (aiRewrite.success && aiRewrite.message) {
-        processedMessage = aiRewrite.message;
-        rewriteMode = 'groq';
-      } else {
-        rewriteError = aiRewrite.error || 'AI rewrite failed';
+      if (automation.aiRewriteEnabled && shouldUseDeterministicRewrite) {
+        rewriteError = 'Multiple offers require deterministic local rewrite';
         console.warn(`Affiliate AI rewrite fallback: ${rewriteError}`);
-      }
-    }
+      } else if (automation.aiRewriteEnabled) {
+        const aiRewrite = await rewriteAffiliateMessageFn({
+          message: processedMessage,
+          originalMessage,
+          style: preferredRewriteStyle,
+          primaryUrl: preferredPrimaryUrl
+        });
 
-    if (automation.messageBeautifierEnabled || (automation.aiRewriteEnabled && rewriteError)) {
-      processedMessage = beautifyAffiliateMessage(processedMessage, {
-        style: preferredRewriteStyle,
-        primaryUrl: preferredPrimaryUrl
-      });
-      rewriteMode = automation.aiRewriteEnabled && rewriteError ? 'groq_fallback_local' : 'local';
+        if (aiRewrite.success && aiRewrite.message) {
+          processedMessage = aiRewrite.message;
+          rewriteMode = 'groq';
+        } else {
+          rewriteError = aiRewrite.error || 'AI rewrite failed';
+          console.warn(`Affiliate AI rewrite fallback: ${rewriteError}`);
+        }
+      }
+
+      if (automation.messageBeautifierEnabled || (automation.aiRewriteEnabled && rewriteError)) {
+        processedMessage = beautifyAffiliateMessage(processedMessage, {
+          style: preferredRewriteStyle,
+          primaryUrl: preferredPrimaryUrl
+        });
+        rewriteMode = automation.aiRewriteEnabled && rewriteError ? 'groq_fallback_local' : 'local';
+      }
     }
 
     if (automation.customFooter) {

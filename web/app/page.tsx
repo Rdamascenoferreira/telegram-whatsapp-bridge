@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.03';
+const panelVersion = 'Versao 1.04';
 
 type AuthUser = {
   id: string;
@@ -110,6 +110,7 @@ type AffiliateAutomation = {
   messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
   aiRewriteEnabled?: boolean;
   aiRewriteStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
+  preserveOriginalTextEnabled?: boolean;
   telegramForwardEnabled?: boolean;
   telegramDestinationGroupId?: string;
   telegramDestinationGroupName?: string;
@@ -3405,6 +3406,7 @@ function AffiliateAutomationPanel({
   const [affiliateAccountEditing, setAffiliateAccountEditing] = useState(false);
   const affiliateAccountFormRef = useRef<HTMLFormElement>(null);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
+  const [testPreserveOriginalText, setTestPreserveOriginalText] = useState(true);
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
     processedMessage: string;
@@ -3466,9 +3468,8 @@ function AffiliateAutomationPanel({
     }
 
     setBusy('affiliate-test');
-    const result = await postJson<typeof testResult>('/api/affiliate/test', {
-      automationId: activeAutomation?.id || '',
-      automation: activeAutomation || {
+    const draftAutomation = {
+      ...(activeAutomation || {
         name: 'Teste manual',
         telegramSourceGroupId: state.telegram.availableChats?.[0]?.id || '',
         unknownLinkBehavior: 'keep',
@@ -3478,7 +3479,14 @@ function AffiliateAutomationPanel({
         messageBeautifierStyle: 'clean',
         aiRewriteEnabled: false,
         aiRewriteStyle: 'clean'
-      },
+      }),
+      preserveOriginalTextEnabled: testPreserveOriginalText,
+      messageBeautifierEnabled: testPreserveOriginalText ? false : Boolean(activeAutomation?.messageBeautifierEnabled),
+      aiRewriteEnabled: testPreserveOriginalText ? false : Boolean(activeAutomation?.aiRewriteEnabled)
+    };
+    const result = await postJson<typeof testResult>('/api/affiliate/test', {
+      automationId: '',
+      automation: draftAutomation,
       message: testMessage
     });
     setTestResult(result);
@@ -3542,9 +3550,22 @@ function AffiliateAutomationPanel({
   const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
   const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || affiliateAccountLocked || busy === 'affiliate-account';
   const testLinks = testResult?.convertedUrls || [];
+  const testConvertedLinks = testLinks.filter((url) => url.status === 'converted' && url.affiliateUrl);
   const testConvertedCount = testLinks.filter((url) => url.status === 'converted').length;
   const testIgnoredCount = testLinks.filter((url) => url.status === 'ignored').length;
   const testErrorCount = testLinks.filter((url) => url.status === 'error').length;
+  const testRewriteLabel = (mode: string) => {
+    if (mode === 'groq') {
+      return 'IA Groq';
+    }
+    if (mode === 'groq_fallback_local') {
+      return 'Fallback local';
+    }
+    if (mode === 'link_replace_only') {
+      return 'Somente links';
+    }
+    return 'Local';
+  };
   const testStatusClass = (status: string) => {
     if (status === 'converted') {
       return 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100';
@@ -3799,6 +3820,22 @@ function AffiliateAutomationPanel({
               </button>
             </div>
 
+            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4 text-sm text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={testPreserveOriginalText}
+                disabled={readOnlyAccount || busy === 'affiliate-test'}
+                onChange={(event) => setTestPreserveOriginalText(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-semibold text-[var(--foreground)]">Preservar texto original e substituir somente os links</span>
+                <span className="mt-1 block text-xs leading-5">
+                  Modo local de teste: o sistema grava os links convertidos e aplica cada link novo em cima da mensagem recebida, sem IA reescrever o texto.
+                </span>
+              </span>
+            </label>
+
             <label className="mt-4 grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Mensagem recebida para teste</span>
               <textarea
@@ -3827,7 +3864,7 @@ function AffiliateAutomationPanel({
                   {testResult.rewriteMode ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
-                        Reescrita: {testResult.rewriteMode === 'groq' ? 'IA Groq' : testResult.rewriteMode === 'groq_fallback_local' ? 'Fallback local' : 'Local'}
+                        Processamento: {testRewriteLabel(testResult.rewriteMode)}
                       </span>
                       {testResult.rewriteError ? (
                         <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] text-amber-100">
@@ -3852,6 +3889,31 @@ function AffiliateAutomationPanel({
                     </div>
                   </div>
                 </div>
+
+                {testConvertedLinks.length ? (
+                  <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Links convertidos gravados</p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                          Estes sao os links finais que serao aplicados em cima do texto original.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                        {testConvertedLinks.length}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {testConvertedLinks.map((url, index) => (
+                        <div key={`${url.originalUrl}-converted-${index}`} className="rounded-xl border border-white/10 bg-black/15 p-3 text-xs">
+                          <p className="font-semibold capitalize text-emerald-100">{url.marketplace}</p>
+                          <p className="mt-1 break-all text-[var(--muted)]">Original: {url.originalUrl}</p>
+                          <p className="mt-1 break-all text-emerald-50/90">Convertido: {url.affiliateUrl}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 xl:grid-cols-2">
                   <div className="rounded-2xl border border-[var(--border)] bg-black/15 p-4">

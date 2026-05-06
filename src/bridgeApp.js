@@ -280,12 +280,12 @@ export class BridgeApp {
       const result = await runUserOperation(request, 'affiliate:test', async () => {
         const message = String(request.body?.message ?? '');
         const automationId = String(request.body?.automationId ?? '').trim();
-        const draftAutomation = request.body?.automation && !automationId
+        const draftAutomation = request.body?.automation
           ? normalizeAffiliateAutomationDraft(request.user.id, request.body.automation)
           : null;
         return await processAffiliateMessage({
           userId: request.user.id,
-          automationId,
+          automationId: draftAutomation ? '' : automationId,
           automation: draftAutomation,
           message,
           dryRun: true
@@ -867,6 +867,7 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
     messageBeautifierStyle: String(payload.messageBeautifierStyle ?? 'clean').trim().toLowerCase() || 'clean',
     aiRewriteEnabled: Boolean(payload.aiRewriteEnabled),
     aiRewriteStyle: String(payload.aiRewriteStyle ?? payload.messageBeautifierStyle ?? 'clean').trim().toLowerCase() || 'clean',
+    preserveOriginalTextEnabled: Boolean(payload.preserveOriginalTextEnabled),
     isActive: true,
     destinations: []
   };
