@@ -775,7 +775,8 @@ export class UserBridgeRuntime {
       sourceGroupId,
       sourceGroupName: describeTelegramChat(message.chat),
       telegramMessageId: String(message.message_id ?? ''),
-      messageText: message.text || message.caption || fallbackText(message)
+      messageText: message.text || message.caption || fallbackText(message),
+      telegramMessage: message
     });
 
     if (!normalFlowMatches) {
@@ -978,7 +979,8 @@ export class UserBridgeRuntime {
       sourceGroupId: sourceChatId,
       sourceGroupName: describeTelegramEntity(chat, sourceChatId),
       telegramMessageId: String(message.id ?? ''),
-      messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage)
+      messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage),
+      telegramMessage: message
     });
 
     if (!matchesTelegramUserMessage(message, this.config.telegramChannel)) {
@@ -1013,7 +1015,7 @@ export class UserBridgeRuntime {
     await this.handleTelegramMessage(runtimeMessage);
   }
 
-  async maybeProcessAffiliateAutomation({ sourceGroupId, sourceGroupName, telegramMessageId, messageText }) {
+  async maybeProcessAffiliateAutomation({ sourceGroupId, sourceGroupName, telegramMessageId, messageText, telegramMessage }) {
     const automations = await getActiveAffiliateAutomationsBySource(this.userId, sourceGroupId);
 
     if (!automations.length) {
@@ -1026,7 +1028,8 @@ export class UserBridgeRuntime {
         automationId: automation.id,
         automation,
         telegramMessageId,
-        message: messageText
+        message: messageText,
+        telegramMessage
       });
 
       if (!result.shouldSend) {

@@ -4,8 +4,8 @@ import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAc
 import { rewriteAffiliateMessageWithGroq } from './groq-rewriter.js';
 import { detectMarketplace } from './marketplace-detector.js';
 import { beautifyAffiliateMessage } from './message-beautifier.js';
+import { extractMessageUrlMatches, rebuildMessageWithUrlReplacements } from './telegram-message-links.js';
 import { expandUrl } from './url-expander.js';
-import { extractUrlMatches } from './url-extractor.js';
 
 const maxMessageLength = 12000;
 const maxLinksPerMessage = 20;
@@ -55,8 +55,11 @@ export async function processAffiliateMessage(params = {}) {
   }
 
   try {
-    const urlMatches = extractUrlMatches(originalMessage).slice(0, maxLinksPerMessage);
-    const originalUrls = urlMatches.map((item) => item.normalizedUrl);
+    const urlMatches = extractMessageUrlMatches({
+      text: originalMessage,
+      telegramMessage: params.telegramMessage
+    }).slice(0, maxLinksPerMessage);
+    const originalUrls = uniqueUrls(urlMatches.map((item) => item.normalizedUrl));
 
     if (!originalUrls.length) {
       const ignored = buildResult({
@@ -77,7 +80,7 @@ export async function processAffiliateMessage(params = {}) {
     const convertedUrls = [];
     let shouldIgnoreEntireMessage = false;
 
-    for (const urlMatch of urlMatches) {
+    for (const urlMatch of uniqueUrlMatches(urlMatches)) {
       const originalUrl = urlMatch.normalizedUrl;
       const replacementTarget = urlMatch.rawUrl;
       const expanded = await expandUrlFn(originalUrl);
@@ -90,7 +93,14 @@ export async function processAffiliateMessage(params = {}) {
         status: 'ignored'
       };
 
-      if (marketplace === 'amazon' && account?.amazonEnabled) {
+      if (marketplace !== 'unknown' && isCouponOrPromoLink(originalMessage, urlMatch)) {
+        conversion = {
+          ...conversion,
+          marketplace,
+          status: 'ignored',
+          error: marketplace === 'unknown' ? '' : 'Coupon/promo link kept without affiliate conversion'
+        };
+      } else if (marketplace === 'amazon' && account?.amazonEnabled) {
         const amazonResult = convertAmazonLink(expandedUrl, account.amazonTag);
         conversion = {
           ...conversion,
@@ -123,14 +133,14 @@ export async function processAffiliateMessage(params = {}) {
         };
       } else if (marketplace === 'unknown') {
         if (automation.unknownLinkBehavior === 'remove') {
-          addReplacement(replacements, originalUrl, replacementTarget, '');
+          addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
         } else if (automation.unknownLinkBehavior === 'ignore_message') {
           shouldIgnoreEntireMessage = true;
         }
       }
 
       if (conversion.status === 'converted' && conversion.affiliateUrl) {
-        addReplacement(replacements, originalUrl, replacementTarget, conversion.affiliateUrl);
+        addReplacement(replacements, originalUrl, replacementTarget, conversion.affiliateUrl, urlMatch);
       }
 
       convertedUrls.push(conversion);
@@ -161,7 +171,7 @@ export async function processAffiliateMessage(params = {}) {
       return ignored;
     }
 
-    let processedMessage = applyUrlReplacements(originalMessage, replacements);
+    let processedMessage = rebuildMessageWithUrlReplacements(originalMessage, urlMatches, replacements);
 
     if (automation.removeOriginalFooter) {
       processedMessage = removeLikelyFooter(processedMessage);
@@ -252,16 +262,6 @@ async function persistMessageResult(enabled, messageLogId, result) {
   });
 }
 
-function applyUrlReplacements(message, replacements) {
-  let processed = message;
-
-  for (const [originalUrl, replacement] of replacements.entries()) {
-    processed = processed.split(originalUrl).join(replacement);
-  }
-
-  return processed.replace(/[ \t]+\n/g, '\n').trimEnd();
-}
-
 function selectPreferredPrimaryUrl(convertedUrls) {
   const converted = convertedUrls.filter((item) => item.status === 'converted' && item.affiliateUrl);
 
@@ -272,12 +272,97 @@ function selectPreferredPrimaryUrl(convertedUrls) {
   return converted[0].affiliateUrl;
 }
 
-function addReplacement(replacements, normalizedUrl, rawUrl, replacement) {
+function addReplacement(replacements, normalizedUrl, rawUrl, replacement, urlMatch = null) {
   replacements.set(rawUrl, replacement);
 
   if (normalizedUrl !== rawUrl) {
     replacements.set(normalizedUrl, replacement);
   }
+
+  if (urlMatch?.displayText && urlMatch.displayText !== rawUrl && urlMatch.displayText !== normalizedUrl) {
+    replacements.set(urlMatch.displayText, replacement);
+  }
+}
+
+function uniqueUrls(urls = []) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+function uniqueUrlMatches(urlMatches = []) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const match of urlMatches) {
+    const key = match.normalizedUrl || match.rawUrl;
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(match);
+  }
+
+  return unique;
+}
+
+function isCouponOrPromoLink(message, urlMatch) {
+  const lineContext = getUrlLineContext(message, urlMatch);
+  const currentLine = normalizeContext(lineContext.currentLine);
+  const previousLine = normalizeContext(lineContext.previousLine);
+  const joinedContext = normalizeContext([lineContext.previousLine, lineContext.currentLine].filter(Boolean).join(' '));
+
+  if (/\b(resgate|resgatar|pegue|cupom|cupons|coupon|cupon)\b/iu.test(currentLine)) {
+    return true;
+  }
+
+  if (/\b(resgate|resgatar|pegue)\b/iu.test(previousLine) && /\b(cupom|cupons|coupon|cupon)\b/iu.test(previousLine)) {
+    return true;
+  }
+
+  if (/\b(todos\s+os\s+cupons|pagina\s+de\s+cupons|pagina\s+de\s+cupom|page\s+coupon)\b/iu.test(joinedContext)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getUrlLineContext(message, urlMatch) {
+  const text = String(message ?? '');
+  const offset = Number(urlMatch?.offset ?? -1);
+
+  if (!Number.isInteger(offset) || offset < 0) {
+    return { currentLine: '', previousLine: '' };
+  }
+
+  const before = text.slice(0, offset);
+  const after = text.slice(offset);
+  const linesBefore = before.split('\n');
+  const currentLinePrefix = linesBefore[linesBefore.length - 1] || '';
+  const currentLineSuffix = after.split('\n')[0] || '';
+  const currentLine = `${currentLinePrefix}${currentLineSuffix}`;
+  const previousLine = findPreviousNonEmptyLine(linesBefore.slice(0, -1));
+
+  return { currentLine, previousLine };
+}
+
+function findPreviousNonEmptyLine(lines) {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = String(lines[index] ?? '').trim();
+
+    if (line) {
+      return line;
+    }
+  }
+
+  return '';
+}
+
+function normalizeContext(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 function removeLikelyFooter(message) {

@@ -6,40 +6,54 @@ export function extractUrls(text) {
 }
 
 export function extractUrlMatches(text) {
-  const content = String(text ?? '');
-  const matches = content.match(urlLikePattern) || [];
+  const matches = extractUrlOccurrences(text);
   const uniqueMatches = [];
   const seenUrls = new Set();
 
   for (const match of matches) {
-    const rawUrl = cleanUrlCandidate(match);
-    const normalizedUrl = normalizeUrlCandidate(rawUrl);
-
-    if (seenUrls.has(normalizedUrl)) {
+    if (seenUrls.has(match.normalizedUrl)) {
       continue;
     }
 
-    try {
-      const parsed = new URL(normalizedUrl);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        continue;
-      }
-    } catch {
-      continue;
-    }
-
-    seenUrls.add(normalizedUrl);
-    uniqueMatches.push({ rawUrl, normalizedUrl });
+    seenUrls.add(match.normalizedUrl);
+    uniqueMatches.push(match);
   }
 
   return uniqueMatches;
 }
 
-function cleanUrlCandidate(candidate) {
+export function extractUrlOccurrences(text) {
+  const content = String(text ?? '');
+  const matches = [];
+
+  for (const match of content.matchAll(urlLikePattern)) {
+    const candidate = match[0] || '';
+    const rawUrl = cleanUrlCandidate(candidate);
+    const normalizedUrl = normalizeUrlCandidate(rawUrl);
+
+    if (!isSafeHttpUrl(normalizedUrl)) {
+      continue;
+    }
+
+    const index = Number(match.index ?? 0);
+    matches.push({
+      rawUrl,
+      normalizedUrl,
+      displayText: rawUrl,
+      offset: index,
+      length: rawUrl.length,
+      source: 'text'
+    });
+  }
+
+  return matches;
+}
+
+export function cleanUrlCandidate(candidate) {
   return String(candidate ?? '').replace(trailingUrlPunctuation, '');
 }
 
-function normalizeUrlCandidate(candidate) {
+export function normalizeUrlCandidate(candidate) {
   const cleaned = cleanUrlCandidate(candidate);
 
   if (/^https?:\/\//iu.test(cleaned)) {
@@ -47,4 +61,13 @@ function normalizeUrlCandidate(candidate) {
   }
 
   return `https://${cleaned}`;
+}
+
+export function isSafeHttpUrl(url) {
+  try {
+    const parsed = new URL(String(url ?? ''));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }

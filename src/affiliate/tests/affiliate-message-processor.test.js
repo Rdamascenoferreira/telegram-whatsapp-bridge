@@ -107,6 +107,69 @@ test('processAffiliateMessage removes unknown links that were written without pr
   assert.equal(result.processedMessage, 'Mais cupons:');
 });
 
+test('processAffiliateMessage converts real Telegram entity URLs hidden behind anchor text', async () => {
+  const text = 'Oferta especial: clique aqui';
+  const displayText = 'clique aqui';
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: text,
+    telegramMessage: {
+      message: text,
+      entities: [
+        {
+          className: 'MessageEntityTextUrl',
+          offset: text.indexOf(displayText),
+          length: displayText.length,
+          url: 'https://amzn.to/abc'
+        }
+      ]
+    },
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.processedMessage, 'Oferta especial: https://www.amazon.com.br/dp/B0ABC12345?tag=tagdocliente-20');
+  assert.deepEqual(result.originalUrls, ['https://amzn.to/abc']);
+});
+
+test('processAffiliateMessage keeps coupon links and converts the product link', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: [
+      'Produto em oferta',
+      'Resgate todos os cupons:',
+      'https://amzn.to/cupom',
+      '',
+      'Link do Produto',
+      'https://amzn.to/produto'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('produto')
+        ? 'https://www.amazon.com.br/produto/dp/B0PROD1234?tag=old-20'
+        : 'https://www.amazon.com.br/cupons/dp/B0CUPOM123?tag=old-20',
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /https:\/\/amzn\.to\/cupom/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0PROD1234\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /B0CUPOM123/);
+});
+
 test('beautifyAffiliateMessage formats offer without changing converted links', () => {
   const result = beautifyAffiliateMessage(
     'Monitor Gamer TGT Altay TS6\n\nCupom: OFERTAOFF\nR$ 446\nhttps://s.shopee.com.br/abc123',
