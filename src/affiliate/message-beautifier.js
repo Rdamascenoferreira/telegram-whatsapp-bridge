@@ -328,8 +328,22 @@ function findCoupon(lines) {
     return '';
   }
 
-  const match = couponLine.match(/(?:cupom|coupon)\s*[:\-]?\s*([A-Z0-9_-]{3,})/i);
-  return match ? String(match[1] ?? '').trim() : '';
+  const normalizedLine = String(couponLine ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const afterColon = normalizedLine.includes(':')
+    ? normalizedLine.slice(normalizedLine.lastIndexOf(':') + 1)
+    : normalizedLine.replace(/(?:cupom|coupon)/i, '');
+
+  const directTokens = afterColon.match(/[A-Z0-9_-]{4,}/gi) || [];
+
+  if (directTokens.length) {
+    return String(directTokens[directTokens.length - 1] ?? '').trim();
+  }
+
+  const lineTokens = normalizedLine.match(/[A-Z0-9_-]{4,}/gi) || [];
+  return lineTokens.length ? String(lineTokens[lineTokens.length - 1] ?? '').trim() : '';
 }
 
 function findPrimaryPriceLine(lines, input) {

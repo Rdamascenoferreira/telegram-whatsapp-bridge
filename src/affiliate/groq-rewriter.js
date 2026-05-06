@@ -120,24 +120,17 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
 }
 
 function buildGroqPrompt({ details, style }) {
-  const styleGuide = {
-    clean: 'texto limpo, claro e comercial, com poucos emojis',
-    sales: 'texto mais vendedor, energico e convincente',
-    urgent: 'texto com senso de urgencia, sem exagerar',
-    plain: 'texto simples, direto e sem emojis'
-  };
-
   return JSON.stringify({
-    task: 'Monte uma oferta limpa e pronta para envio',
+    task: 'Classifique e normalize os campos uteis da oferta para envio',
     style,
-    styleGuide: styleGuide[style] || styleGuide.clean,
     rules: [
-      'nao inventar atributos do produto',
-      'nao inventar preco ou cupom',
-      'nao citar grupos, canais, comunidade, telegram, whatsapp, instagram, linktree ou propaganda da origem',
-      'nao remover o link principal',
-      'se existir parcelamento, manter',
-      'se existir cupom, manter'
+      'responda somente com json valido',
+      'nao escreva texto comercial extra',
+      'nao invente titulo, preco, parcelamento, cupom ou urls',
+      'ignore rodapes, grupos, canais, propaganda, telegram, whatsapp, instagram, linktree e convites',
+      'se nao houver um campo, devolva string vazia',
+      'o cupom deve conter apenas o codigo util, sem rotulos nem texto sobrando',
+      'nao inclua urls em campos de titulo, preco, parcelamento ou cupom'
     ],
     offer: {
       title: details.title,
@@ -149,51 +142,42 @@ function buildGroqPrompt({ details, style }) {
       extraUrls: details.extraUrls
     },
     responseSchema: {
-      headline: 'string',
       title: 'string',
       priceLine: 'string',
       installmentLine: 'string',
-      couponLine: 'string',
-      primaryLinkLabel: 'string',
-      couponLinksLabel: 'string',
-      extraLinksLabel: 'string',
-      closingLine: 'string'
+      couponCode: 'string'
     }
   });
 }
 
 function composeAiMessage(details, json, style) {
   const blocks = [];
-  const headline = cleanAiLine(json.headline) || defaultHeadline(style);
-  const title = cleanAiLine(json.title) || details.title;
-  const priceLine = cleanAiLine(json.priceLine) || details.price;
-  const installmentLine = cleanAiLine(json.installmentLine) || details.installment;
-  const couponLine = cleanAiLine(json.couponLine) || (details.coupon ? `Cupom: ${details.coupon}` : '');
-  const primaryLinkLabel = cleanAiLine(json.primaryLinkLabel) || 'Link da oferta:';
-  const couponLinksLabel = cleanAiLine(json.couponLinksLabel) || 'Cupons:';
-  const extraLinksLabel = cleanAiLine(json.extraLinksLabel) || 'Links uteis:';
-  const closingLine = cleanAiLine(json.closingLine);
+  const title = sanitizeField(json.title) || details.title;
+  const priceLine = sanitizeField(json.priceLine) || details.price;
+  const installmentLine = sanitizeField(json.installmentLine) || details.installment;
+  const couponCode = pickBestCouponCode(json.couponCode, details.coupon);
 
-  blocks.push(headline);
+  blocks.push(defaultHeadline(style));
   blocks.push(title);
 
-  const offerLines = [priceLine, installmentLine, couponLine].filter(Boolean);
+  const offerLines = [
+    priceLine,
+    installmentLine,
+    couponCode ? `Cupom: ${couponCode}` : ''
+  ].filter(Boolean);
+
   if (offerLines.length) {
     blocks.push(offerLines.join('\n'));
   }
 
-  blocks.push(`${primaryLinkLabel}\n${details.primaryUrl}`);
+  blocks.push(`Link da oferta:\n${details.primaryUrl}`);
 
   if (details.couponUrls.length) {
-    blocks.push(`${couponLinksLabel}\n${details.couponUrls.join('\n')}`);
+    blocks.push(`Cupons:\n${details.couponUrls.join('\n')}`);
   }
 
   if (details.extraUrls.length) {
-    blocks.push(`${extraLinksLabel}\n${details.extraUrls.join('\n')}`);
-  }
-
-  if (closingLine) {
-    blocks.push(closingLine);
+    blocks.push(`Links uteis:\n${details.extraUrls.join('\n')}`);
   }
 
   return blocks
@@ -207,6 +191,65 @@ function cleanAiLine(value) {
   return String(value ?? '')
     .replace(/\r/g, '')
     .trim();
+}
+
+function sanitizeField(value) {
+  const line = cleanAiLine(value);
+
+  if (!line) {
+    return '';
+  }
+
+  if (/https?:\/\//i.test(line)) {
+    return '';
+  }
+
+  return line;
+}
+
+function sanitizeCouponCode(value) {
+  const raw = cleanAiLine(value)
+    .replace(/^cupom\s*[:\-]?\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!raw || /https?:\/\//i.test(raw)) {
+    return '';
+  }
+
+  const tokens = raw.match(/[A-Z0-9_-]{4,}/gi) || [];
+
+  if (!tokens.length) {
+    return '';
+  }
+
+  return String(tokens[tokens.length - 1] ?? '').trim();
+}
+
+function pickBestCouponCode(aiValue, localValue) {
+  const aiCoupon = sanitizeCouponCode(aiValue);
+  const localCoupon = sanitizeCouponCode(localValue);
+
+  if (!aiCoupon) {
+    return localCoupon;
+  }
+
+  if (!localCoupon) {
+    return aiCoupon;
+  }
+
+  const aiHasDigit = /\d/.test(aiCoupon);
+  const localHasDigit = /\d/.test(localCoupon);
+
+  if (localHasDigit && !aiHasDigit) {
+    return localCoupon;
+  }
+
+  if (localCoupon.length > aiCoupon.length) {
+    return localCoupon;
+  }
+
+  return aiCoupon;
 }
 
 function defaultHeadline(style) {

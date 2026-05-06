@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { processAffiliateMessage } from '../affiliate-message-processor.js';
 import { convertShopeeLink } from '../converters/shopee-affiliate-converter.js';
+import { rewriteAffiliateMessageWithGroq } from '../groq-rewriter.js';
 import { buildShopeeSubIds, sanitizeSubId } from '../converters/shopee-subids.js';
 import { beautifyAffiliateMessage } from '../message-beautifier.js';
 
@@ -276,6 +277,27 @@ test('beautifyAffiliateMessage keeps pix and installment prices while ignoring s
   assert.doesNotMatch(result, /jogobara\.to/);
 });
 
+test('beautifyAffiliateMessage extracts the actual coupon code from verbose coupon lines', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      'Cooler Master Hyper 212 Spectrum V3',
+      '',
+      'R$95',
+      'Cupom EXCLUSIVO PRIME: 5D05PRIME -',
+      '',
+      'https://www.amazon.com.br/dp/B0BRBW94VL?tag=teste-20',
+      '',
+      'Convide Seus Amigos:',
+      'Telegram: https://t.me/achadoshardware'
+    ].join('\n'),
+    { style: 'clean' }
+  );
+
+  assert.match(result, /Cupom: 5D05PRIME/);
+  assert.doesNotMatch(result, /Cupom: EXCLUSIVO/);
+  assert.doesNotMatch(result, /Convide Seus Amigos/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
@@ -362,6 +384,38 @@ test('processAffiliateMessage falls back to local beautifier when Groq rewrite f
   assert.equal(result.rewriteError, 'timeout');
   assert.match(result.processedMessage, /Oferta selecionada/);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+});
+
+test('rewriteAffiliateMessageWithGroq keeps deterministic coupon when AI returns noisy coupon label', async () => {
+  const result = await rewriteAffiliateMessageWithGroq({
+    apiKey: 'test-key',
+    model: 'mock-model',
+    style: 'clean',
+    message: 'Cooler Master Hyper 212 Spectrum V3\n\nR$95\nCupom EXCLUSIVO PRIME: 5D05PRIME -\n\nhttps://www.amazon.com.br/dp/B0BRBW94VL?tag=teste-20',
+    fetchFn: async () => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  title: 'Cooler Master Hyper 212 Spectrum V3',
+                  priceLine: 'Apenas R$95',
+                  installmentLine: '',
+                  couponCode: 'Cupom EXCLUSIVO PRIME'
+                })
+              }
+            }
+          ]
+        })
+    })
+  });
+
+  assert.equal(result.success, true);
+  assert.match(result.message, /Cupom: 5D05PRIME/);
+  assert.doesNotMatch(result.message, /Cupom: EXCLUSIVO/);
+  assert.match(result.message, /Link da oferta:\nhttps:\/\/www\.amazon\.com\.br\/dp\/B0BRBW94VL\?tag=teste-20/);
 });
 
 test('convertShopeeLink requires Shopee API credentials', async () => {
