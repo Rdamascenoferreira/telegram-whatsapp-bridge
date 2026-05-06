@@ -70,16 +70,21 @@ export function beautifyAffiliateMessage(message, options = {}) {
 export function extractAffiliateOfferDetails(message, options = {}) {
   const input = String(message ?? '').trim();
   const style = normalizeBeautifierStyle(options.style);
-  const urls = extractUrls(input);
-  const lines = input
+  const allUrls = extractUrls(input);
+  const allLines = input
     .split('\n')
     .map((line) => normalizeLineForStyle(line, style).trim())
     .filter(Boolean);
+  const initialPrimaryUrlIndex = findPrimaryUrlIndex(allLines, allUrls, options.primaryUrl);
+  const lines = scopeLinesForPrimaryOffer(allLines, allUrls, initialPrimaryUrlIndex);
+  const scopedInput = lines.join('\n');
+  const urls = allUrls.filter((url) => lines.some((line) => lineContainsKnownUrl(line, [url])));
   const title = findTitle(lines, urls);
-  const price = findPrimaryPriceLine(lines, input);
+  const price = findPrimaryPriceLine(lines, scopedInput);
   const installment = findInstallmentLine(lines);
   const coupon = findCoupon(lines);
-  const primaryUrlIndex = findPrimaryUrlIndex(lines, urls);
+  const preferredPrimaryUrl = allUrls[initialPrimaryUrlIndex] || options.primaryUrl;
+  const primaryUrlIndex = findPrimaryUrlIndex(lines, urls, preferredPrimaryUrl);
   const primaryUrl = urls[primaryUrlIndex] || urls[0] || '';
   const couponUrls = findCouponUrls(lines, urls, primaryUrlIndex);
   const extraUrls = urls
@@ -98,6 +103,57 @@ export function extractAffiliateOfferDetails(message, options = {}) {
     extraUrls,
     urls
   };
+}
+
+function scopeLinesForPrimaryOffer(lines, urls, primaryUrlIndex) {
+  if (!urls.length || primaryUrlIndex < 0) {
+    return lines;
+  }
+
+  const primaryUrl = urls[primaryUrlIndex];
+  const primaryLineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [primaryUrl]));
+
+  if (primaryLineIndex < 0) {
+    return lines;
+  }
+
+  let start = 0;
+  const previousBlockingUrlLine = findPreviousBlockingUrlLine(lines, urls, primaryUrlIndex);
+
+  if (previousBlockingUrlLine >= 0) {
+    const nextHeading = findNextMarketplaceHeading(lines, previousBlockingUrlLine + 1, primaryLineIndex);
+    start = nextHeading >= 0 ? nextHeading : previousBlockingUrlLine + 1;
+  }
+
+  let end = lines.length;
+
+  for (let index = primaryLineIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineUrls = urls.filter((url) => lineContainsKnownUrl(line, [url]));
+    const hasOtherUrl = lineUrls.some((url) => url !== primaryUrl);
+
+    if (isMarketplaceHeadingLine(line) && !lineContainsKnownUrl(line, [primaryUrl])) {
+      end = index;
+      break;
+    }
+
+    if (hasOtherUrl) {
+      const belongsToSameOffer = lineUrls.some((url) => isCouponUrlByContext(lines, url) || isCommunityPromoUrl(url, lines));
+
+      if (!belongsToSameOffer) {
+        end = index;
+        break;
+      }
+    }
+
+    if (index > primaryLineIndex + 1 && isLikelyPromotionalFooterLine(line)) {
+      end = index;
+      break;
+    }
+  }
+
+  const scoped = lines.slice(start, end).filter(Boolean);
+  return scoped.length ? scoped : lines;
 }
 
 function getHeadline(style) {
@@ -175,7 +231,13 @@ function isLikelyPromotionalFooterLine(line) {
   ].some((pattern) => pattern.test(normalized));
 }
 
-function findPrimaryUrlIndex(lines, urls) {
+function findPrimaryUrlIndex(lines, urls, preferredUrl = '') {
+  const preferredIndex = findPreferredUrlIndex(urls, preferredUrl);
+
+  if (preferredIndex >= 0) {
+    return preferredIndex;
+  }
+
   let bestIndex = 0;
   let bestScore = Number.NEGATIVE_INFINITY;
 
@@ -189,6 +251,64 @@ function findPrimaryUrlIndex(lines, urls) {
   });
 
   return bestIndex;
+}
+
+function findPreferredUrlIndex(urls, preferredUrl) {
+  const preferred = normalizeUrlForComparison(preferredUrl);
+
+  if (!preferred) {
+    return -1;
+  }
+
+  return urls.findIndex((url) => normalizeUrlForComparison(url) === preferred);
+}
+
+function findPreviousBlockingUrlLine(lines, urls, primaryUrlIndex) {
+  for (let index = primaryUrlIndex - 1; index >= 0; index -= 1) {
+    const url = urls[index];
+    const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+
+    if (lineIndex < 0) {
+      continue;
+    }
+
+    if (isCouponUrlByContext(lines, url) || isCommunityPromoUrl(url, lines)) {
+      continue;
+    }
+
+    return lineIndex;
+  }
+
+  return -1;
+}
+
+function findNextMarketplaceHeading(lines, start, end) {
+  for (let index = start; index <= end; index += 1) {
+    if (isMarketplaceHeadingLine(lines[index])) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function isCouponUrlByContext(lines, url) {
+  const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+  const currentLine = normalizeForMatching(lines[lineIndex] || '');
+  const previousLine = normalizeForMatching(findPreviousNonEmptyLine(lines, lineIndex));
+  const context = `${previousLine} ${currentLine}`;
+
+  return /\b(?:cupom|cupons|resgate)\b/.test(context);
+}
+
+function isMarketplaceHeadingLine(line) {
+  const normalized = normalizeForMatching(line);
+
+  return [
+    /^\[?(?:amazon|shopee|kabum|magalu|mercado\s*livre|aliexpress|pichau|terabyte|americanas|carrefour)\b/,
+    /^loja\s*[:\-]/,
+    /^marketplace\s*[:\-]/
+  ].some((pattern) => pattern.test(normalized));
 }
 
 function isCommunityPromoUrl(url, lines) {
@@ -283,6 +403,16 @@ function getNormalizedHostname(url) {
   try {
     const parsed = new URL(String(url ?? ''));
     return parsed.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch (_error) {
+    return '';
+  }
+}
+
+function normalizeUrlForComparison(url) {
+  try {
+    const parsed = new URL(String(url ?? '').trim());
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '').toLowerCase();
   } catch (_error) {
     return '';
   }

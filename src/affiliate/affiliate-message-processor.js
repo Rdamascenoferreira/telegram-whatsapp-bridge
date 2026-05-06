@@ -170,12 +170,14 @@ export async function processAffiliateMessage(params = {}) {
     let rewriteMode = '';
     let rewriteError = '';
     const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
+    const preferredPrimaryUrl = selectPreferredPrimaryUrl(convertedUrls);
 
     if (automation.aiRewriteEnabled) {
       const aiRewrite = await rewriteAffiliateMessageFn({
         message: processedMessage,
         originalMessage,
-        style: preferredRewriteStyle
+        style: preferredRewriteStyle,
+        primaryUrl: preferredPrimaryUrl
       });
 
       if (aiRewrite.success && aiRewrite.message) {
@@ -189,7 +191,8 @@ export async function processAffiliateMessage(params = {}) {
 
     if (automation.messageBeautifierEnabled || (automation.aiRewriteEnabled && rewriteError)) {
       processedMessage = beautifyAffiliateMessage(processedMessage, {
-        style: preferredRewriteStyle
+        style: preferredRewriteStyle,
+        primaryUrl: preferredPrimaryUrl
       });
       rewriteMode = automation.aiRewriteEnabled && rewriteError ? 'groq_fallback_local' : 'local';
     }
@@ -257,6 +260,16 @@ function applyUrlReplacements(message, replacements) {
   }
 
   return processed.replace(/[ \t]+\n/g, '\n').trimEnd();
+}
+
+function selectPreferredPrimaryUrl(convertedUrls) {
+  const converted = convertedUrls.filter((item) => item.status === 'converted' && item.affiliateUrl);
+
+  if (converted.length !== 1) {
+    return '';
+  }
+
+  return converted[0].affiliateUrl;
 }
 
 function addReplacement(replacements, normalizedUrl, rawUrl, replacement) {

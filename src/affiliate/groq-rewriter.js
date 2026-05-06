@@ -3,14 +3,22 @@ import { extractAffiliateOfferDetails, normalizeBeautifierStyle } from './messag
 const groqApiUrl = 'https://api.groq.com/openai/v1/chat/completions';
 const defaultGroqModel = String(process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile').trim() || 'llama-3.3-70b-versatile';
 const defaultTimeoutMs = 8000;
+const rewriteCache = new Map();
+const rewriteCacheTtlMs = 10 * 60 * 1000;
+const rewriteCacheMaxEntries = 200;
 
 export async function rewriteAffiliateMessageWithGroq(params = {}) {
-  const details = params.details || extractAffiliateOfferDetails(params.message || '', { style: params.style });
+  const details = params.details || extractAffiliateOfferDetails(params.message || '', {
+    style: params.style,
+    primaryUrl: params.primaryUrl
+  });
   const style = normalizeBeautifierStyle(params.style || details.style);
   const apiKey = String(params.apiKey ?? process.env.GROQ_API_KEY ?? '').trim();
   const model = String(params.model ?? process.env.GROQ_MODEL ?? defaultGroqModel).trim() || defaultGroqModel;
   const fetchFn = params.fetchFn || fetch;
   const timeoutMs = Number(params.timeoutMs ?? defaultTimeoutMs);
+  const cacheKey = buildRewriteCacheKey({ model, style, details });
+  const canUseCache = !params.fetchFn && params.cache !== false;
 
   if (!apiKey) {
     return {
@@ -28,6 +36,17 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
       model,
       error: 'Insufficient offer data for AI rewrite'
     };
+  }
+
+  if (canUseCache) {
+    const cached = getCachedRewrite(cacheKey);
+
+    if (cached) {
+      return {
+        ...cached,
+        cached: true
+      };
+    }
   }
 
   const payload = {
@@ -100,13 +119,19 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
       };
     }
 
-    return {
+    const result = {
       success: true,
       provider: 'groq',
       model,
       message,
       structured: json
     };
+
+    if (canUseCache) {
+      setCachedRewrite(cacheKey, result);
+    }
+
+    return result;
   } catch (error) {
     return {
       success: false,
@@ -116,6 +141,52 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
     };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function buildRewriteCacheKey({ model, style, details }) {
+  return JSON.stringify({
+    model,
+    style,
+    title: details.title,
+    price: details.price,
+    installment: details.installment,
+    coupon: details.coupon,
+    primaryUrl: details.primaryUrl,
+    couponUrls: details.couponUrls,
+    extraUrls: details.extraUrls
+  });
+}
+
+function getCachedRewrite(cacheKey) {
+  const cached = rewriteCache.get(cacheKey);
+
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() - cached.createdAt > rewriteCacheTtlMs) {
+    rewriteCache.delete(cacheKey);
+    return null;
+  }
+
+  return cached.result;
+}
+
+function setCachedRewrite(cacheKey, result) {
+  rewriteCache.set(cacheKey, {
+    createdAt: Date.now(),
+    result
+  });
+
+  if (rewriteCache.size <= rewriteCacheMaxEntries) {
+    return;
+  }
+
+  const oldestKey = rewriteCache.keys().next().value;
+
+  if (oldestKey) {
+    rewriteCache.delete(oldestKey);
   }
 }
 

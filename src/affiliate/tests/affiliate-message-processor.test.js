@@ -298,6 +298,39 @@ test('beautifyAffiliateMessage extracts the actual coupon code from verbose coup
   assert.doesNotMatch(result, /Convide Seus Amigos/);
 });
 
+test('beautifyAffiliateMessage scopes details to the preferred converted offer', () => {
+  const amazonUrl = 'https://www.amazon.com.br/dp/B0BP2TGK6W?tag=tagdocliente-20';
+  const result = beautifyAffiliateMessage(
+    [
+      'Playstation VR2',
+      '',
+      'Amazon - Desconto na Finalizacao',
+      amazonUrl,
+      'R$ 1.919,20 no Pix',
+      'R$ 2.159,10 em ate 12x',
+      '',
+      'KaBuM!',
+      'https://desconto.games/AWvXRVD',
+      'Cupom: REALIDADENINJA',
+      'R$ 1.934,10 a vista',
+      'R$ 2.149,00 em ate 10x'
+    ].join('\n'),
+    {
+      style: 'plain',
+      primaryUrl: amazonUrl
+    }
+  );
+
+  assert.match(result, /Playstation VR2/);
+  assert.match(result, /R\$ 1\.919,20 no Pix/);
+  assert.match(result, /R\$ 2\.159,10 em ate 12x/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/www\.amazon\.com\.br\/dp\/B0BP2TGK6W\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result, /REALIDADENINJA/);
+  assert.doesNotMatch(result, /KaBuM/);
+  assert.doesNotMatch(result, /desconto\.games/);
+  assert.doesNotMatch(result, /R\$ 1\.934,10/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
@@ -321,6 +354,50 @@ test('processAffiliateMessage applies beautifier after link conversion', async (
   assert.match(result.processedMessage, /Oferta relampago/);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
   assert.doesNotMatch(result.processedMessage, /amzn\.to\/abc/);
+});
+
+test('processAffiliateMessage does not mix coupon from another marketplace block', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      messageBeautifierEnabled: true,
+      messageBeautifierStyle: 'plain'
+    },
+    account,
+    dryRun: true,
+    message: [
+      'Playstation VR2',
+      '',
+      'Amazon - Desconto na Finalizacao',
+      'https://amzlink.to/az0UHEN1f86s8',
+      'R$ 1.919,20 no Pix',
+      'R$ 2.159,10 em ate 12x',
+      '',
+      'KaBuM!',
+      'https://desconto.games/AWvXRVD',
+      'Cupom: REALIDADENINJA',
+      'R$ 1.934,10 a vista',
+      'R$ 2.149,00 em ate 10x'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('amzlink.to')
+        ? 'https://www.amazon.com.br/playstation-vr2/dp/B0BP2TGK6W?tag=old-20'
+        : url,
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /Playstation VR2/);
+  assert.match(result.processedMessage, /R\$ 1\.919,20 no Pix/);
+  assert.match(result.processedMessage, /R\$ 2\.159,10 em ate 12x/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0BP2TGK6W\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /REALIDADENINJA/);
+  assert.doesNotMatch(result.processedMessage, /KaBuM/);
+  assert.doesNotMatch(result.processedMessage, /desconto\.games/);
 });
 
 test('processAffiliateMessage uses Groq rewrite when enabled', async () => {
