@@ -419,6 +419,8 @@ function mapAffiliateAutomation(row) {
     customFooter: footerRules.customFooter,
     messageBeautifierEnabled: footerRules.messageBeautifierEnabled,
     messageBeautifierStyle: footerRules.messageBeautifierStyle,
+    aiRewriteEnabled: footerRules.aiRewriteEnabled,
+    aiRewriteStyle: footerRules.aiRewriteStyle,
     telegramForwardEnabled: footerRules.telegramForwardEnabled,
     telegramDestinationGroupId: footerRules.telegramDestinationGroupId,
     telegramDestinationGroupName: footerRules.telegramDestinationGroupName,
@@ -492,6 +494,8 @@ function encodeCustomFooterRules(payload = {}) {
   const rules = {
     messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
     messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle),
+    aiRewriteEnabled: Boolean(payload.aiRewriteEnabled),
+    aiRewriteStyle: normalizeBeautifierStyle(payload.aiRewriteStyle),
     telegramForwardEnabled: Boolean(payload.telegramForwardEnabled),
     telegramDestinationGroupId: cleanText(payload.telegramDestinationGroupId),
     telegramDestinationGroupName: cleanText(payload.telegramDestinationGroupName)
@@ -500,6 +504,8 @@ function encodeCustomFooterRules(payload = {}) {
   if (
     !rules.messageBeautifierEnabled &&
     rules.messageBeautifierStyle === 'clean' &&
+    !rules.aiRewriteEnabled &&
+    rules.aiRewriteStyle === 'clean' &&
     !rules.telegramForwardEnabled &&
     !rules.telegramDestinationGroupId &&
     !rules.telegramDestinationGroupName
@@ -518,6 +524,8 @@ function decodeCustomFooterRules(value) {
       customFooter: raw,
       messageBeautifierEnabled: false,
       messageBeautifierStyle: 'clean',
+      aiRewriteEnabled: false,
+      aiRewriteStyle: 'clean',
       telegramForwardEnabled: false,
       telegramDestinationGroupId: '',
       telegramDestinationGroupName: ''
@@ -531,6 +539,8 @@ function decodeCustomFooterRules(value) {
       customFooter: raw,
       messageBeautifierEnabled: false,
       messageBeautifierStyle: 'clean',
+      aiRewriteEnabled: false,
+      aiRewriteStyle: 'clean',
       telegramForwardEnabled: false,
       telegramDestinationGroupId: '',
       telegramDestinationGroupName: ''
@@ -547,6 +557,8 @@ function decodeCustomFooterRules(value) {
       customFooter,
       messageBeautifierEnabled: Boolean(rules.messageBeautifierEnabled),
       messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle),
+      aiRewriteEnabled: Boolean(rules.aiRewriteEnabled),
+      aiRewriteStyle: normalizeBeautifierStyle(rules.aiRewriteStyle),
       telegramForwardEnabled: Boolean(rules.telegramForwardEnabled),
       telegramDestinationGroupId: cleanText(rules.telegramDestinationGroupId),
       telegramDestinationGroupName: cleanText(rules.telegramDestinationGroupName)
@@ -556,6 +568,8 @@ function decodeCustomFooterRules(value) {
       customFooter,
       messageBeautifierEnabled: false,
       messageBeautifierStyle: 'clean',
+      aiRewriteEnabled: false,
+      aiRewriteStyle: 'clean',
       telegramForwardEnabled: false,
       telegramDestinationGroupId: '',
       telegramDestinationGroupName: ''
@@ -575,6 +589,14 @@ function mergeAffiliateAutomationRulesPayload(currentAutomation, payload = {}) {
       payload.messageBeautifierStyle !== undefined
         ? payload.messageBeautifierStyle
         : currentAutomation?.messageBeautifierStyle,
+    aiRewriteEnabled:
+      payload.aiRewriteEnabled !== undefined
+        ? payload.aiRewriteEnabled
+        : currentAutomation?.aiRewriteEnabled,
+    aiRewriteStyle:
+      payload.aiRewriteStyle !== undefined
+        ? payload.aiRewriteStyle
+        : currentAutomation?.aiRewriteStyle,
     telegramForwardEnabled:
       payload.telegramForwardEnabled !== undefined
         ? payload.telegramForwardEnabled

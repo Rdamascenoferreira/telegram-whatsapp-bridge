@@ -301,6 +301,69 @@ test('processAffiliateMessage applies beautifier after link conversion', async (
   assert.doesNotMatch(result.processedMessage, /amzn\.to\/abc/);
 });
 
+test('processAffiliateMessage uses Groq rewrite when enabled', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      aiRewriteEnabled: true,
+      aiRewriteStyle: 'sales'
+    },
+    account,
+    dryRun: true,
+    message: 'Monitor Gamer\n\nCupom: QUINTOUU\nR$ 639,00\nhttps://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    rewriteAffiliateMessageFn: async () => ({
+      success: true,
+      provider: 'groq',
+      model: 'mock',
+      message: 'Oferta inteligente\n\nMonitor Gamer\n\nLink da oferta:\nhttps://www.amazon.com.br/dp/B0ABC12345?tag=tagdocliente-20'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'groq');
+  assert.match(result.processedMessage, /Oferta inteligente/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+});
+
+test('processAffiliateMessage falls back to local beautifier when Groq rewrite fails', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      aiRewriteEnabled: true,
+      aiRewriteStyle: 'plain'
+    },
+    account,
+    dryRun: true,
+    message: 'Monitor Gamer\n\nCupom: QUINTOUU\nR$ 639,00\nhttps://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    rewriteAffiliateMessageFn: async () => ({
+      success: false,
+      provider: 'groq',
+      model: 'mock',
+      error: 'timeout'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'groq_fallback_local');
+  assert.equal(result.rewriteError, 'timeout');
+  assert.match(result.processedMessage, /Oferta selecionada/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+});
+
 test('convertShopeeLink requires Shopee API credentials', async () => {
   const result = await convertShopeeLink('https://www.shopee.com.br/produto', {
     affiliateId: 'abc'

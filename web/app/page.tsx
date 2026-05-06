@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 0.97';
+const panelVersion = 'Versao 0.98';
 
 type AuthUser = {
   id: string;
@@ -108,6 +108,8 @@ type AffiliateAutomation = {
   removeOriginalFooter?: boolean;
   messageBeautifierEnabled?: boolean;
   messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
+  aiRewriteEnabled?: boolean;
+  aiRewriteStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
   telegramForwardEnabled?: boolean;
   telegramDestinationGroupId?: string;
   telegramDestinationGroupName?: string;
@@ -3408,6 +3410,8 @@ function AffiliateAutomationPanel({
     processedMessage: string;
     convertedUrls: AffiliateLog['convertedUrls'];
     status: string;
+    rewriteMode?: string;
+    rewriteError?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -3471,7 +3475,9 @@ function AffiliateAutomationPanel({
         removeOriginalFooter: false,
         customFooter: '',
         messageBeautifierEnabled: false,
-        messageBeautifierStyle: 'clean'
+        messageBeautifierStyle: 'clean',
+        aiRewriteEnabled: false,
+        aiRewriteStyle: 'clean'
       },
       message: testMessage
     });
@@ -3502,7 +3508,9 @@ function AffiliateAutomationPanel({
         customFooter: form.get('customFooter'),
         removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
         messageBeautifierEnabled: form.get('messageBeautifierEnabled') === 'on',
-        messageBeautifierStyle: form.get('messageBeautifierStyle')
+        messageBeautifierStyle: form.get('messageBeautifierStyle'),
+        aiRewriteEnabled: form.get('aiRewriteEnabled') === 'on',
+        aiRewriteStyle: form.get('aiRewriteStyle') || form.get('messageBeautifierStyle')
       });
       await refresh();
       setAffiliateRulesEditing(false);
@@ -3701,6 +3709,37 @@ function AffiliateAutomationPanel({
                       <option value="plain">Sem Emojis</option>
                     </select>
                   </label>
+
+                  <label className="inline-flex items-start gap-2 text-sm text-[var(--muted)]">
+                    <input
+                      type="checkbox"
+                      name="aiRewriteEnabled"
+                      defaultChecked={Boolean(activeAutomation?.aiRewriteEnabled)}
+                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block font-semibold text-[var(--foreground)]">Reescrever com IA (Groq)</span>
+                      <span className="mt-1 block text-xs leading-5">
+                        Usa o parser atual como base e reescreve a oferta de forma mais inteligente. Se a IA falhar, o sistema cai automaticamente para o formatador local.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estilo da IA</span>
+                    <select
+                      name="aiRewriteStyle"
+                      defaultValue={activeAutomation?.aiRewriteStyle || activeAutomation?.messageBeautifierStyle || 'clean'}
+                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                      className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
+                    >
+                      <option value="clean">Clean</option>
+                      <option value="sales">Vendedor</option>
+                      <option value="urgent">Urgencia</option>
+                      <option value="plain">Sem Emojis</option>
+                    </select>
+                  </label>
                 </div>
 
                 <label className="grid gap-2">
@@ -3784,6 +3823,19 @@ function AffiliateAutomationPanel({
                       {testStatusLabel(testResult.status)}
                     </span>
                   </div>
+
+                  {testResult.rewriteMode ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100">
+                        Reescrita: {testResult.rewriteMode === 'groq' ? 'IA Groq' : testResult.rewriteMode === 'groq_fallback_local' ? 'Fallback local' : 'Local'}
+                      </span>
+                      {testResult.rewriteError ? (
+                        <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] text-amber-100">
+                          {testResult.rewriteError}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-xl border border-emerald-400/15 bg-black/15 p-3">

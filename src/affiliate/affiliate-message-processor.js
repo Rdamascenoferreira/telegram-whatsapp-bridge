@@ -1,6 +1,7 @@
 import { convertAmazonLink } from './converters/amazon-affiliate-converter.js';
 import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
 import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
+import { rewriteAffiliateMessageWithGroq } from './groq-rewriter.js';
 import { detectMarketplace } from './marketplace-detector.js';
 import { beautifyAffiliateMessage } from './message-beautifier.js';
 import { expandUrl } from './url-expander.js';
@@ -17,6 +18,7 @@ export async function processAffiliateMessage(params = {}) {
   const account = params.account || (userId ? await getAffiliateAccountForProcessing(userId) : null);
   const dryRun = Boolean(params.dryRun);
   const expandUrlFn = params.expandUrlFn || expandUrl;
+  const rewriteAffiliateMessageFn = params.rewriteAffiliateMessageFn || rewriteAffiliateMessageWithGroq;
   const logEnabled = !dryRun;
   let messageLogId = '';
 
@@ -165,10 +167,31 @@ export async function processAffiliateMessage(params = {}) {
       processedMessage = removeLikelyFooter(processedMessage);
     }
 
-    if (automation.messageBeautifierEnabled) {
-      processedMessage = beautifyAffiliateMessage(processedMessage, {
-        style: automation.messageBeautifierStyle
+    let rewriteMode = '';
+    let rewriteError = '';
+    const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
+
+    if (automation.aiRewriteEnabled) {
+      const aiRewrite = await rewriteAffiliateMessageFn({
+        message: processedMessage,
+        originalMessage,
+        style: preferredRewriteStyle
       });
+
+      if (aiRewrite.success && aiRewrite.message) {
+        processedMessage = aiRewrite.message;
+        rewriteMode = 'groq';
+      } else {
+        rewriteError = aiRewrite.error || 'AI rewrite failed';
+        console.warn(`Affiliate AI rewrite fallback: ${rewriteError}`);
+      }
+    }
+
+    if (automation.messageBeautifierEnabled || (automation.aiRewriteEnabled && rewriteError)) {
+      processedMessage = beautifyAffiliateMessage(processedMessage, {
+        style: preferredRewriteStyle
+      });
+      rewriteMode = automation.aiRewriteEnabled && rewriteError ? 'groq_fallback_local' : 'local';
     }
 
     if (automation.customFooter) {
@@ -186,7 +209,9 @@ export async function processAffiliateMessage(params = {}) {
       originalUrls,
       convertedUrls,
       status,
-      shouldSend: status !== 'ignored'
+      shouldSend: status !== 'ignored',
+      rewriteMode,
+      rewriteError
     });
 
     await persistMessageResult(logEnabled, messageLogId, result);
@@ -199,7 +224,9 @@ export async function processAffiliateMessage(params = {}) {
       processedMessage: originalMessage,
       status: 'error',
       shouldSend: false,
-      errorMessage: error.message
+      errorMessage: error.message,
+      rewriteMode: '',
+      rewriteError: ''
     });
     await persistMessageResult(logEnabled, messageLogId, result);
     return result;
@@ -261,6 +288,8 @@ function buildResult(payload) {
     convertedUrls: payload.convertedUrls || [],
     shouldSend: Boolean(payload.shouldSend),
     status: payload.status || 'ignored',
-    errorMessage: payload.errorMessage || ''
+    errorMessage: payload.errorMessage || '',
+    rewriteMode: payload.rewriteMode || '',
+    rewriteError: payload.rewriteError || ''
   };
 }

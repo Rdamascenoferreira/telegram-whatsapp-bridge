@@ -20,59 +20,43 @@ export function beautifyAffiliateMessage(message, options = {}) {
     return normalizeLineForStyle(input, normalizeBeautifierStyle(options.style)).trim();
   }
 
-  const style = normalizeBeautifierStyle(options.style);
-  const lines = input
-    .split('\n')
-    .map((line) => normalizeLineForStyle(line, style).trim())
-    .filter(Boolean);
-
-  const title = findTitle(lines, urls);
-  const price = findPrimaryPriceLine(lines, input);
-  const installment = findInstallmentLine(lines);
-  const coupon = findCoupon(lines);
-  const primaryUrlIndex = findPrimaryUrlIndex(lines, urls);
-  const primaryUrl = urls[primaryUrlIndex] || urls[0];
-  const couponUrls = findCouponUrls(lines, urls, primaryUrlIndex);
-  const extraUrls = urls
-    .filter((_, index) => index !== primaryUrlIndex)
-    .filter((url) => !couponUrls.includes(url))
-    .filter((url) => !isCommunityPromoUrl(url, lines));
+  const details = extractAffiliateOfferDetails(input, options);
   const blocks = [];
 
-  blocks.push(getHeadline(style));
-  blocks.push(title);
+  blocks.push(getHeadline(details.style));
+  blocks.push(details.title);
 
   const commercialLines = [];
 
-  if (price) {
-    commercialLines.push(style === 'plain' ? price : `\u{1F4B0} ${price}`);
+  if (details.price) {
+    commercialLines.push(details.style === 'plain' ? details.price : `\u{1F4B0} ${details.price}`);
   }
 
-  if (installment) {
-    commercialLines.push(style === 'plain' ? installment : `\u{1F4B3} ${installment}`);
+  if (details.installment) {
+    commercialLines.push(details.style === 'plain' ? details.installment : `\u{1F4B3} ${details.installment}`);
   }
 
-  if (coupon) {
-    commercialLines.push(style === 'plain' ? `Cupom: ${coupon}` : `\u{1F3F7} Cupom: ${coupon}`);
+  if (details.coupon) {
+    commercialLines.push(details.style === 'plain' ? `Cupom: ${details.coupon}` : `\u{1F3F7} Cupom: ${details.coupon}`);
   }
 
   if (commercialLines.length) {
     blocks.push(commercialLines.join('\n'));
   }
 
-  blocks.push(style === 'plain' ? `Link da oferta:\n${primaryUrl}` : `\u{1F6D2} Link da oferta:\n${primaryUrl}`);
+  blocks.push(details.style === 'plain' ? `Link da oferta:\n${details.primaryUrl}` : `\u{1F6D2} Link da oferta:\n${details.primaryUrl}`);
 
-  if (couponUrls.length) {
-    blocks.push(style === 'plain' ? `Cupons:\n${couponUrls.join('\n')}` : `\u{1F3F7} Cupons:\n${couponUrls.join('\n')}`);
+  if (details.couponUrls.length) {
+    blocks.push(details.style === 'plain' ? `Cupons:\n${details.couponUrls.join('\n')}` : `\u{1F3F7} Cupons:\n${details.couponUrls.join('\n')}`);
   }
 
-  if (extraUrls.length) {
-    blocks.push(style === 'plain' ? `Links uteis:\n${extraUrls.join('\n')}` : `\u{1F517} Links uteis:\n${extraUrls.join('\n')}`);
+  if (details.extraUrls.length) {
+    blocks.push(details.style === 'plain' ? `Links uteis:\n${details.extraUrls.join('\n')}` : `\u{1F517} Links uteis:\n${details.extraUrls.join('\n')}`);
   }
 
-  if (style === 'urgent') {
+  if (details.style === 'urgent') {
     blocks.push('\u{23F3} Aproveite enquanto a oferta estiver disponivel.');
-  } else if (style === 'sales') {
+  } else if (details.style === 'sales') {
     blocks.push('\u{2705} Garanta antes que o preco mude.');
   }
 
@@ -81,6 +65,39 @@ export function beautifyAffiliateMessage(message, options = {}) {
     .join('\n\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+export function extractAffiliateOfferDetails(message, options = {}) {
+  const input = String(message ?? '').trim();
+  const style = normalizeBeautifierStyle(options.style);
+  const urls = extractUrls(input);
+  const lines = input
+    .split('\n')
+    .map((line) => normalizeLineForStyle(line, style).trim())
+    .filter(Boolean);
+  const title = findTitle(lines, urls);
+  const price = findPrimaryPriceLine(lines, input);
+  const installment = findInstallmentLine(lines);
+  const coupon = findCoupon(lines);
+  const primaryUrlIndex = findPrimaryUrlIndex(lines, urls);
+  const primaryUrl = urls[primaryUrlIndex] || urls[0] || '';
+  const couponUrls = findCouponUrls(lines, urls, primaryUrlIndex);
+  const extraUrls = urls
+    .filter((_, index) => index !== primaryUrlIndex)
+    .filter((url) => !couponUrls.includes(url))
+    .filter((url) => !isCommunityPromoUrl(url, lines));
+
+  return {
+    style,
+    title,
+    price,
+    installment,
+    coupon,
+    primaryUrl,
+    couponUrls,
+    extraUrls,
+    urls
+  };
 }
 
 function getHeadline(style) {
