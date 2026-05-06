@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.08';
+const panelVersion = 'Versao 1.09';
 
 type AuthUser = {
   id: string;
@@ -1084,10 +1084,10 @@ function Topbar({
   state: AppState;
   onLogout: () => Promise<void>;
 }) {
-  const hasTelegramSource = Boolean(state.config.telegramChannel);
-  const hasWhatsAppDestination = (state.config.selectedGroupIds?.length || 0) > 0;
+  const hasTelegramSource = hasOperationalTelegramSource(state);
+  const hasWhatsAppDestination = hasOperationalWhatsAppDestination(state);
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
-  const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const canEnableAutomation = canEnableAutomationState(state);
   const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
 
   return (
@@ -1139,15 +1139,10 @@ function Overview({
   const readOnlyAccount = isReadOnlyAccount(state);
   const isAdmin = state.auth.user?.role === 'admin';
   const progress = state.metrics.groupRefreshProgress;
-  const canEnableAutomation = state.telegramStatus === 'listening' && state.whatsAppStatus === 'ready';
+  const canEnableAutomation = canEnableAutomationState(state);
   const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
   const whatsappDestinationsUsed = state.config.selectedGroupIds?.length || 0;
-  const automationLockReason =
-    state.telegramStatus !== 'listening'
-      ? 'Conecte e conclua o login no Telegram para liberar a automacao.'
-      : state.whatsAppStatus !== 'ready'
-        ? 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automacao.'
-        : '';
+  const automationLockReason = getAutomationLockReason(state);
   const groupProgressText =
     state.metrics.groupsRefreshing && progress?.total
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
@@ -1212,11 +1207,11 @@ function Overview({
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
                 Conta em teste: a automacao fica somente para visualizacao ate o administrador liberar.
               </p>
-            ) : !canEnableAutomation ? (
-              <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                O interruptor sera liberado assim que Telegram e WhatsApp estiverem conectados.
-              </p>
-            ) : null}
+              ) : !canEnableAutomation ? (
+                <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                  O interruptor sera liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
+                </p>
+              ) : null}
 
             {isAdmin ? (
               <button
@@ -1306,8 +1301,9 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
   const isAdmin = state.auth.user?.role === 'admin';
   const whatsappDestinationsUsed = state.config.selectedGroupIds?.length || 0;
   const activeAffiliateAutomations = (state.affiliate?.automations || []).filter((automation) => automation.isActive);
+  const operationalSourceUsed = hasOperationalTelegramSource(state) ? 1 : 0;
   const telegramSourcesUsed = Math.min(
-    (state.config.telegramChannel ? 1 : 0) + activeAffiliateAutomations.length,
+    operationalSourceUsed + activeAffiliateAutomations.length,
     Math.max(1, limits?.telegramSources || 1)
   );
   const messageUsage = state.metrics.totalForwardedMessages || state.metrics.totalWhatsAppDeliveries || 0;
@@ -4720,6 +4716,48 @@ function isWhatsAppConnectedStatus(value: string) {
 
 function normalizeRouteSourceId(value?: string | null) {
   return String(value ?? '').trim();
+}
+
+function getActiveAffiliateAutomation(state: AppState) {
+  return (state.affiliate?.automations || []).find((automation) => automation.isActive) || null;
+}
+
+function getOperationalTelegramSource(state: AppState) {
+  const activeAffiliateAutomation = getActiveAffiliateAutomation(state);
+  return normalizeRouteSourceId(activeAffiliateAutomation?.telegramSourceGroupId || state.config.telegramChannel);
+}
+
+function hasOperationalTelegramSource(state: AppState) {
+  return Boolean(getOperationalTelegramSource(state));
+}
+
+function hasOperationalWhatsAppDestination(state: AppState) {
+  return (state.config.selectedGroupIds?.length || 0) > 0;
+}
+
+function canEnableAutomationState(state: AppState) {
+  return (
+    state.telegramStatus === 'listening' &&
+    state.whatsAppStatus === 'ready' &&
+    hasOperationalTelegramSource(state) &&
+    hasOperationalWhatsAppDestination(state)
+  );
+}
+
+function getAutomationLockReason(state: AppState) {
+  if (state.telegramStatus !== 'listening') {
+    return 'Conecte e conclua o login no Telegram para liberar a automacao.';
+  }
+  if (state.whatsAppStatus !== 'ready') {
+    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automacao.';
+  }
+  if (!hasOperationalTelegramSource(state)) {
+    return 'Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.';
+  }
+  if (!hasOperationalWhatsAppDestination(state)) {
+    return 'Escolha ao menos um destino do WhatsApp antes de ligar o sistema.';
+  }
+  return '';
 }
 
 function getTelegramChatName(state: AppState, sourceId?: string | null) {

@@ -16,6 +16,7 @@ import {
 } from './activityStore.js';
 import {
   getActiveAffiliateAutomationsBySource,
+  getAffiliateState,
   updateAffiliateMessageLog
 } from './affiliate/affiliate-store.js';
 import { processAffiliateMessage } from './affiliate/affiliate-message-processor.js';
@@ -252,8 +253,8 @@ export class UserBridgeRuntime {
   }
 
   async updatePower(bridgeEnabled) {
-    if (bridgeEnabled && !this.canEnableBridge()) {
-      throw new Error('Conecte o Telegram e o WhatsApp antes de ligar o sistema.');
+    if (bridgeEnabled) {
+      await this.ensureCanEnableBridge();
     }
 
     this.config = await saveConfigForUser(this.userId, {
@@ -266,6 +267,42 @@ export class UserBridgeRuntime {
 
   canEnableBridge() {
     return this.telegramStatus === 'listening' && this.whatsAppStatus === 'ready';
+  }
+
+  async getOperationalFlowState() {
+    const affiliateState = await getAffiliateState(this.userId);
+    const activeAffiliateAutomation =
+      (affiliateState?.automations || []).find((automation) => automation.isActive) || null;
+    const operationalSource = String(
+      activeAffiliateAutomation?.telegramSourceGroupId || this.config.telegramChannel || ''
+    ).trim();
+    const destinationCount = Array.isArray(this.config.selectedGroupIds)
+      ? this.config.selectedGroupIds.length
+      : 0;
+
+    return {
+      hasTelegramReady: this.telegramStatus === 'listening',
+      hasWhatsAppReady: this.whatsAppStatus === 'ready',
+      hasOperationalSource: Boolean(operationalSource),
+      hasDestination: destinationCount > 0
+    };
+  }
+
+  async ensureCanEnableBridge() {
+    const flowState = await this.getOperationalFlowState();
+
+    if (!flowState.hasTelegramReady) {
+      throw new Error('Conecte e conclua o login no Telegram antes de ligar o sistema.');
+    }
+    if (!flowState.hasWhatsAppReady) {
+      throw new Error('Conecte o WhatsApp e aguarde o status ficar pronto antes de ligar o sistema.');
+    }
+    if (!flowState.hasOperationalSource) {
+      throw new Error('Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.');
+    }
+    if (!flowState.hasDestination) {
+      throw new Error('Escolha ao menos um destino do WhatsApp antes de ligar o sistema.');
+    }
   }
 
   resolveWhatsAppTargetGroupIds(selectedGroupIds = this.config.selectedGroupIds) {
