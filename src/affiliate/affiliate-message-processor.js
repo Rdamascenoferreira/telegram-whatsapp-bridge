@@ -184,6 +184,7 @@ export async function processAffiliateMessage(params = {}) {
     const preserveOriginalTextEnabled = Boolean(automation.preserveOriginalTextEnabled || params.preserveOriginalTextEnabled);
 
     if (preserveOriginalTextEnabled) {
+      processedMessage = filterPreservedMessageBySupportedBlocks(processedMessage, convertedUrls);
       processedMessage = cleanupPreservedAffiliateMessage(processedMessage);
       rewriteMode = 'link_replace_only';
     } else {
@@ -425,6 +426,82 @@ function cleanupPreservedAffiliateMessage(message) {
   return normalizePreservedSpacing(cleaned.join('\n'));
 }
 
+function filterPreservedMessageBySupportedBlocks(message, convertedUrls = []) {
+  const text = String(message ?? '').trim();
+
+  if (!text) {
+    return text;
+  }
+
+  const convertedLinkSet = new Set(
+    convertedUrls
+      .filter((item) => item?.status === 'converted' && item?.affiliateUrl)
+      .map((item) => normalizeComparableUrl(item.affiliateUrl))
+      .filter(Boolean)
+  );
+
+  if (!convertedLinkSet.size) {
+    return text;
+  }
+
+  const lines = text.split('\n');
+  const headerIndexes = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (isMarketplaceHeaderLine(lines[index])) {
+      headerIndexes.push(index);
+    }
+  }
+
+  if (headerIndexes.length < 2) {
+    return text;
+  }
+
+  const introLines = lines.slice(0, headerIndexes[0]);
+  const blocks = [];
+
+  for (let index = 0; index < headerIndexes.length; index += 1) {
+    const start = headerIndexes[index];
+    const end = headerIndexes[index + 1] ?? lines.length;
+    const blockLines = lines.slice(start, end);
+    const blockText = blockLines.join('\n').trim();
+
+    if (!blockText) {
+      continue;
+    }
+
+    const urlMatches = extractMessageUrlMatches({ text: blockText });
+    const normalizedLinks = uniqueUrls(
+      urlMatches.map((match) => normalizeComparableUrl(match.normalizedUrl || match.rawUrl))
+    );
+
+    const hasConvertedLink = normalizedLinks.some((url) => convertedLinkSet.has(url));
+    const hasMarketplaceLink = normalizedLinks.some((url) => isLikelyMarketplaceUrl(url));
+
+    blocks.push({
+      text: blockText,
+      hasConvertedLink,
+      hasMarketplaceLink
+    });
+  }
+
+  const keptBlocks = blocks.filter((block) => block.hasConvertedLink || !block.hasMarketplaceLink);
+
+  if (!keptBlocks.length || keptBlocks.length === blocks.length) {
+    return text;
+  }
+
+  const rebuiltSections = [];
+  const introText = introLines.join('\n').trim();
+
+  if (introText) {
+    rebuiltSections.push(introText);
+  }
+
+  rebuiltSections.push(...keptBlocks.map((block) => block.text));
+  return rebuiltSections.join('\n\n').trim();
+}
+
 function isDisposablePromoLine(normalized, originalLine) {
   if (!normalized) {
     return false;
@@ -481,6 +558,52 @@ function normalizePreservedSpacing(message) {
   }
 
   return result.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function isMarketplaceHeaderLine(line) {
+  const trimmed = String(line ?? '').trim();
+
+  if (!trimmed || trimmed.length > 40 || /https?:\/\//i.test(trimmed)) {
+    return false;
+  }
+
+  const normalized = normalizeContext(trimmed).replace(/[!:[\](){}-]/g, ' ').replace(/\s+/g, ' ').trim();
+  return [
+    'shopee',
+    'amazon',
+    'kabum',
+    'magalu',
+    'mercado livre',
+    'mercadolivre',
+    'aliexpress',
+    'ali express'
+  ].includes(normalized);
+}
+
+function isLikelyMarketplaceUrl(url) {
+  const normalized = normalizeComparableUrl(url);
+
+  return [
+    'shopee.com.br',
+    's.shopee.com.br',
+    'shopee.com',
+    'amazon.com.br',
+    'amazon.com',
+    'amzn.to',
+    'magalu.com.br',
+    'mercadolivre.com.br',
+    'meli.la',
+    'desconto.games',
+    'kabum.com.br',
+    'aliexpress.com'
+  ].some((domain) => normalized.includes(domain));
+}
+
+function normalizeComparableUrl(url) {
+  return String(url ?? '')
+    .trim()
+    .replace(/[),.;!?]+$/g, '')
+    .toLowerCase();
 }
 
 function isLikelyFooterContentLine(line) {

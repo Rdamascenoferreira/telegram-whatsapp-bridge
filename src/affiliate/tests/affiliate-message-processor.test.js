@@ -699,6 +699,79 @@ test('processAffiliateMessage preserve mode removes source promo noise while kee
   assert.doesNotMatch(result.processedMessage, /t\.me\//i);
 });
 
+test('processAffiliateMessage preserve mode keeps only affiliable marketplace block in mixed message', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      preserveOriginalTextEnabled: true,
+      customFooter: ''
+    },
+    account: {
+      ...account,
+      amazonEnabled: true,
+      shopeeEnabled: true,
+      shopeeAffiliateId: '18393040998',
+      shopeeAppId: '18393040998',
+      shopeeSecret: 'secret'
+    },
+    dryRun: true,
+    message: [
+      'PRAGMATA - Nintendo Switch 2',
+      '',
+      'Kabum',
+      '👉 https://desconto.games/CV5YyB8',
+      '🏷 Cupom: PARTYTIME',
+      'R$ 292,11 no PIX',
+      'R$ 314,10 em ate 10x',
+      '',
+      'Shopee',
+      'Resgate o cupom de R$ 40 OFF',
+      '👉 https://s.shopee.com.br/8095klGUHF',
+      '',
+      'Compre aqui:',
+      '👉 https://s.shopee.com.br/6VKGPnyEBv',
+      'R$ 309,89 em ate 6x'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url,
+      success: true
+    }),
+    convertShopeeLinkFn: async (url) => ({
+      success: true,
+      marketplace: 'shopee',
+      originalExpandedUrl: url,
+      affiliateUrl: url.includes('8095klGUHF')
+        ? 'https://s.shopee.com.br/cupom-afiliado'
+        : 'https://s.shopee.com.br/produto-afiliado',
+      affiliateId: '18393040998',
+      subIds: {
+        subId1: 'u245',
+        subId2: 'telegram',
+        subId3: 'captacao01',
+        subId4: 'whatsapp01',
+        subId5: 'auto'
+      },
+      utmContent: 'u245-telegram-captacao01-whatsapp01-auto'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'link_replace_only');
+  assert.match(result.processedMessage, /PRAGMATA - Nintendo Switch 2/);
+  assert.match(result.processedMessage, /Shopee/);
+  assert.match(result.processedMessage, /Resgate o cupom de R\$ 40 OFF/);
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/cupom-afiliado/);
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/produto-afiliado/);
+  assert.match(result.processedMessage, /R\$ 309,89 em ate 6x/);
+  assert.doesNotMatch(result.processedMessage, /Kabum/i);
+  assert.doesNotMatch(result.processedMessage, /PARTYTIME/);
+  assert.doesNotMatch(result.processedMessage, /desconto\.games/i);
+  assert.doesNotMatch(result.processedMessage, /R\$ 292,11/i);
+});
+
 test('processAffiliateMessage does not mix coupon from another marketplace block', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
