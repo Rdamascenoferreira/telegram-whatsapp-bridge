@@ -607,6 +607,45 @@ test('processAffiliateMessage can preserve original text and only replace conver
   assert.doesNotMatch(result.processedMessage, /Oferta selecionada/);
 });
 
+test('processAffiliateMessage preserve mode removes source promo noise while keeping offer structure', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      preserveOriginalTextEnabled: true,
+      removeOriginalFooter: false,
+      customFooter: 'Meu rodape'
+    },
+    account,
+    dryRun: true,
+    message: [
+      'Link produto:',
+      'https://amzn.to/produto-a',
+      '',
+      'anuncio',
+      '',
+      'Convide Seus Amigos:',
+      'Telegram: https://t.me/achadoshardware'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0PRODA123?tag=old-20',
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'link_replace_only');
+  assert.match(result.processedMessage, /Link produto:/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0PRODA123\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /Meu rodape/);
+  assert.doesNotMatch(result.processedMessage, /\banuncio\b/i);
+  assert.doesNotMatch(result.processedMessage, /Convide Seus Amigos/i);
+  assert.doesNotMatch(result.processedMessage, /achadoshardware/i);
+  assert.doesNotMatch(result.processedMessage, /t\.me\//i);
+});
+
 test('processAffiliateMessage does not mix coupon from another marketplace block', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

@@ -182,6 +182,7 @@ export async function processAffiliateMessage(params = {}) {
     const preserveOriginalTextEnabled = Boolean(automation.preserveOriginalTextEnabled || params.preserveOriginalTextEnabled);
 
     if (preserveOriginalTextEnabled) {
+      processedMessage = cleanupPreservedAffiliateMessage(processedMessage);
       rewriteMode = 'link_replace_only';
     } else {
       const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
@@ -396,6 +397,88 @@ function removeLikelyFooter(message) {
   }
 
   return footerStart >= 0 ? lines.slice(0, footerStart).join('\n').trimEnd() : message;
+}
+
+function cleanupPreservedAffiliateMessage(message) {
+  const lines = String(message ?? '').split('\n');
+  const cleaned = [];
+
+  for (const rawLine of lines) {
+    const line = String(rawLine ?? '');
+    const trimmed = line.trim();
+    const normalized = normalizeContext(trimmed);
+
+    if (!trimmed) {
+      cleaned.push('');
+      continue;
+    }
+
+    if (isDisposablePromoLine(normalized, trimmed)) {
+      continue;
+    }
+
+    cleaned.push(line);
+  }
+
+  return normalizePreservedSpacing(cleaned.join('\n'));
+}
+
+function isDisposablePromoLine(normalized, originalLine) {
+  if (!normalized) {
+    return false;
+  }
+
+  if (/^#?\s*anuncio\s*$/iu.test(originalLine.trim())) {
+    return true;
+  }
+
+  if (/^_+\s*$/.test(originalLine.trim())) {
+    return false;
+  }
+
+  const patterns = [
+    /\bconvide\s+seus\s+amigos\b/,
+    /\bmais\s+grupos?\s+de\s+ofertas?\b/,
+    /\bparticipe\s+do\s+nosso\s+outro\s+grupo\b/,
+    /\bgrupo\s+de\s+promocoes\b/,
+    /\bgrupos?\s+de\s+promocoes\b/,
+    /\bcanais?\s+de\s+promocoes\b/,
+    /\bpromocoes?\s+gerais\b/,
+    /\bpromocoes?\s+no\s+whatsapp\b/,
+    /\btelegram\s*:/,
+    /\bwhatsapp\s*:/,
+    /\binstagram\s*:/,
+    /\blinktr\.ee\b/,
+    /\bt\.me\//,
+    /\bwhatsapp\.com\/channel\b/,
+    /\bentre\s+no\s+(grupo|canal)\b/,
+    /\bsiga\s+(nosso|o)\s+(grupo|canal)\b/
+  ];
+
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
+function normalizePreservedSpacing(message) {
+  const normalizedLines = String(message ?? '').split('\n');
+  const result = [];
+  let previousBlank = false;
+
+  for (const line of normalizedLines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      if (!previousBlank) {
+        result.push('');
+      }
+      previousBlank = true;
+      continue;
+    }
+
+    result.push(line);
+    previousBlank = false;
+  }
+
+  return result.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function isLikelyFooterContentLine(line) {
