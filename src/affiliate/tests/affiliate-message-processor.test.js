@@ -331,6 +331,36 @@ test('beautifyAffiliateMessage scopes details to the preferred converted offer',
   assert.doesNotMatch(result, /R\$ 1\.934,10/);
 });
 
+test('beautifyAffiliateMessage preserves multiple product variants from the same offer', () => {
+  const blackUrl = 'https://www.amazon.com.br/dp/B087CT8PWY?tag=tagdocliente-20';
+  const whiteUrl = 'https://www.amazon.com.br/dp/B087CT9W2Y?tag=tagdocliente-20';
+  const result = beautifyAffiliateMessage(
+    [
+      'Mouse Gamer Logitech G203 LIGHTSYNC RGB - (Amazon)',
+      '',
+      `Preto -> ${blackUrl}`,
+      'R$ 91,90 no pix',
+      'Frete Gratis Prime',
+      '',
+      `Branco -> ${whiteUrl}`,
+      'R$108,90 em ate 3x',
+      'Frete Gratis Prime'
+    ].join('\n'),
+    { style: 'urgent' }
+  );
+
+  assert.match(result, /Mouse Gamer Logitech G203 LIGHTSYNC RGB/);
+  assert.match(result, /Opcoes disponiveis:/);
+  assert.match(result, /Preto/);
+  assert.match(result, /Branco/);
+  assert.match(result, /R\$ 91,90 no pix/);
+  assert.match(result, /R\$108,90 em ate 3x/);
+  assert.match(result, /Frete Gratis Prime/);
+  assert.match(result, /https:\/\/www\.amazon\.com\.br\/dp\/B087CT8PWY\?tag=tagdocliente-20/);
+  assert.match(result, /https:\/\/www\.amazon\.com\.br\/dp\/B087CT9W2Y\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result, /\(Amazon\)/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
@@ -429,6 +459,53 @@ test('processAffiliateMessage uses Groq rewrite when enabled', async () => {
   assert.equal(result.rewriteMode, 'groq');
   assert.match(result.processedMessage, /Oferta inteligente/);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+});
+
+test('processAffiliateMessage keeps all converted Amazon variants after AI fallback', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      aiRewriteEnabled: true,
+      aiRewriteStyle: 'urgent'
+    },
+    account,
+    dryRun: true,
+    message: [
+      'Mouse Gamer Logitech G203 LIGHTSYNC RGB - (Amazon)',
+      '',
+      'Preto -> https://amzlink.to/preto',
+      'R$ 91,90 no pix',
+      'Frete Gratis Prime',
+      '',
+      'Branco -> https://amzlink.to/branco',
+      'R$108,90 em ate 3x',
+      'Frete Gratis Prime'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('preto')
+        ? 'https://www.amazon.com.br/mouse-preto/dp/B087CT8PWY?tag=old-20'
+        : 'https://www.amazon.com.br/mouse-branco/dp/B087CT9W2Y?tag=old-20',
+      success: true
+    }),
+    rewriteAffiliateMessageFn: async () => ({
+      success: false,
+      provider: 'groq',
+      model: 'mock',
+      error: 'multiple variants'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.rewriteMode, 'groq_fallback_local');
+  assert.match(result.processedMessage, /Preto/);
+  assert.match(result.processedMessage, /Branco/);
+  assert.match(result.processedMessage, /R\$ 91,90 no pix/);
+  assert.match(result.processedMessage, /R\$108,90 em ate 3x/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B087CT8PWY\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B087CT9W2Y\?tag=tagdocliente-20/);
 });
 
 test('processAffiliateMessage falls back to local beautifier when Groq rewrite fails', async () => {

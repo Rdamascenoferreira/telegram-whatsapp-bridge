@@ -21,6 +21,11 @@ export function beautifyAffiliateMessage(message, options = {}) {
   }
 
   const details = extractAffiliateOfferDetails(input, options);
+
+  if (details.variants.length > 1) {
+    return formatVariantAffiliateMessage(details);
+  }
+
   const blocks = [];
 
   blocks.push(getHeadline(details.style));
@@ -75,10 +80,12 @@ export function extractAffiliateOfferDetails(message, options = {}) {
     .split('\n')
     .map((line) => normalizeLineForStyle(line, style).trim())
     .filter(Boolean);
+  const hasPreferredPrimaryUrl = Boolean(normalizeUrlForComparison(options.primaryUrl));
   const initialPrimaryUrlIndex = findPrimaryUrlIndex(allLines, allUrls, options.primaryUrl);
-  const lines = scopeLinesForPrimaryOffer(allLines, allUrls, initialPrimaryUrlIndex);
+  const lines = hasPreferredPrimaryUrl ? scopeLinesForPrimaryOffer(allLines, allUrls, initialPrimaryUrlIndex) : allLines;
   const scopedInput = lines.join('\n');
   const urls = allUrls.filter((url) => lines.some((line) => lineContainsKnownUrl(line, [url])));
+  const variants = findOfferVariants(lines, urls);
   const title = findTitle(lines, urls);
   const price = findPrimaryPriceLine(lines, scopedInput);
   const installment = findInstallmentLine(lines);
@@ -87,8 +94,10 @@ export function extractAffiliateOfferDetails(message, options = {}) {
   const primaryUrlIndex = findPrimaryUrlIndex(lines, urls, preferredPrimaryUrl);
   const primaryUrl = urls[primaryUrlIndex] || urls[0] || '';
   const couponUrls = findCouponUrls(lines, urls, primaryUrlIndex);
+  const variantUrls = variants.map((variant) => variant.url);
   const extraUrls = urls
     .filter((_, index) => index !== primaryUrlIndex)
+    .filter((url) => !variantUrls.includes(url))
     .filter((url) => !couponUrls.includes(url))
     .filter((url) => !isCommunityPromoUrl(url, lines));
 
@@ -101,8 +110,43 @@ export function extractAffiliateOfferDetails(message, options = {}) {
     primaryUrl,
     couponUrls,
     extraUrls,
+    variants,
     urls
   };
+}
+
+function formatVariantAffiliateMessage(details) {
+  const blocks = [];
+  const optionBlocks = details.variants.map((variant, index) => {
+    const label = variant.label || `Opcao ${index + 1}`;
+    const lines = [details.style === 'plain' ? label : `- ${label}`];
+
+    if (variant.price) {
+      lines.push(details.style === 'plain' ? variant.price : `\u{1F4B0} ${variant.price}`);
+    }
+
+    if (variant.shipping) {
+      lines.push(details.style === 'plain' ? variant.shipping : `\u{1F69A} ${variant.shipping}`);
+    }
+
+    lines.push(details.style === 'plain' ? `Link:\n${variant.url}` : `\u{1F6D2} Link:\n${variant.url}`);
+    return lines.filter(Boolean).join('\n');
+  });
+
+  blocks.push(getHeadline(details.style));
+  blocks.push(details.title);
+  blocks.push('Opcoes disponiveis:');
+  blocks.push(optionBlocks.join('\n\n'));
+
+  if (details.coupon) {
+    blocks.push(details.style === 'plain' ? `Cupom: ${details.coupon}` : `\u{1F3F7} Cupom: ${details.coupon}`);
+  }
+
+  return blocks
+    .filter(Boolean)
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function scopeLinesForPrimaryOffer(lines, urls, primaryUrlIndex) {
@@ -344,6 +388,114 @@ function findCouponUrls(lines, urls, primaryUrlIndex) {
   });
 }
 
+function findOfferVariants(lines, urls) {
+  const variants = urls
+    .filter((url) => !isCouponUrlByContext(lines, url))
+    .filter((url) => !isCommunityPromoUrl(url, lines))
+    .map((url) => {
+      const lineIndex = lines.findIndex((line) => lineContainsKnownUrl(line, [url]));
+
+      if (lineIndex < 0) {
+        return null;
+      }
+
+      const variantLines = collectVariantLines(lines, urls, lineIndex, url);
+      const priceLine = variantLines.find((line) => /R\$\s?[\d.]+(?:,\d{2})?/i.test(line));
+      const shippingLine = variantLines.find((line) => /\bfrete\b/i.test(normalizeForMatching(line)));
+
+      return {
+        label: extractVariantLabel(lines, urls, lineIndex, url),
+        price: priceLine ? cleanCommercialLine(priceLine) : '',
+        shipping: shippingLine ? cleanCommercialLine(shippingLine) : '',
+        url
+      };
+    })
+    .filter(Boolean);
+
+  if (variants.length < 2) {
+    return [];
+  }
+
+  const usefulVariants = variants.filter((variant) => variant.label || variant.price || variant.shipping);
+  const labelCount = variants.filter((variant) => variant.label).length;
+
+  if (usefulVariants.length < 2 || labelCount < 2) {
+    return [];
+  }
+
+  return variants;
+}
+
+function collectVariantLines(lines, urls, lineIndex, currentUrl) {
+  const collected = [];
+
+  for (let index = lineIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineUrls = urls.filter((url) => lineContainsKnownUrl(line, [url]));
+    const hasOtherUrl = lineUrls.some((url) => url !== currentUrl);
+
+    if (hasOtherUrl || isMarketplaceHeadingLine(line)) {
+      break;
+    }
+
+    if (isLikelyPromotionalFooterLine(line) && !/\bfrete\b/i.test(normalizeForMatching(line))) {
+      break;
+    }
+
+    collected.push(line);
+  }
+
+  return collected;
+}
+
+function extractVariantLabel(lines, urls, lineIndex, url) {
+  const sameLineLabel = cleanVariantLabel(removeUrlFromLine(lines[lineIndex], url));
+
+  if (sameLineLabel) {
+    return sameLineLabel;
+  }
+
+  const previousLine = cleanVariantLabel(findPreviousNonEmptyLine(lines, lineIndex));
+
+  if (previousLine && !lineContainsKnownUrl(previousLine, urls)) {
+    return previousLine;
+  }
+
+  return '';
+}
+
+function removeUrlFromLine(line, url) {
+  const normalizedUrl = String(url ?? '');
+  const withoutProtocol = normalizedUrl.replace(/^https?:\/\//i, '');
+  const withoutWww = withoutProtocol.replace(/^www\./i, '');
+
+  return [normalizedUrl, withoutProtocol, withoutWww]
+    .filter(Boolean)
+    .reduce((value, candidate) => value.split(candidate).join(''), String(line ?? ''));
+}
+
+function cleanVariantLabel(value) {
+  const label = sanitizeTitle(value)
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/^[\s:;,\-.>()[\]{}]+/g, '')
+    .replace(/[\s:;,\-.>()[\]{}]+$/g, '')
+    .replace(/(?:👉|➡️|🔗|🛒)/gu, '')
+    .replace(/[?¿�]+/g, '')
+    .replace(/\b(?:link\s*(?:do\s*)?(?:produto|oferta)|produto|oferta|compre|acesse)\b\s*:?\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!label || label.length > 60) {
+    return '';
+  }
+
+  if (/R\$\s?[\d.]+(?:,\d{2})?/i.test(label) || isLikelyPromotionalFooterLine(label)) {
+    return '';
+  }
+
+  return label;
+}
+
 function findPreviousNonEmptyLine(lines, index) {
   for (let current = index - 1; current >= 0; current -= 1) {
     if (String(lines[current] ?? '').trim()) {
@@ -516,6 +668,7 @@ function cleanCommercialLine(line) {
 function sanitizeTitle(title) {
   return String(title ?? '')
     .replace(/^\[(amazon|shopee)\]\s*/i, '')
+    .replace(/\s*[-–—]?\s*\((?:amazon|shopee)\)\s*$/i, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

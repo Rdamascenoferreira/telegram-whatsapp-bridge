@@ -38,6 +38,15 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
     };
   }
 
+  if (details.variants?.length > 1) {
+    return {
+      success: false,
+      provider: 'groq',
+      model,
+      error: 'Multiple offer variants require deterministic local rewrite'
+    };
+  }
+
   if (canUseCache) {
     const cached = getCachedRewrite(cacheKey);
 
