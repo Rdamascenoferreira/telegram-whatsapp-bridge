@@ -18,6 +18,8 @@ export async function processAffiliateMessage(params = {}) {
   const account = params.account || (userId ? await getAffiliateAccountForProcessing(userId) : null);
   const dryRun = Boolean(params.dryRun);
   const expandUrlFn = params.expandUrlFn || expandUrl;
+  const convertAmazonLinkFn = params.convertAmazonLinkFn || convertAmazonLink;
+  const convertShopeeLinkFn = params.convertShopeeLinkFn || convertShopeeLink;
   const rewriteAffiliateMessageFn = params.rewriteAffiliateMessageFn || rewriteAffiliateMessageWithGroq;
   const logEnabled = !dryRun;
   let messageLogId = '';
@@ -93,7 +95,7 @@ export async function processAffiliateMessage(params = {}) {
         status: 'ignored'
       };
 
-      if (marketplace !== 'unknown' && isCouponOrPromoLink(originalMessage, urlMatch)) {
+      if (marketplace === 'amazon' && isCouponOrPromoLink(originalMessage, urlMatch)) {
         conversion = {
           ...conversion,
           marketplace,
@@ -101,7 +103,7 @@ export async function processAffiliateMessage(params = {}) {
           error: marketplace === 'unknown' ? '' : 'Coupon/promo link kept without affiliate conversion'
         };
       } else if (marketplace === 'amazon' && account?.amazonEnabled) {
-        const amazonResult = convertAmazonLink(expandedUrl, account.amazonTag);
+        const amazonResult = convertAmazonLinkFn(expandedUrl, account.amazonTag);
         conversion = {
           ...conversion,
           affiliateUrl: amazonResult.affiliateUrl,
@@ -109,7 +111,7 @@ export async function processAffiliateMessage(params = {}) {
           error: amazonResult.error
         };
       } else if (marketplace === 'shopee' && account?.shopeeEnabled) {
-        const shopeeResult = await convertShopeeLink(expandedUrl, {
+        const shopeeResult = await convertShopeeLinkFn(expandedUrl, {
           affiliateId: account.shopeeAffiliateId,
           appId: account.shopeeAppId,
           secret: account.shopeeSecret || params.shopeeSecret,
@@ -428,7 +430,7 @@ function isDisposablePromoLine(normalized, originalLine) {
     return false;
   }
 
-  if (/^#?\s*anuncio\s*$/iu.test(originalLine.trim())) {
+  if (/^#?\s*anuncio\s*$/.test(normalized)) {
     return true;
   }
 

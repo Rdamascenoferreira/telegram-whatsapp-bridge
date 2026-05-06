@@ -170,6 +170,59 @@ test('processAffiliateMessage keeps coupon links and converts the product link',
   assert.doesNotMatch(result.processedMessage, /B0CUPOM123/);
 });
 
+test('processAffiliateMessage converts Shopee coupon and product links in the same message', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account: {
+      ...account,
+      amazonEnabled: false,
+      shopeeEnabled: true,
+      shopeeAffiliateId: '18393040998',
+      shopeeAppId: '18393040998',
+      shopeeSecret: 'secret'
+    },
+    dryRun: true,
+    message: [
+      'Monitor Gamer Mancer Valak Z3HS',
+      '',
+      'Resgate todos os cupons desta pagina:',
+      'https://s.shopee.com.br/r5Ap5BA6iRH',
+      '',
+      'Link produto:',
+      'https://s.shopee.com.br/2BBTcElWTy'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url,
+      success: true
+    }),
+    convertShopeeLinkFn: async (url) => ({
+      success: true,
+      marketplace: 'shopee',
+      originalExpandedUrl: url,
+      affiliateUrl: url.includes('r5Ap5BA6iRH')
+        ? 'https://s.shopee.com.br/cupom-convertido'
+        : 'https://s.shopee.com.br/produto-convertido',
+      affiliateId: '18393040998',
+      subIds: {
+        subId1: 'u245',
+        subId2: 'telegram',
+        subId3: 'captacao01',
+        subId4: 'whatsapp01',
+        subId5: 'auto'
+      },
+      utmContent: 'u245-telegram-captacao01-whatsapp01-auto'
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/cupom-convertido/);
+  assert.match(result.processedMessage, /https:\/\/s\.shopee\.com\.br\/produto-convertido/);
+  assert.equal(result.convertedUrls.filter((item) => item.status === 'converted').length, 2);
+});
+
 test('beautifyAffiliateMessage formats offer without changing converted links', () => {
   const result = beautifyAffiliateMessage(
     'Monitor Gamer TGT Altay TS6\n\nCupom: OFERTAOFF\nR$ 446\nhttps://s.shopee.com.br/abc123',
