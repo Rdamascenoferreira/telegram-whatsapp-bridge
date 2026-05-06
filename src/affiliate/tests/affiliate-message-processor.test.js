@@ -424,6 +424,54 @@ test('beautifyAffiliateMessage preserves multiple product variants from the same
   assert.doesNotMatch(result, /\(Amazon\)/);
 });
 
+test('beautifyAffiliateMessage preserves separated multi-offer messages', () => {
+  const result = beautifyAffiliateMessage(
+    [
+      'Jogos de PS5',
+      '___',
+      '',
+      '- Death Stranding 2: On The Beach',
+      '',
+      '- Resgate o cupom de R$ 40:',
+      'https://s.shopee.com.br/cupom',
+      '',
+      'R$ 236,42 no pix',
+      'R$ 249,91 em ate 4x',
+      '',
+      'https://s.shopee.com.br/produto-1',
+      '___',
+      '',
+      '- Gears of War: Reloaded',
+      '',
+      '- Resgate o cupom de R$ 40:',
+      'https://s.shopee.com.br/cupom',
+      '',
+      'R$ 273,40 no pix',
+      'R$ 289,89 em ate 5x',
+      '',
+      'https://s.shopee.com.br/produto-2',
+      '___',
+      '',
+      'Grupo de Promocoes do Memory Card:',
+      'https://linktr.ee/mc8mb'
+    ].join('\n'),
+    { style: 'plain' }
+  );
+
+  assert.match(result, /Jogos de PS5/);
+  assert.match(result, /Death Stranding 2: On The Beach/);
+  assert.match(result, /Gears of War: Reloaded/);
+  assert.match(result, /R\$ 236,42 no pix/);
+  assert.match(result, /R\$ 249,91 em ate 4x/);
+  assert.match(result, /R\$ 273,40 no pix/);
+  assert.match(result, /R\$ 289,89 em ate 5x/);
+  assert.match(result, /Cupom: R\$ 40/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/s\.shopee\.com\.br\/produto-1/);
+  assert.match(result, /Link da oferta:\nhttps:\/\/s\.shopee\.com\.br\/produto-2/);
+  assert.doesNotMatch(result, /Links uteis/);
+  assert.doesNotMatch(result, /linktr\.ee/);
+});
+
 test('processAffiliateMessage applies beautifier after link conversion', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
@@ -447,6 +495,58 @@ test('processAffiliateMessage applies beautifier after link conversion', async (
   assert.match(result.processedMessage, /Oferta relampago/);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
   assert.doesNotMatch(result.processedMessage, /amzn\.to\/abc/);
+});
+
+test('processAffiliateMessage uses deterministic rewrite for multi-offer messages', async () => {
+  let rewriteCalled = false;
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: {
+      ...automation,
+      aiRewriteEnabled: true,
+      aiRewriteStyle: 'plain',
+      messageBeautifierEnabled: true
+    },
+    account,
+    dryRun: true,
+    message: [
+      'Jogos de PS5',
+      '___',
+      '',
+      '- Produto A',
+      'R$ 100 no pix',
+      'https://amzn.to/produto-a',
+      '___',
+      '',
+      '- Produto B',
+      'R$ 200 no pix',
+      'https://amzn.to/produto-b'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('produto-a')
+        ? 'https://www.amazon.com.br/produto-a/dp/B0PRODA123?tag=old-20'
+        : 'https://www.amazon.com.br/produto-b/dp/B0PRODB123?tag=old-20',
+      success: true
+    }),
+    rewriteAffiliateMessageFn: async () => {
+      rewriteCalled = true;
+      return {
+        success: true,
+        provider: 'groq',
+        model: 'mock',
+        message: 'wrong'
+      };
+    }
+  });
+
+  assert.equal(rewriteCalled, false);
+  assert.equal(result.rewriteMode, 'groq_fallback_local');
+  assert.match(result.processedMessage, /Produto A/);
+  assert.match(result.processedMessage, /Produto B/);
+  assert.match(result.processedMessage, /B0PRODA123\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /B0PRODB123\?tag=tagdocliente-20/);
 });
 
 test('processAffiliateMessage does not mix coupon from another marketplace block', async () => {

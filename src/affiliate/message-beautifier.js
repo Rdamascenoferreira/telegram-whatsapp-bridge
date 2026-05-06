@@ -20,6 +20,12 @@ export function beautifyAffiliateMessage(message, options = {}) {
     return normalizeLineForStyle(input, normalizeBeautifierStyle(options.style)).trim();
   }
 
+  const multiOfferMessage = beautifyMultiOfferMessage(input, options);
+
+  if (multiOfferMessage) {
+    return multiOfferMessage;
+  }
+
   const details = extractAffiliateOfferDetails(input, options);
 
   if (details.variants.length > 1) {
@@ -72,6 +78,10 @@ export function beautifyAffiliateMessage(message, options = {}) {
     .trim();
 }
 
+export function hasMultipleOfferSections(message) {
+  return getMultiOfferSections(message).sections.length > 1;
+}
+
 export function extractAffiliateOfferDetails(message, options = {}) {
   const input = String(message ?? '').trim();
   const style = normalizeBeautifierStyle(options.style);
@@ -113,6 +123,125 @@ export function extractAffiliateOfferDetails(message, options = {}) {
     variants,
     urls
   };
+}
+
+function beautifyMultiOfferMessage(message, options = {}) {
+  const style = normalizeBeautifierStyle(options.style);
+  const { header, sections } = getMultiOfferSections(message);
+
+  if (sections.length < 2) {
+    return '';
+  }
+
+  const offers = sections
+    .map((section) => extractAffiliateOfferDetails(section, { style }))
+    .filter((details) => details.primaryUrl && details.title && details.title !== 'Oferta especial');
+
+  if (offers.length < 2) {
+    return '';
+  }
+
+  const blocks = [getHeadline(style)];
+  const title = sanitizeTitle(findHeaderTitle(header, style));
+
+  if (title) {
+    blocks.push(title);
+  }
+
+  blocks.push(offers.map((details) => formatMultiOfferSection(details)).join('\n\n_\n\n'));
+
+  return blocks
+    .filter(Boolean)
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function formatMultiOfferSection(details) {
+  const lines = [details.title];
+
+  if (details.price) {
+    lines.push(details.style === 'plain' ? details.price : `\u{1F4B0} ${details.price}`);
+  }
+
+  if (details.installment) {
+    lines.push(details.style === 'plain' ? details.installment : `\u{1F4B3} ${details.installment}`);
+  }
+
+  if (details.coupon) {
+    lines.push(details.style === 'plain' ? `Cupom: ${details.coupon}` : `\u{1F3F7} Cupom: ${details.coupon}`);
+  }
+
+  lines.push(details.style === 'plain' ? `Link da oferta:\n${details.primaryUrl}` : `\u{1F6D2} Link da oferta:\n${details.primaryUrl}`);
+
+  if (details.couponUrls.length) {
+    lines.push(details.style === 'plain' ? `Cupons:\n${details.couponUrls.join('\n')}` : `\u{1F3F7} Cupons:\n${details.couponUrls.join('\n')}`);
+  }
+
+  return lines.filter(Boolean).join('\n');
+}
+
+function getMultiOfferSections(message) {
+  const lines = String(message ?? '').split('\n');
+  const chunks = [];
+  let current = [];
+  let foundSeparator = false;
+
+  for (const line of lines) {
+    if (/^_{2,}\s*$/.test(line.trim())) {
+      chunks.push(current.join('\n').trim());
+      current = [];
+      foundSeparator = true;
+      continue;
+    }
+
+    current.push(line);
+  }
+
+  chunks.push(current.join('\n').trim());
+
+  if (!foundSeparator || chunks.length < 3) {
+    return { header: '', sections: [] };
+  }
+
+  const header = chunks.shift() || '';
+  const sections = chunks
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .filter((chunk) => !isLikelyFooterSection(chunk));
+
+  return { header, sections };
+}
+
+function findHeaderTitle(header, style) {
+  return String(header ?? '')
+    .split('\n')
+    .map((line) => normalizeLineForStyle(line, style).trim())
+    .find((line) => line && !lineContainsKnownUrl(line, extractUrls(header)) && !isLikelyPromotionalFooterLine(line)) || '';
+}
+
+function isLikelyFooterSection(section) {
+  const normalized = normalizeForMatching(section);
+
+  if (!normalized) {
+    return true;
+  }
+
+  const hasPrice = /R\$\s?[\d.]+(?:,\d{2})?/i.test(section);
+  const hasMarketplaceUrl = extractUrls(section).some((url) => isKnownMarketplaceHostname(getNormalizedHostname(url)));
+
+  if (hasPrice || hasMarketplaceUrl) {
+    return false;
+  }
+
+  return [
+    /\blinktr\.ee\b/,
+    /\bgrupo\s+de\s+promocoes\b/,
+    /\bcanais?\s+de\s+promocoes\b/,
+    /\bconvide\s+seus\s+amigos\b/,
+    /\b(?:telegram|whatsapp|instagram)\b/,
+    /\bt\.me\b/
+  ].some((pattern) => pattern.test(normalized));
 }
 
 function formatVariantAffiliateMessage(details) {
@@ -614,6 +743,12 @@ function findCoupon(lines) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  const moneyCoupon = normalizedLine.match(/(?:cupom|coupon).*?(R\$\s?[\d.]+(?:,\d{2})?)/i);
+
+  if (moneyCoupon?.[1]) {
+    return cleanCommercialLine(moneyCoupon[1]);
+  }
+
   const afterColon = normalizedLine.includes(':')
     ? normalizedLine.slice(normalizedLine.lastIndexOf(':') + 1)
     : normalizedLine.replace(/(?:cupom|coupon)/i, '');
@@ -625,7 +760,8 @@ function findCoupon(lines) {
   }
 
   const lineTokens = normalizedLine.match(/[A-Z0-9_-]{4,}/gi) || [];
-  return lineTokens.length ? String(lineTokens[lineTokens.length - 1] ?? '').trim() : '';
+  const usefulTokens = lineTokens.filter((token) => !/^(?:resgate|cupom|cupons|coupon|coupons)$/i.test(token));
+  return usefulTokens.length ? String(usefulTokens[usefulTokens.length - 1] ?? '').trim() : '';
 }
 
 function findPrimaryPriceLine(lines, input) {
@@ -635,7 +771,7 @@ function findPrimaryPriceLine(lines, input) {
     }
 
     const normalized = normalizeForMatching(line);
-    return !/\bate\s*\d+\s*x\b/.test(normalized);
+    return !/\b(?:ate|at.)\s*\d+\s*x\b/.test(normalized) && !/\b(?:cupom|cupons|resgate)\b/.test(normalized);
   });
 
   if (priceLine) {
@@ -652,7 +788,7 @@ function findInstallmentLine(lines) {
     }
 
     const normalized = normalizeForMatching(line);
-    return /\bate\s*\d+\s*x\b/.test(normalized);
+    return /\b(?:ate|at.)\s*\d+\s*x\b/.test(normalized);
   });
 
   return installmentLine ? cleanCommercialLine(installmentLine) : '';
@@ -668,6 +804,7 @@ function cleanCommercialLine(line) {
 function sanitizeTitle(title) {
   return String(title ?? '')
     .replace(/^\[(amazon|shopee)\]\s*/i, '')
+    .replace(/^[\s:;,\-.>()[\]{}]+/g, '')
     .replace(/\s*[-–—]?\s*\((?:amazon|shopee)\)\s*$/i, '')
     .replace(/\s{2,}/g, ' ')
     .trim();

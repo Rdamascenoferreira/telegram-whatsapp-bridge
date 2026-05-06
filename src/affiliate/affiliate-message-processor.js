@@ -3,7 +3,7 @@ import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
 import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
 import { rewriteAffiliateMessageWithGroq } from './groq-rewriter.js';
 import { detectMarketplace } from './marketplace-detector.js';
-import { beautifyAffiliateMessage } from './message-beautifier.js';
+import { beautifyAffiliateMessage, hasMultipleOfferSections } from './message-beautifier.js';
 import { extractMessageUrlMatches, rebuildMessageWithUrlReplacements } from './telegram-message-links.js';
 import { expandUrl } from './url-expander.js';
 
@@ -181,8 +181,13 @@ export async function processAffiliateMessage(params = {}) {
     let rewriteError = '';
     const preferredRewriteStyle = automation.aiRewriteStyle || automation.messageBeautifierStyle || 'clean';
     const preferredPrimaryUrl = selectPreferredPrimaryUrl(convertedUrls);
+    const hasMultipleConvertedOffers = convertedUrls.filter((item) => item.status === 'converted' && item.affiliateUrl).length > 1;
+    const shouldUseDeterministicRewrite = hasMultipleConvertedOffers || hasMultipleOfferSections(processedMessage);
 
-    if (automation.aiRewriteEnabled) {
+    if (automation.aiRewriteEnabled && shouldUseDeterministicRewrite) {
+      rewriteError = 'Multiple offers require deterministic local rewrite';
+      console.warn(`Affiliate AI rewrite fallback: ${rewriteError}`);
+    } else if (automation.aiRewriteEnabled) {
       const aiRewrite = await rewriteAffiliateMessageFn({
         message: processedMessage,
         originalMessage,
@@ -367,13 +372,37 @@ function normalizeContext(value) {
 
 function removeLikelyFooter(message) {
   const lines = String(message ?? '').split('\n');
-  const footerStart = lines.findIndex((line) => /^[_-]\s*$/.test(line.trim()));
+  let footerStart = -1;
 
-  if (footerStart < 0) {
-    return message;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (!isLikelyFooterContentLine(lines[index])) {
+      continue;
+    }
+
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      if (/^_+\s*$/.test(lines[cursor].trim())) {
+        footerStart = cursor;
+        break;
+      }
+    }
+
+    break;
   }
 
-  return lines.slice(0, footerStart).join('\n').trimEnd();
+  return footerStart >= 0 ? lines.slice(0, footerStart).join('\n').trimEnd() : message;
+}
+
+function isLikelyFooterContentLine(line) {
+  const normalized = normalizeContext(line);
+
+  return [
+    /\blinktr\.ee\b/,
+    /\bgrupo\s+de\s+promocoes\b/,
+    /\bcanais?\s+de\s+promocoes\b/,
+    /\bconvide\s+seus\s+amigos\b/,
+    /\b(?:telegram|whatsapp|instagram)\b/,
+    /\bt\.me\b/
+  ].some((pattern) => pattern.test(normalized));
 }
 
 function buildResult(payload) {
