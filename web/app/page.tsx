@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.06';
+const panelVersion = 'Versao 1.07';
 
 type AuthUser = {
   id: string;
@@ -3489,7 +3489,7 @@ function AffiliateAutomationPanel({
   const [affiliateAccountEditing, setAffiliateAccountEditing] = useState(false);
   const affiliateAccountFormRef = useRef<HTMLFormElement>(null);
   const [testMessage, setTestMessage] = useState('Monitor Gamer LG UltraGear 24\n\nCupom: QUINTOUU\nR$ 639,00 a vista\nhttps://amzn.to/3QdY360');
-  const [testPreserveOriginalText, setTestPreserveOriginalText] = useState(true);
+  const testPreserveOriginalText = true;
   const [testResult, setTestResult] = useState<{
     originalMessage: string;
     processedMessage: string;
@@ -3551,22 +3551,22 @@ function AffiliateAutomationPanel({
     }
 
     setBusy('affiliate-test');
-    const draftAutomation = {
-      ...(activeAutomation || {
-        name: 'Teste manual',
-        telegramSourceGroupId: state.telegram.availableChats?.[0]?.id || '',
-        unknownLinkBehavior: 'keep',
-        removeOriginalFooter: false,
-        customFooter: '',
+      const draftAutomation = {
+        ...(activeAutomation || {
+          name: 'Teste manual',
+          telegramSourceGroupId: state.telegram.availableChats?.[0]?.id || '',
+          unknownLinkBehavior: 'keep',
+          removeOriginalFooter: false,
+          customFooter: '',
+          messageBeautifierEnabled: false,
+          messageBeautifierStyle: 'clean',
+          aiRewriteEnabled: false,
+          aiRewriteStyle: 'clean'
+        }),
+        preserveOriginalTextEnabled: true,
         messageBeautifierEnabled: false,
-        messageBeautifierStyle: 'clean',
-        aiRewriteEnabled: false,
-        aiRewriteStyle: 'clean'
-      }),
-      preserveOriginalTextEnabled: testPreserveOriginalText,
-      messageBeautifierEnabled: testPreserveOriginalText ? false : Boolean(activeAutomation?.messageBeautifierEnabled),
-      aiRewriteEnabled: testPreserveOriginalText ? false : Boolean(activeAutomation?.aiRewriteEnabled)
-    };
+        aiRewriteEnabled: false
+      };
     const result = await postJson<typeof testResult>('/api/affiliate/test', {
       automationId: '',
       automation: draftAutomation,
@@ -3598,10 +3598,11 @@ function AffiliateAutomationPanel({
         unknownLinkBehavior: form.get('unknownLinkBehavior'),
         customFooter: form.get('customFooter'),
         removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
-        messageBeautifierEnabled: form.get('messageBeautifierEnabled') === 'on',
-        messageBeautifierStyle: form.get('messageBeautifierStyle'),
-        aiRewriteEnabled: form.get('aiRewriteEnabled') === 'on',
-        aiRewriteStyle: form.get('aiRewriteStyle') || form.get('messageBeautifierStyle')
+        messageBeautifierEnabled: false,
+        messageBeautifierStyle: 'clean',
+        aiRewriteEnabled: false,
+        aiRewriteStyle: 'clean',
+        preserveOriginalTextEnabled: true
       });
       await refresh();
       setAffiliateRulesEditing(false);
@@ -3783,67 +3784,23 @@ function AffiliateAutomationPanel({
                 </label>
 
                 <div className="grid gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4">
-                  <label className="inline-flex items-start gap-2 text-sm text-[var(--muted)]">
-                    <input
-                      type="checkbox"
-                      name="messageBeautifierEnabled"
-                      defaultChecked={Boolean(activeAutomation?.messageBeautifierEnabled)}
-                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                      className="mt-1"
-                    />
+                  <div className="inline-flex items-start gap-2 text-sm text-[var(--muted)]">
+                    <span className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.12)]" />
                     <span>
-                      <span className="block font-semibold text-[var(--foreground)]">Embelezar mensagem automaticamente</span>
+                      <span className="block font-semibold text-[var(--foreground)]">Modo de escrita ativo</span>
                       <span className="mt-1 block text-xs leading-5">
-                        Reorganiza titulo, preco, cupom e links em um template mais limpo, mantendo os links convertidos.
+                        O sistema preserva a mensagem original e substitui somente os links convertidos, removendo o rodape antigo antes de aplicar o seu rodape final.
                       </span>
                     </span>
-                  </label>
+                  </div>
 
-                  <label className="grid gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estilo da mensagem</span>
-                    <select
-                      name="messageBeautifierStyle"
-                      defaultValue={activeAutomation?.messageBeautifierStyle || 'clean'}
-                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                      className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
-                    >
-                      <option value="clean">Clean</option>
-                      <option value="sales">Vendedor</option>
-                      <option value="urgent">Urgencia</option>
-                      <option value="plain">Sem Emojis</option>
-                    </select>
-                  </label>
-
-                  <label className="inline-flex items-start gap-2 text-sm text-[var(--muted)]">
-                    <input
-                      type="checkbox"
-                      name="aiRewriteEnabled"
-                      defaultChecked={Boolean(activeAutomation?.aiRewriteEnabled)}
-                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="block font-semibold text-[var(--foreground)]">Reescrever com IA (Groq)</span>
-                      <span className="mt-1 block text-xs leading-5">
-                        Usa o parser atual como base e reescreve a oferta de forma mais inteligente. Se a IA falhar, o sistema cai automaticamente para o formatador local.
-                      </span>
-                    </span>
-                  </label>
-
-                  <label className="grid gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estilo da IA</span>
-                    <select
-                      name="aiRewriteStyle"
-                      defaultValue={activeAutomation?.aiRewriteStyle || activeAutomation?.messageBeautifierStyle || 'clean'}
-                      disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                      className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
-                    >
-                      <option value="clean">Clean</option>
-                      <option value="sales">Vendedor</option>
-                      <option value="urgent">Urgencia</option>
-                      <option value="plain">Sem Emojis</option>
-                    </select>
-                  </label>
+                  <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Processamento atual</p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">Preservar texto original e substituir apenas os links</p>
+                    <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                      Essa e a unica regra de escrita mantida no painel para garantir previsibilidade na saida e evitar conflito entre modos diferentes.
+                    </p>
+                  </div>
                 </div>
 
                 <label className="grid gap-2">
@@ -3903,21 +3860,15 @@ function AffiliateAutomationPanel({
               </button>
             </div>
 
-            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4 text-sm text-[var(--muted)]">
-              <input
-                type="checkbox"
-                checked={testPreserveOriginalText}
-                disabled={readOnlyAccount || busy === 'affiliate-test'}
-                onChange={(event) => setTestPreserveOriginalText(event.target.checked)}
-                className="mt-1"
-              />
+            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4 text-sm text-[var(--muted)]">
+              <span className="mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.12)]" />
               <span>
                 <span className="block font-semibold text-[var(--foreground)]">Preservar texto original e substituir somente os links</span>
                 <span className="mt-1 block text-xs leading-5">
-                  Modo local de teste: o sistema grava os links convertidos e aplica cada link novo em cima da mensagem recebida, sem IA reescrever o texto.
+                  Modo fixo do teste: o sistema grava os links convertidos e aplica cada link novo em cima da mensagem recebida, sem reescrever o texto.
                 </span>
               </span>
-            </label>
+            </div>
 
             <label className="mt-4 grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Mensagem recebida para teste</span>

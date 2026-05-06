@@ -863,11 +863,11 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
     unknownLinkBehavior: String(payload.unknownLinkBehavior ?? 'keep'),
     customFooter: String(payload.customFooter ?? '').trim(),
     removeOriginalFooter: Boolean(payload.removeOriginalFooter),
-    messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
-    messageBeautifierStyle: String(payload.messageBeautifierStyle ?? 'clean').trim().toLowerCase() || 'clean',
-    aiRewriteEnabled: Boolean(payload.aiRewriteEnabled),
-    aiRewriteStyle: String(payload.aiRewriteStyle ?? payload.messageBeautifierStyle ?? 'clean').trim().toLowerCase() || 'clean',
-    preserveOriginalTextEnabled: Boolean(payload.preserveOriginalTextEnabled),
+    messageBeautifierEnabled: false,
+    messageBeautifierStyle: 'clean',
+    aiRewriteEnabled: false,
+    aiRewriteStyle: 'clean',
+    preserveOriginalTextEnabled: true,
     isActive: true,
     destinations: []
   };
