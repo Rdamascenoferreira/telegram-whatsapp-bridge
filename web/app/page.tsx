@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.09';
+const panelVersion = 'Versao 1.10';
 
 type AuthUser = {
   id: string;
@@ -1256,9 +1256,9 @@ function Overview({
             },
             {
               label: 'Origens Telegram',
-              used: state.config.telegramChannel ? 1 : 0,
+              used: hasOperationalTelegramSource(state) ? 1 : 0,
               limit: state.planLimits?.telegramSources || 0,
-              detail: state.config.telegramChannel ? 'Uma origem ativa no fluxo atual' : 'Nenhuma origem salva no momento'
+              detail: hasOperationalTelegramSource(state) ? 'Uma origem ativa no fluxo atual' : 'Nenhuma origem salva no momento'
             },
             {
               label: 'Automacoes de afiliados',
@@ -1301,9 +1301,12 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
   const isAdmin = state.auth.user?.role === 'admin';
   const whatsappDestinationsUsed = state.config.selectedGroupIds?.length || 0;
   const activeAffiliateAutomations = (state.affiliate?.automations || []).filter((automation) => automation.isActive);
-  const operationalSourceUsed = hasOperationalTelegramSource(state) ? 1 : 0;
+  const bridgeSourceUsed = normalizeRouteSourceId(state.config.telegramChannel) ? 1 : 0;
+  const affiliateSourcesUsed = (state.affiliate?.automations || []).filter((automation) =>
+    normalizeRouteSourceId(automation.telegramSourceGroupId)
+  ).length;
   const telegramSourcesUsed = Math.min(
-    operationalSourceUsed + activeAffiliateAutomations.length,
+    bridgeSourceUsed + affiliateSourcesUsed,
     Math.max(1, limits?.telegramSources || 1)
   );
   const messageUsage = state.metrics.totalForwardedMessages || state.metrics.totalWhatsAppDeliveries || 0;
@@ -1966,8 +1969,11 @@ function FlowsPanel({
   const readOnlyAccount = isReadOnlyAccount(state);
   const planLimits = state.planLimits;
   const activeAutomation = state.affiliate?.automations?.[0] || null;
-  const savedAffiliateSource = activeAutomation?.isActive ? activeAutomation.telegramSourceGroupId || '' : '';
-  const savedTelegramFlow: 'bridge' | 'affiliate' = savedAffiliateSource ? 'affiliate' : 'bridge';
+  const configuredAffiliateAutomation =
+    state.affiliate?.automations?.find((automation) => normalizeRouteSourceId(automation.telegramSourceGroupId)) ||
+    activeAutomation;
+  const savedAffiliateSource = configuredAffiliateAutomation?.telegramSourceGroupId || '';
+  const savedTelegramFlow: 'bridge' | 'affiliate' = state.config.telegramChannel ? 'bridge' : savedAffiliateSource ? 'affiliate' : 'bridge';
   const hasSavedSource = Boolean(state.config.telegramChannel || savedAffiliateSource);
   const [telegramFlow, setTelegramFlow] = useState<'bridge' | 'affiliate'>(savedTelegramFlow);
   const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
@@ -2055,8 +2061,8 @@ function FlowsPanel({
 
     try {
       if (telegramFlow === 'bridge') {
-        if (activeAutomation?.id && activeAutomation.isActive) {
-          await postJson(`/api/affiliate/automations/${activeAutomation.id}/toggle`, { isActive: false });
+        if (configuredAffiliateAutomation?.id && configuredAffiliateAutomation.isActive) {
+          await postJson(`/api/affiliate/automations/${configuredAffiliateAutomation.id}/toggle`, { isActive: false });
         }
 
         await postJson('/api/settings', {
@@ -2079,14 +2085,14 @@ function FlowsPanel({
         });
 
         await postJson('/api/affiliate/automations', {
-          id: activeAutomation?.id || undefined,
-          name: activeAutomation?.name || 'Automatizador de Ofertas',
+          id: configuredAffiliateAutomation?.id || undefined,
+          name: configuredAffiliateAutomation?.name || 'Automatizador de Ofertas',
           telegramSourceGroupId: affiliateTelegramChannel,
           telegramSourceGroupName: getTelegramChatName(state, affiliateTelegramChannel),
           destinations: selectedWhatsAppDestinations,
-          unknownLinkBehavior: activeAutomation?.unknownLinkBehavior || 'keep',
-          customFooter: activeAutomation?.customFooter || '',
-          removeOriginalFooter: Boolean(activeAutomation?.removeOriginalFooter),
+          unknownLinkBehavior: configuredAffiliateAutomation?.unknownLinkBehavior || 'keep',
+          customFooter: configuredAffiliateAutomation?.customFooter || '',
+          removeOriginalFooter: Boolean(configuredAffiliateAutomation?.removeOriginalFooter),
           telegramForwardEnabled: affiliateTelegramForwardEnabled,
           telegramDestinationGroupId: affiliateTelegramForwardEnabled ? affiliateTelegramDestinationId : '',
           telegramDestinationGroupName:
@@ -4724,7 +4730,15 @@ function getActiveAffiliateAutomation(state: AppState) {
 
 function getOperationalTelegramSource(state: AppState) {
   const activeAffiliateAutomation = getActiveAffiliateAutomation(state);
-  return normalizeRouteSourceId(activeAffiliateAutomation?.telegramSourceGroupId || state.config.telegramChannel);
+  const configuredAffiliateAutomation = (state.affiliate?.automations || []).find((automation) =>
+    normalizeRouteSourceId(automation.telegramSourceGroupId)
+  );
+
+  return normalizeRouteSourceId(
+    activeAffiliateAutomation?.telegramSourceGroupId ||
+      state.config.telegramChannel ||
+      configuredAffiliateAutomation?.telegramSourceGroupId
+  );
 }
 
 function hasOperationalTelegramSource(state: AppState) {

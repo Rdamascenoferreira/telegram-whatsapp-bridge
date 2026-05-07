@@ -273,8 +273,15 @@ export class UserBridgeRuntime {
     const affiliateState = await getAffiliateState(this.userId);
     const activeAffiliateAutomation =
       (affiliateState?.automations || []).find((automation) => automation.isActive) || null;
+    const configuredAffiliateAutomation =
+      (affiliateState?.automations || []).find((automation) =>
+        String(automation?.telegramSourceGroupId || '').trim()
+      ) || null;
     const operationalSource = String(
-      activeAffiliateAutomation?.telegramSourceGroupId || this.config.telegramChannel || ''
+      activeAffiliateAutomation?.telegramSourceGroupId ||
+        this.config.telegramChannel ||
+        configuredAffiliateAutomation?.telegramSourceGroupId ||
+        ''
     ).trim();
     const destinationCount = Array.isArray(this.config.selectedGroupIds)
       ? this.config.selectedGroupIds.length
