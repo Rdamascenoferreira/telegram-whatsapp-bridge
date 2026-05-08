@@ -58,6 +58,10 @@ const backgroundBrowserArgs = defaultWhatsAppHeadless
       ]
     : ['--start-minimized'];
 
+function isWhatsAppOperationalStatus(value) {
+  return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
+}
+
 export class UserBridgeRuntime {
   constructor(options = {}) {
     this.userId = String(options.userId ?? '').trim();
@@ -267,7 +271,7 @@ export class UserBridgeRuntime {
   }
 
   canEnableBridge() {
-    return this.telegramStatus === 'listening' && this.whatsAppStatus === 'ready';
+    return this.telegramStatus === 'listening' && isWhatsAppOperationalStatus(this.whatsAppStatus);
   }
 
   async getOperationalFlowState() {
@@ -290,7 +294,7 @@ export class UserBridgeRuntime {
 
     return {
       hasTelegramReady: this.telegramStatus === 'listening',
-      hasWhatsAppReady: this.whatsAppStatus === 'ready',
+      hasWhatsAppReady: isWhatsAppOperationalStatus(this.whatsAppStatus),
       hasOperationalSource: Boolean(operationalSource),
       hasDestination: destinationCount > 0
     };

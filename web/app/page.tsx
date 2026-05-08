@@ -4752,7 +4752,7 @@ function hasOperationalWhatsAppDestination(state: AppState) {
 function canEnableAutomationState(state: AppState) {
   return (
     state.telegramStatus === 'listening' &&
-    state.whatsAppStatus === 'ready' &&
+    isWhatsAppConnectedStatus(state.whatsAppStatus) &&
     hasOperationalTelegramSource(state) &&
     hasOperationalWhatsAppDestination(state)
   );
@@ -4762,7 +4762,7 @@ function getAutomationLockReason(state: AppState) {
   if (state.telegramStatus !== 'listening') {
     return 'Conecte e conclua o login no Telegram para liberar a automacao.';
   }
-  if (state.whatsAppStatus !== 'ready') {
+  if (!isWhatsAppConnectedStatus(state.whatsAppStatus)) {
     return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automacao.';
   }
   if (!hasOperationalTelegramSource(state)) {

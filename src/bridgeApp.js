@@ -30,6 +30,10 @@ import { ensurePlanCount, ensurePlanFeature, getPlanLimits } from './planLimits.
 const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
 
+function isOperationalWhatsAppStatus(value) {
+  return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
+}
+
 export class BridgeApp {
   constructor(options = {}) {
     this.auth = options.auth ?? null;
@@ -404,7 +408,7 @@ export class BridgeApp {
       summary: buildAdminSummary(enrichedUsers),
       supervisor: {
         totalRuntimes: supervisor.length,
-        readyWhatsApp: supervisor.filter((runtime) => runtime.whatsAppStatus === 'ready').length,
+        readyWhatsApp: supervisor.filter((runtime) => isOperationalWhatsAppStatus(runtime.whatsAppStatus)).length,
         listeningTelegram: supervisor.filter((runtime) => runtime.telegramStatus === 'listening').length,
         queuedDeliveries: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryQueue?.queuedCount || 0), 0),
         activeDeliveries: supervisor.filter((runtime) => runtime.deliveryQueue?.active).length,
@@ -435,7 +439,7 @@ export class BridgeApp {
       runtimes: {
         loaded: this.manager.runtimes.size,
         initializing: this.manager.runtimePromises.size,
-        readyWhatsApp: runtimeSnapshots.filter((runtime) => runtime.whatsAppStatus === 'ready').length,
+        readyWhatsApp: runtimeSnapshots.filter((runtime) => isOperationalWhatsAppStatus(runtime.whatsAppStatus)).length,
         listeningTelegram: runtimeSnapshots.filter((runtime) => runtime.telegramStatus === 'listening').length
       },
       operations,
@@ -1026,7 +1030,7 @@ function buildAdminSummary(users) {
   return {
     totalUsers: users.length,
     activeBridges: users.filter((user) => user.workspace?.bridgeEnabled).length,
-    readySessions: users.filter((user) => user.workspace?.whatsAppStatus === 'ready').length,
+    readySessions: users.filter((user) => ['authenticated', 'ready'].includes(String(user.workspace?.whatsAppStatus ?? '').toLowerCase())).length,
     paidPlans: users.filter((user) => ['starter', 'pro', 'enterprise'].includes(user.plan)).length
   };
 }
