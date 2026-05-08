@@ -75,6 +75,18 @@ app.use((error, _request, response, next) => {
   next(error);
 });
 
+app.use((error, _request, response, _next) => {
+  console.error(error);
+
+  if (response.headersSent) {
+    return;
+  }
+
+  response.status(error.status || error.statusCode || 500).json({
+    error: error.message || 'Nao foi possivel concluir a acao.'
+  });
+});
+
 app.listen(port, () => {
   console.log(`Telegram -> WhatsApp bridge listening on http://localhost:${port}`);
 });

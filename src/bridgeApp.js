@@ -48,19 +48,53 @@ export class BridgeApp {
       const auth = this.auth
         ? this.auth.getClientSession(request.user)
         : { authenticated: true, googleEnabled: false, user: null };
-      const runtime = request.user ? await this.manager.getRuntimeForUser(request.user) : null;
-      const admin = this.auth?.isAdminUser(request.user)
-        ? await this.buildAdminState()
-        : null;
-      const affiliate = request.user ? await this.buildAffiliateState(request.user.id) : null;
+      const stateIssues = [];
+      let runtimeState = {};
+      let admin = null;
+      let affiliate = null;
+
+      if (request.user) {
+        try {
+          const runtime = await this.manager.getRuntimeForUser(request.user);
+          runtimeState = runtime ? await runtime.getState() : {};
+        } catch (error) {
+          console.warn(`Runtime state unavailable for ${request.user.id}: ${error.message}`);
+          stateIssues.push({
+            scope: 'runtime',
+            message: error.message
+          });
+        }
+
+        affiliate = await this.buildAffiliateState(request.user.id);
+        if (affiliate?.error) {
+          stateIssues.push({
+            scope: 'affiliate',
+            message: affiliate.error
+          });
+        }
+      }
+
+      if (this.auth?.isAdminUser(request.user)) {
+        try {
+          admin = await this.buildAdminState();
+        } catch (error) {
+          console.warn(`Admin state unavailable: ${error.message}`);
+          admin = this.buildUnavailableAdminState(error);
+          stateIssues.push({
+            scope: 'admin',
+            message: error.message
+          });
+        }
+      }
       const planLimits = request.user ? getPlanLimits(request.user.plan) : null;
 
       response.json({
         auth,
         ...(planLimits ? { planLimits } : {}),
-        ...(runtime ? await runtime.getState() : {}),
+        ...runtimeState,
         ...(affiliate ? { affiliate } : {}),
-        ...(admin ? { admin } : {})
+        ...(admin ? { admin } : {}),
+        ...(stateIssues.length ? { issue: stateIssues[0], issues: stateIssues } : {})
       });
     };
 
@@ -480,6 +514,30 @@ export class BridgeApp {
         error: error.message
       };
     }
+  }
+
+  buildUnavailableAdminState(error) {
+    const supervisor = this.manager.getRuntimeSnapshots();
+
+    return {
+      summary: buildAdminSummary([]),
+      supervisor: {
+        totalRuntimes: supervisor.length,
+        readyWhatsApp: supervisor.filter((runtime) => isOperationalWhatsAppStatus(runtime.whatsAppStatus)).length,
+        listeningTelegram: supervisor.filter((runtime) => runtime.telegramStatus === 'listening').length,
+        queuedDeliveries: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryQueue?.queuedCount || 0), 0),
+        activeDeliveries: supervisor.filter((runtime) => runtime.deliveryQueue?.active).length,
+        sessions: supervisor
+      },
+      options: {
+        roles: userRoleOptions,
+        plans: userPlanOptions,
+        accountStatuses: userAccountStatusOptions,
+        billingStatuses: userBillingStatusOptions
+      },
+      users: [],
+      error: error?.message || 'Nao foi possivel carregar a area administrativa.'
+    };
   }
 }
 

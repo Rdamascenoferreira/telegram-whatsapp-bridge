@@ -286,10 +286,15 @@ type AppState = {
     error?: string;
   };
   issue?: {
+    scope?: string;
     message?: string;
     canReconnect?: boolean;
     canResetSession?: boolean;
   } | null;
+  issues?: Array<{
+    scope?: string;
+    message?: string;
+  }>;
 };
 
 type ViewKey = 'overview' | 'connections' | 'groups' | 'flows' | 'affiliate' | 'planUsage' | 'activity' | 'account' | 'admin';
@@ -3798,7 +3803,7 @@ function AffiliateAutomationPanel({
 
         {affiliate.error ? (
           <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-            Banco de afiliados ainda nao preparado. Rode o SQL em scripts/supabase-affiliate-automation.sql no Supabase.
+            {affiliate.error}
           </p>
         ) : null}
 
