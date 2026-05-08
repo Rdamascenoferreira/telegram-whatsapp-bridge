@@ -159,9 +159,9 @@ export async function upsertAffiliateAutomation(userId, payload = {}) {
     telegram_source_group_id: cleanText(payload.telegramSourceGroupId),
     telegram_source_group_name: cleanText(payload.telegramSourceGroupName),
     unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-    custom_footer: encodeCustomFooterRules(mergedRulesPayload),
     remove_original_footer: Boolean(payload.removeOriginalFooter),
     is_active: Boolean(payload.isActive),
+    ...mapAutomationRulesColumns(mergedRulesPayload),
     updated_at: new Date().toISOString()
   };
 
@@ -169,7 +169,7 @@ export async function upsertAffiliateAutomation(userId, payload = {}) {
     throw new Error('Escolha um grupo de origem do Telegram.');
   }
 
-  const rows = await supabaseRequest('/rest/v1/affiliate_automations', {
+  const rows = await writeAffiliateAutomation({
     method: 'POST',
     body: automationId ? { id: automationId, ...body } : body,
     headers: {
@@ -185,7 +185,7 @@ export async function upsertAffiliateAutomation(userId, payload = {}) {
 }
 
 export async function setAffiliateAutomationActive(userId, automationId, isActive) {
-  const rows = await supabaseRequest('/rest/v1/affiliate_automations', {
+  const rows = await writeAffiliateAutomation({
     method: 'PATCH',
     body: {
       is_active: Boolean(isActive),
@@ -206,6 +206,18 @@ export async function setAffiliateAutomationActive(userId, automationId, isActiv
   }
 }
 
+async function writeAffiliateAutomation(options) {
+  try {
+    return await supabaseRequest('/rest/v1/affiliate_automations', options);
+  } catch (error) {
+    if (isAffiliateAutomationRulesSchemaMissing(error)) {
+      throw new Error('O banco de afiliados precisa da migracao das colunas de regras. Rode scripts/supabase-affiliate-automation.sql no Supabase e tente novamente.');
+    }
+
+    throw error;
+  }
+}
+
 export async function updateAffiliateAutomationRules(userId, automationId, payload = {}) {
   const currentAutomation = await getAffiliateAutomationById(userId, automationId);
   const mergedRulesPayload = mergeAffiliateAutomationRulesPayload(currentAutomation, payload);
@@ -213,8 +225,8 @@ export async function updateAffiliateAutomationRules(userId, automationId, paylo
     method: 'PATCH',
     body: {
       unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
-      custom_footer: encodeCustomFooterRules(mergedRulesPayload),
       remove_original_footer: Boolean(payload.removeOriginalFooter),
+      ...mapAutomationRulesColumns(mergedRulesPayload),
       updated_at: new Date().toISOString()
     },
     searchParams: {
@@ -369,16 +381,32 @@ async function supabaseRequest(endpoint, options = {}) {
     }
   });
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers: {
-      apikey: supabaseServiceRoleKey,
-      Authorization: `Bearer ${supabaseServiceRoleKey}`,
-      'content-type': 'application/json',
-      ...(options.headers || {})
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers: {
+        apikey: supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseServiceRoleKey}`,
+        'content-type': 'application/json',
+        ...(options.headers || {})
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Tempo esgotado ao acessar o Supabase.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const payload = await response.text().catch(() => '');
@@ -390,7 +418,30 @@ async function supabaseRequest(endpoint, options = {}) {
   }
 
   const payload = await response.text().catch(() => '');
-  return payload.trim() ? JSON.parse(payload) : [];
+
+  if (!payload.trim()) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(payload);
+  } catch {
+    throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
+  }
+}
+
+function isAffiliateAutomationRulesSchemaMissing(error) {
+  const message = String(error?.message ?? '').toLowerCase();
+  return [
+    'preserve_original_text_enabled',
+    'message_beautifier_enabled',
+    'message_beautifier_style',
+    'ai_rewrite_enabled',
+    'ai_rewrite_style',
+    'telegram_forward_enabled',
+    'telegram_destination_group_id',
+    'telegram_destination_group_name'
+  ].some((columnName) => message.includes(columnName));
 }
 
 function emptyAffiliateState() {
@@ -435,6 +486,7 @@ function mapAffiliateAutomation(row) {
   }
 
   const footerRules = decodeCustomFooterRules(row.custom_footer);
+  const useLegacyRules = hasEncodedCustomFooterRules(row.custom_footer);
   const destinations = Array.isArray(row.affiliate_automation_destinations)
     ? row.affiliate_automation_destinations
     : [];
@@ -447,13 +499,30 @@ function mapAffiliateAutomation(row) {
     telegramSourceGroupName: String(row.telegram_source_group_name ?? ''),
     unknownLinkBehavior: normalizeUnknownBehavior(row.unknown_link_behavior),
     customFooter: footerRules.customFooter,
-    messageBeautifierEnabled: footerRules.messageBeautifierEnabled,
-    messageBeautifierStyle: footerRules.messageBeautifierStyle,
-    aiRewriteEnabled: footerRules.aiRewriteEnabled,
-    aiRewriteStyle: footerRules.aiRewriteStyle,
-    telegramForwardEnabled: footerRules.telegramForwardEnabled,
-    telegramDestinationGroupId: footerRules.telegramDestinationGroupId,
-    telegramDestinationGroupName: footerRules.telegramDestinationGroupName,
+    preserveOriginalTextEnabled: useLegacyRules
+      ? footerRules.preserveOriginalTextEnabled
+      : Boolean(row.preserve_original_text_enabled),
+    messageBeautifierEnabled: useLegacyRules
+      ? footerRules.messageBeautifierEnabled
+      : Boolean(row.message_beautifier_enabled),
+    messageBeautifierStyle: useLegacyRules
+      ? footerRules.messageBeautifierStyle
+      : normalizeBeautifierStyle(row.message_beautifier_style),
+    aiRewriteEnabled: useLegacyRules
+      ? footerRules.aiRewriteEnabled
+      : Boolean(row.ai_rewrite_enabled),
+    aiRewriteStyle: useLegacyRules
+      ? footerRules.aiRewriteStyle
+      : normalizeBeautifierStyle(row.ai_rewrite_style),
+    telegramForwardEnabled: useLegacyRules
+      ? footerRules.telegramForwardEnabled
+      : Boolean(row.telegram_forward_enabled),
+    telegramDestinationGroupId: useLegacyRules
+      ? footerRules.telegramDestinationGroupId
+      : String(row.telegram_destination_group_id ?? ''),
+    telegramDestinationGroupName: useLegacyRules
+      ? footerRules.telegramDestinationGroupName
+      : String(row.telegram_destination_group_name ?? ''),
     removeOriginalFooter: Boolean(row.remove_original_footer),
     isActive: Boolean(row.is_active),
     destinations: destinations.map((destination) => ({
@@ -519,62 +588,49 @@ function normalizeBeautifierStyle(value) {
   return ['clean', 'sales', 'urgent', 'plain'].includes(style) ? style : 'clean';
 }
 
-function encodeCustomFooterRules(payload = {}) {
-  const customFooter = cleanText(payload.customFooter);
-  const rules = {
-    messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
-    messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle),
-    aiRewriteEnabled: Boolean(payload.aiRewriteEnabled),
-    aiRewriteStyle: normalizeBeautifierStyle(payload.aiRewriteStyle),
-    telegramForwardEnabled: Boolean(payload.telegramForwardEnabled),
-    telegramDestinationGroupId: cleanText(payload.telegramDestinationGroupId),
-    telegramDestinationGroupName: cleanText(payload.telegramDestinationGroupName)
+function mapAutomationRulesColumns(payload = {}) {
+  return {
+    custom_footer: cleanText(payload.customFooter),
+    preserve_original_text_enabled: Boolean(payload.preserveOriginalTextEnabled),
+    message_beautifier_enabled: Boolean(payload.messageBeautifierEnabled),
+    message_beautifier_style: normalizeBeautifierStyle(payload.messageBeautifierStyle),
+    ai_rewrite_enabled: Boolean(payload.aiRewriteEnabled),
+    ai_rewrite_style: normalizeBeautifierStyle(payload.aiRewriteStyle),
+    telegram_forward_enabled: Boolean(payload.telegramForwardEnabled),
+    telegram_destination_group_id: cleanText(payload.telegramDestinationGroupId),
+    telegram_destination_group_name: cleanText(payload.telegramDestinationGroupName)
   };
+}
 
-  if (
-    !rules.messageBeautifierEnabled &&
-    rules.messageBeautifierStyle === 'clean' &&
-    !rules.aiRewriteEnabled &&
-    rules.aiRewriteStyle === 'clean' &&
-    !rules.telegramForwardEnabled &&
-    !rules.telegramDestinationGroupId &&
-    !rules.telegramDestinationGroupName
-  ) {
-    return customFooter;
-  }
+function hasEncodedCustomFooterRules(value) {
+  return String(value ?? '').trim().startsWith(affiliateRulesMarkerPrefix);
+}
 
-  return `${affiliateRulesMarkerPrefix}${JSON.stringify(rules)}${affiliateRulesMarkerSuffix}\n${customFooter}`.trim();
+function defaultAutomationRules(customFooter = '') {
+  return {
+    customFooter,
+    preserveOriginalTextEnabled: false,
+    messageBeautifierEnabled: false,
+    messageBeautifierStyle: 'clean',
+    aiRewriteEnabled: false,
+    aiRewriteStyle: 'clean',
+    telegramForwardEnabled: false,
+    telegramDestinationGroupId: '',
+    telegramDestinationGroupName: ''
+  };
 }
 
 function decodeCustomFooterRules(value) {
   const raw = String(value ?? '').trim();
 
   if (!raw.startsWith(affiliateRulesMarkerPrefix)) {
-    return {
-      customFooter: raw,
-      messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean',
-      aiRewriteEnabled: false,
-      aiRewriteStyle: 'clean',
-      telegramForwardEnabled: false,
-      telegramDestinationGroupId: '',
-      telegramDestinationGroupName: ''
-    };
+    return defaultAutomationRules(raw);
   }
 
   const endIndex = raw.indexOf(affiliateRulesMarkerSuffix);
 
   if (endIndex < 0) {
-    return {
-      customFooter: raw,
-      messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean',
-      aiRewriteEnabled: false,
-      aiRewriteStyle: 'clean',
-      telegramForwardEnabled: false,
-      telegramDestinationGroupId: '',
-      telegramDestinationGroupName: ''
-    };
+    return defaultAutomationRules(raw);
   }
 
   const encodedRules = raw.slice(affiliateRulesMarkerPrefix.length, endIndex);
@@ -585,6 +641,7 @@ function decodeCustomFooterRules(value) {
 
     return {
       customFooter,
+      preserveOriginalTextEnabled: Boolean(rules.preserveOriginalTextEnabled),
       messageBeautifierEnabled: Boolean(rules.messageBeautifierEnabled),
       messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle),
       aiRewriteEnabled: Boolean(rules.aiRewriteEnabled),
@@ -594,16 +651,7 @@ function decodeCustomFooterRules(value) {
       telegramDestinationGroupName: cleanText(rules.telegramDestinationGroupName)
     };
   } catch (_error) {
-    return {
-      customFooter,
-      messageBeautifierEnabled: false,
-      messageBeautifierStyle: 'clean',
-      aiRewriteEnabled: false,
-      aiRewriteStyle: 'clean',
-      telegramForwardEnabled: false,
-      telegramDestinationGroupId: '',
-      telegramDestinationGroupName: ''
-    };
+    return defaultAutomationRules(customFooter);
   }
 }
 
@@ -611,6 +659,10 @@ function mergeAffiliateAutomationRulesPayload(currentAutomation, payload = {}) {
   return {
     customFooter:
       payload.customFooter !== undefined ? payload.customFooter : currentAutomation?.customFooter || '',
+    preserveOriginalTextEnabled:
+      payload.preserveOriginalTextEnabled !== undefined
+        ? payload.preserveOriginalTextEnabled
+        : currentAutomation?.preserveOriginalTextEnabled,
     messageBeautifierEnabled:
       payload.messageBeautifierEnabled !== undefined
         ? payload.messageBeautifierEnabled

@@ -104,9 +104,10 @@ export async function createCloudPasswordUser({ id, name, email, passwordHash, r
 }
 
 export async function touchCloudUserLogin(userId) {
-  const updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
   const row = await patchUserRow(userId, {
-    updated_at: updatedAt
+    last_login_at: now,
+    updated_at: now
   });
 
   return row ? mapCloudUser(row) : null;
@@ -169,6 +170,10 @@ export async function updateCloudUserAdminSettings(userId, updates = {}) {
 
   if (updates.accountStatus) {
     payload.account_status = updates.accountStatus;
+  }
+
+  if (updates.billingStatus) {
+    payload.billing_status = updates.billingStatus;
   }
 
   const row = await patchUserRow(userId, payload);
@@ -481,7 +486,11 @@ async function supabaseRequest(endpoint, options = {}) {
     return [];
   }
 
-  return JSON.parse(payload);
+  try {
+    return JSON.parse(payload);
+  } catch {
+    throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
+  }
 }
 
 function mapCloudUser(row) {
@@ -504,11 +513,11 @@ function mapCloudUser(row) {
     role: String(row?.role ?? 'member'),
     plan: String(row?.plan ?? 'beta'),
     accountStatus: String(row?.account_status ?? 'active'),
-    billingStatus: 'beta',
+    billingStatus: String(row?.billing_status ?? 'beta'),
     internalNote: '',
     createdAt: String(row?.created_at ?? new Date().toISOString()),
     updatedAt: String(row?.updated_at ?? row?.created_at ?? new Date().toISOString()),
-    lastLoginAt: row?.updated_at ? String(row.updated_at) : null
+    lastLoginAt: row?.last_login_at ? String(row.last_login_at) : (row?.updated_at ? String(row.updated_at) : null)
   };
 }
 

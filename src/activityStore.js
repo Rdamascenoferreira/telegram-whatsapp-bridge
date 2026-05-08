@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { ensureWorkspaceForUser, getWorkspacePaths } from './configStore.js';
+import { waitForFileOperations, writeJsonFileAtomic } from './jsonFileStore.js';
 
 const maxEvents = 160;
 const maxOffers = 80;
@@ -30,8 +31,15 @@ export async function loadActivityForUser(userId) {
   const paths = await ensureWorkspaceForUser(userId);
 
   try {
+    await waitForFileOperations(paths.activityPath);
     const raw = await fs.readFile(paths.activityPath, 'utf8');
-    const parsed = JSON.parse(raw);
+    let parsed;
+
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`Atividade invalida em ${paths.activityPath}.`);
+    }
 
     return normalizeActivity(parsed);
   } catch (error) {
@@ -46,7 +54,7 @@ export async function loadActivityForUser(userId) {
 
 export async function saveActivityForUser(userId, activity) {
   const paths = getWorkspacePaths(userId);
-  await fs.writeFile(paths.activityPath, JSON.stringify(normalizeActivity(activity), null, 2), 'utf8');
+  await writeJsonFileAtomic(paths.activityPath, normalizeActivity(activity));
 }
 
 export function appendActivityEvent(activity, event) {

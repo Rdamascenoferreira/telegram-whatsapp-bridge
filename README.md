@@ -34,23 +34,35 @@ npm.cmd install
 npm.cmd start
 ```
 
-Abra:
+Para usar o painel novo em Next.js, abra outro PowerShell:
+
+```powershell
+cd "C:\Users\Rod&Ju\Documents\Codex\2026-04-23-oi\telegram-whatsapp-bridge\web"
+npm.cmd install
+npm.cmd run dev
+```
+
+Abra o painel:
+
+```text
+http://localhost:3000
+```
+
+O backend continua em:
 
 ```text
 http://localhost:3100
 ```
 
-Na primeira vez, crie sua conta na tela inicial antes de acessar o painel.
+Na primeira vez, crie sua conta na tela inicial antes de acessar o painel. Se `FRONTEND_BASE_URL` estiver configurado, acessar `http://localhost:3100` redireciona para o painel Next. Sem frontend configurado, o backend mostra apenas uma pagina minima com o link do painel e o healthcheck.
 
 ## Configuracao
 
 1. Crie sua conta com email e senha na tela inicial.
-2. Crie um bot no Telegram com o `@BotFather`.
-3. Adicione esse bot como administrador do canal do Telegram.
-4. No painel local, cole o token do bot.
-5. Informe o canal como `@username` ou ID `-100...`.
-6. Escaneie o QR Code do WhatsApp.
-7. Atualize a lista de grupos e marque os grupos desejados.
+2. Configure sua sessao de usuario do Telegram com API ID, API Hash e telefone.
+3. Informe a origem do Telegram na aba Fluxos.
+4. Escaneie o QR Code do WhatsApp.
+5. Atualize a lista de grupos e marque os grupos desejados.
 
 ## Login com Google
 
@@ -58,10 +70,14 @@ Se quiser habilitar o botao `Entrar com Google`, voce pode copiar o arquivo `.en
 
 ```env
 SESSION_SECRET=troque-por-um-segredo-forte
+SESSION_STORE=file
+SESSION_FILE_STORE_DIR=data/sessions
 GOOGLE_CLIENT_ID=seu-client-id
 GOOGLE_CLIENT_SECRET=seu-client-secret
 GOOGLE_CALLBACK_URL=http://localhost:3100/auth/google/callback
 APP_BASE_URL=http://localhost:3100
+FRONTEND_BASE_URL=http://localhost:3000
+APP_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 PORT=3100
 NODE_ENV=production
 WHATSAPP_HEADLESS=true
@@ -172,12 +188,12 @@ Depois disso, cada `push` na `main` atualiza o servidor automaticamente.
 
 - Esta ponte usa `whatsapp-web.js`, que opera em cima do WhatsApp Web. Segundo a documentacao do projeto, isso reduz risco, mas nao garante que a conta nunca sera bloqueada.
 - A API oficial do WhatsApp Business/Cloud API e focada em mensagens para usuarios/contatos; eu nao encontrei, nas fontes oficiais que consultei, uma documentacao primaria equivalente para esse caso de encaminhar para grupos arbitrarios escolhidos no seu WhatsApp pessoal. Por isso esta versao local usa sessao web.
+- O modo antigo com bot do Telegram foi removido; o runtime atual usa sessao de usuario do Telegram.
 - Primeira versao: nao tenta sincronizar edicoes posteriores do post no Telegram. Ela encaminha novos posts.
 
 ## Fontes consultadas
 
-- Telegram Bot API: [core.telegram.org/bots/api](https://core.telegram.org/bots/api)
-- Eventos `channel_post` em `node-telegram-bot-api`: [GitHub](https://github.com/yagop/node-telegram-bot-api/blob/master/doc/usage.md)
+- Telegram user sessions / GramJS: [gram.js.org](https://gram.js.org/)
 - `whatsapp-web.js`: [wwebjs.dev](https://wwebjs.dev/)
 - `LocalAuth`: [docs.wwebjs.dev/LocalAuth.html](https://docs.wwebjs.dev/LocalAuth.html)
 - `GroupChat.participants` e flags de admin: [docs.wwebjs.dev/GroupChat.html](https://docs.wwebjs.dev/GroupChat.html)

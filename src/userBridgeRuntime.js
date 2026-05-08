@@ -5,7 +5,6 @@ import { Api, TelegramClient } from 'telegram';
 import { NewMessage } from 'telegram/events/index.js';
 import { computeCheck } from 'telegram/Password.js';
 import { StringSession } from 'telegram/sessions/index.js';
-import TelegramBot from 'node-telegram-bot-api';
 import pkg from 'whatsapp-web.js';
 import {
   appendActivityEvent,
@@ -62,6 +61,10 @@ function isWhatsAppOperationalStatus(value) {
   return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
 }
 
+function createRemovedTelegramBotClient() {
+  throw new Error('O modo de bot do Telegram foi removido. Use a sessao de usuario do Telegram.');
+}
+
 export class UserBridgeRuntime {
   constructor(options = {}) {
     this.userId = String(options.userId ?? '').trim();
@@ -74,7 +77,6 @@ export class UserBridgeRuntime {
     this.whatsAppStatus = 'starting';
     this.whatsAppPhone = null;
     this.availableGroups = [];
-    this.telegramBot = null;
     this.telegramClient = null;
     this.telegramMessageHandler = null;
     this.telegramAvailableChats = [];
@@ -144,12 +146,12 @@ export class UserBridgeRuntime {
       qrDataUrl: this.qrDataUrl,
       telegramStatus: this.telegramStatus,
       config: {
-        telegramMode: this.getTelegramMode(),
+        telegramMode: 'user',
         telegramChannel: this.config.telegramChannel,
         telegramApiId: this.config.telegramApiId,
         telegramApiHash: this.config.telegramApiHash,
         telegramPhone: this.config.telegramPhone,
-        hasTelegramBotToken: Boolean(this.config.telegramBotToken),
+        hasTelegramBotToken: false,
         hasTelegramSession: Boolean(this.config.telegramSession),
         bridgeEnabled: this.config.bridgeEnabled,
         dashboardViewClearedAt,
@@ -207,17 +209,7 @@ export class UserBridgeRuntime {
   }
 
   getTelegramMode() {
-    const explicitMode = String(this.config?.telegramMode ?? '').trim().toLowerCase();
-
-    if (explicitMode === 'bot' || explicitMode === 'user') {
-      return explicitMode;
-    }
-
-    if (this.config?.telegramSession || this.config?.telegramApiId || this.config?.telegramApiHash) {
-      return 'user';
-    }
-
-    return 'bot';
+    return 'user';
   }
 
   async updateSettings({
@@ -230,8 +222,8 @@ export class UserBridgeRuntime {
   }) {
     this.config = await saveConfigForUser(this.userId, {
       ...this.config,
-      telegramMode: telegramMode || this.getTelegramMode(),
-      telegramBotToken,
+      telegramMode: 'user',
+      telegramBotToken: '',
       telegramApiId,
       telegramApiHash,
       telegramPhone,
@@ -672,10 +664,8 @@ export class UserBridgeRuntime {
     this.telegramAvailableChats = [];
     this.telegramUserProfile = null;
 
-    if (this.getTelegramMode() === 'user') {
-      await this.startTelegramUser();
-      return;
-    }
+    await this.startTelegramUser();
+    return;
 
     if (!this.config.telegramBotToken) {
       this.telegramStatus = 'not_configured';
@@ -686,7 +676,7 @@ export class UserBridgeRuntime {
     }
 
     this.telegramStatus = 'connecting';
-    this.telegramBot = new TelegramBot(this.config.telegramBotToken, {
+    this.telegramBot = createRemovedTelegramBotClient(this.config.telegramBotToken, {
       polling: true
     });
 
@@ -733,12 +723,6 @@ export class UserBridgeRuntime {
   }
 
   async stopTelegramTransport() {
-    if (this.telegramBot) {
-      this.telegramBot.removeAllListeners();
-      await this.telegramBot.stopPolling().catch(() => {});
-      this.telegramBot = null;
-    }
-
     if (this.telegramClient) {
       if (this.telegramMessageHandler) {
         this.telegramClient.removeEventHandler(this.telegramMessageHandler);
@@ -1039,9 +1023,9 @@ export class UserBridgeRuntime {
     }
 
     this.telegramStatus = 'listening';
-      this.log(
+    this.log(
       `Mensagem recebida do Telegram (user session) em ${describeTelegramEntity(chat, sourceChatId)}.`,
-        {
+      {
         type: 'telegram_received',
         increments: { telegramReceived: 1 },
         metadata: {

@@ -19,12 +19,13 @@ import {
   upsertCloudGoogleUser
 } from './cloudAuthStore.js';
 import { getWorkspacePaths } from './configStore.js';
+import { waitForFileOperations, writeJsonFileAtomic } from './jsonFileStore.js';
 import { userPlanOptions as availableUserPlanOptions } from './planLimits.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
 const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
-const primaryAdminEmail = normalizeEmail('rdamascenoferreira@gmail.com');
+const primaryAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL || 'rdamascenoferreira@gmail.com');
 
 export const userRoleOptions = ['admin', 'member'];
 export const userPlanOptions = availableUserPlanOptions;
@@ -34,10 +35,17 @@ const newUserDefaultAccountStatus = 'trial';
 
 async function loadUsers() {
   await fs.mkdir(dataDir, { recursive: true });
+  await waitForFileOperations(usersPath);
 
   try {
     const raw = await fs.readFile(usersPath, 'utf8');
-    const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
+    let parsed;
+
+    try {
+      parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
+    } catch {
+      throw new Error(`Base de usuarios invalida em ${usersPath}.`);
+    }
     const inputUsers = Array.isArray(parsed.users) ? parsed.users : [];
     const users = inputUsers.map((user, index, list) => normalizeStoredUser(user, index, list));
 
@@ -57,8 +65,7 @@ async function loadUsers() {
 }
 
 async function saveUsers(users) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(usersPath, JSON.stringify({ users }, null, 2), 'utf8');
+  await writeJsonFileAtomic(usersPath, { users });
 }
 
 function normalizeEmail(email) {

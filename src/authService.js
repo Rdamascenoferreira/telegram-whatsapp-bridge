@@ -1,4 +1,7 @@
+import crypto from 'node:crypto';
+import path from 'node:path';
 import session from 'express-session';
+import createFileStore from 'session-file-store';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import {
@@ -15,21 +18,33 @@ import {
   verifyPasswordUser
 } from './authStore.js';
 
+const FileStore = createFileStore(session);
+
 export class AuthService {
   constructor(options = {}) {
-    this.sessionSecret = options.sessionSecret || 'bridge-dev-session-secret';
+    this.appBaseUrl = options.appBaseUrl || '';
+    this.allowedOriginHosts = buildAllowedOriginHosts(options.allowedOrigins, this.appBaseUrl);
+    this.sessionSecret = resolveSessionSecret(options.sessionSecret);
+    this.cookieSecure = resolveCookieSecure(this.appBaseUrl);
     this.googleClientId = options.googleClientId || '';
     this.googleClientSecret = options.googleClientSecret || '';
     this.googleCallbackUrl = options.googleCallbackUrl || '';
     this.googleEnabled = Boolean(this.googleClientId && this.googleClientSecret && this.googleCallbackUrl);
     this.onlineWindowMs = 1000 * 20;
-    this.sessionStore = new session.MemoryStore();
+    this.authRateLimitWindowMs = 1000 * 60 * 15;
+    this.authRateLimitMaxAttempts = 8;
+    this.authAttempts = new Map();
+    this.sessionStore = createSessionStore({
+      storeType: options.sessionStoreType,
+      sessionDir: options.sessionDir
+    });
     this.onlineSessionsByUserId = new Map();
     this.sessionUserBySessionId = new Map();
     this.sessionSeenAt = new Map();
   }
 
   configure(app) {
+    app.use(this.requireSameOrigin());
     app.use(
       session({
         secret: this.sessionSecret,
@@ -39,6 +54,7 @@ export class AuthService {
         cookie: {
           httpOnly: true,
           sameSite: 'lax',
+          secure: this.cookieSecure,
           maxAge: 1000 * 60 * 60 * 24 * 30
         }
       })
@@ -93,7 +109,10 @@ export class AuthService {
     });
 
     app.post('/api/auth/register', async (request, response) => {
+      const rateLimitKey = this.buildAuthRateLimitKey(request, 'register', request.body?.email);
+
       try {
+        this.assertAuthRateLimit(rateLimitKey);
         const user = await createPasswordUser({
           name: request.body?.name,
           email: request.body?.email,
@@ -101,9 +120,11 @@ export class AuthService {
         });
 
         await this.login(request, user);
+        this.clearAuthRateLimit(rateLimitKey);
         response.json(this.getClientSession(user));
       } catch (error) {
-        response.status(400).json({
+        this.recordAuthFailure(rateLimitKey);
+        response.status(error.code === 'AUTH_RATE_LIMITED' ? 429 : 400).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
           error: error.message || 'Não foi possível criar sua conta.'
@@ -112,13 +133,17 @@ export class AuthService {
     });
 
     app.post('/api/auth/login', async (request, response) => {
+      const rateLimitKey = this.buildAuthRateLimitKey(request, 'login', request.body?.email);
+
       try {
+        this.assertAuthRateLimit(rateLimitKey);
         const user = await verifyPasswordUser({
           email: request.body?.email,
           password: request.body?.password
         });
 
         if (!user) {
+          this.recordAuthFailure(rateLimitKey);
           response.status(401).json({
             authenticated: false,
             googleEnabled: this.googleEnabled,
@@ -128,10 +153,13 @@ export class AuthService {
         }
 
         await this.login(request, user);
+        this.clearAuthRateLimit(rateLimitKey);
         response.json(this.getClientSession(user));
       } catch (error) {
+        this.recordAuthFailure(rateLimitKey);
         const isSuspended = String(error.message || '').toLowerCase().includes('suspensa');
-        response.status(isSuspended ? 403 : 500).json({
+        const isRateLimited = error.code === 'AUTH_RATE_LIMITED';
+        response.status(isRateLimited ? 429 : isSuspended ? 403 : 500).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
           error: error.message || 'Não foi possível entrar agora.'
@@ -326,7 +354,7 @@ export class AuthService {
         response.status(401).json({
           authenticated: false,
           googleEnabled: this.googleEnabled,
-          error: 'FaÃ§a login para continuar.'
+          error: 'Faça login para continuar.'
         });
         return;
       }
@@ -475,4 +503,165 @@ export class AuthService {
 
     this.sessionSeenAt.set(normalizedSessionId, Date.now());
   }
+
+  requireSameOrigin() {
+    return (request, response, next) => {
+      if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+        next();
+        return;
+      }
+
+      const source = request.headers.origin || request.headers.referer;
+
+      if (!source || this.isAllowedRequestSource(source, request.headers.host)) {
+        next();
+        return;
+      }
+
+      response.status(403).json({
+        authenticated: Boolean(request.user),
+        googleEnabled: this.googleEnabled,
+        error: 'Origem da requisicao nao autorizada.'
+      });
+    };
+  }
+
+  isAllowedRequestSource(source, hostHeader) {
+    try {
+      const sourceUrl = new URL(String(source));
+      const allowedHosts = new Set(
+        [hostHeader, ...this.allowedOriginHosts]
+          .map((value) => String(value || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      return allowedHosts.has(sourceUrl.host.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
+  buildAuthRateLimitKey(request, action, email) {
+    const ipAddress = String(request.ip || request.socket?.remoteAddress || 'unknown').trim();
+    const normalizedEmail = String(email ?? '').trim().toLowerCase();
+    return `${action}:${ipAddress}:${normalizedEmail}`;
+  }
+
+  assertAuthRateLimit(key) {
+    const entry = this.authAttempts.get(key);
+    const now = Date.now();
+
+    if (!entry || entry.expiresAt <= now) {
+      this.authAttempts.delete(key);
+      return;
+    }
+
+    if (entry.count < this.authRateLimitMaxAttempts) {
+      return;
+    }
+
+    const error = new Error('Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.');
+    error.code = 'AUTH_RATE_LIMITED';
+    throw error;
+  }
+
+  recordAuthFailure(key) {
+    const now = Date.now();
+    const current = this.authAttempts.get(key);
+
+    if (!current || current.expiresAt <= now) {
+      this.authAttempts.set(key, {
+        count: 1,
+        expiresAt: now + this.authRateLimitWindowMs
+      });
+      return;
+    }
+
+    current.count += 1;
+  }
+
+  clearAuthRateLimit(key) {
+    this.authAttempts.delete(key);
+  }
+}
+
+function resolveSessionSecret(value) {
+  const explicitSecret = String(value ?? '').trim();
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (explicitSecret && explicitSecret !== 'bridge-dev-session-secret') {
+    return explicitSecret;
+  }
+
+  if (isProduction) {
+    throw new Error('Defina SESSION_SECRET com um valor forte antes de iniciar em producao.');
+  }
+
+  console.warn('SESSION_SECRET nao definido. Usando segredo temporario apenas para desenvolvimento local.');
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function resolveCookieSecure(appBaseUrl) {
+  const override = String(process.env.SESSION_COOKIE_SECURE ?? '').trim().toLowerCase();
+
+  if (['1', 'true', 'yes', 'on'].includes(override)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(override)) {
+    return false;
+  }
+
+  return String(appBaseUrl || '').trim().toLowerCase().startsWith('https://');
+}
+
+function createSessionStore(options = {}) {
+  const storeType = String(options.storeType ?? process.env.SESSION_STORE ?? 'file').trim().toLowerCase();
+
+  if (storeType === 'memory') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SESSION_STORE=memory nao e permitido em producao. Use SESSION_STORE=file ou um store persistente.');
+    }
+
+    console.warn('SESSION_STORE=memory esta ativo apenas para desenvolvimento local.');
+    return new session.MemoryStore();
+  }
+
+  if (storeType && storeType !== 'file') {
+    throw new Error(`SESSION_STORE invalido: ${storeType}. Use "file" ou "memory".`);
+  }
+
+  const sessionDir = path.resolve(
+    process.cwd(),
+    String(options.sessionDir ?? process.env.SESSION_FILE_STORE_DIR ?? 'data/sessions').trim() || 'data/sessions'
+  );
+
+  return new FileStore({
+    path: sessionDir,
+    ttl: 60 * 60 * 24 * 30,
+    retries: 1,
+    reapInterval: 60 * 60,
+    logFn: () => {}
+  });
+}
+
+function buildAllowedOriginHosts(values = [], appBaseUrl = '') {
+  const urls = Array.isArray(values) ? values : [values];
+  const hosts = [];
+
+  for (const value of [appBaseUrl, ...urls]) {
+    const text = String(value ?? '').trim();
+
+    if (!text) {
+      continue;
+    }
+
+    try {
+      hosts.push(new URL(text).host);
+    } catch {
+      hosts.push(text);
+    }
+  }
+
+  return [...new Set(hosts)];
 }

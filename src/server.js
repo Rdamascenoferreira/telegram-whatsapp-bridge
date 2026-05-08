@@ -5,15 +5,31 @@ import { BridgeApp } from './bridgeApp.js';
 
 const port = Number(process.env.PORT ?? 3100);
 const appBaseUrl = process.env.APP_BASE_URL ?? `http://localhost:${port}`;
+const frontendBaseUrl = String(process.env.FRONTEND_BASE_URL ?? '').trim().replace(/\/$/, '');
+const allowedOrigins = [
+  frontendBaseUrl,
+  process.env.APP_ALLOWED_ORIGINS,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+]
+  .flatMap((value) => String(value ?? '').split(','))
+  .map((value) => value.trim())
+  .filter(Boolean);
 const app = express();
 const jsonParser = express.json({ limit: '4mb' });
 const auth = new AuthService({
   sessionSecret: process.env.SESSION_SECRET,
+  appBaseUrl,
+  allowedOrigins,
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL ?? `${appBaseUrl}/auth/google/callback`
 });
-const bridge = new BridgeApp({ auth });
+const bridge = new BridgeApp({ auth, frontendBaseUrl });
+
+if (appBaseUrl.startsWith('https://')) {
+  app.set('trust proxy', 1);
+}
 
 app.use((request, response, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {

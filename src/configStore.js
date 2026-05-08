@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { waitForFileOperations, writeJsonFileAtomic } from './jsonFileStore.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
 const workspacesDir = path.join(dataDir, 'workspaces');
@@ -68,7 +69,7 @@ export async function ensureWorkspaceForUser(userId) {
       throw error;
     }
 
-    await fs.writeFile(paths.configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+    await writeJsonFileAtomic(paths.configPath, defaultConfig);
   }
 
   return paths;
@@ -78,8 +79,15 @@ export async function loadConfigForUser(userId) {
   const paths = await ensureWorkspaceForUser(userId);
 
   try {
+    await waitForFileOperations(paths.configPath);
     const raw = await fs.readFile(paths.configPath, 'utf8');
-    const parsed = JSON.parse(raw);
+    let parsed;
+
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`Configuracao invalida em ${paths.configPath}.`);
+    }
 
     return {
       ...defaultConfig,
@@ -106,7 +114,7 @@ export async function saveConfigForUser(userId, nextConfig) {
     whatsAppGroupCache: normalizeWhatsAppGroupCache(nextConfig.whatsAppGroupCache)
   };
 
-  await fs.writeFile(paths.configPath, JSON.stringify(merged, null, 2), 'utf8');
+  await writeJsonFileAtomic(paths.configPath, merged);
   return merged;
 }
 
@@ -143,20 +151,12 @@ async function maybeMigrateLegacyWorkspace(paths) {
     selectedGroupIds: Array.isArray(legacyConfig.selectedGroupIds) ? legacyConfig.selectedGroupIds : []
   };
 
-  await fs.writeFile(paths.configPath, JSON.stringify(normalizedConfig, null, 2), 'utf8');
+  await writeJsonFileAtomic(paths.configPath, normalizedConfig);
   await maybeMigrateLegacySession(paths);
-  await fs.writeFile(
-    legacyMigrationPath,
-    JSON.stringify(
-      {
-        userId: paths.userId,
-        migratedAt: new Date().toISOString()
-      },
-      null,
-      2
-    ),
-    'utf8'
-  );
+  await writeJsonFileAtomic(legacyMigrationPath, {
+    userId: paths.userId,
+    migratedAt: new Date().toISOString()
+  });
 }
 
 async function maybeMigrateLegacySession(paths) {
@@ -221,8 +221,14 @@ async function exists(targetPath) {
 
 async function readJson(targetPath) {
   try {
+    await waitForFileOperations(targetPath);
     const raw = await fs.readFile(targetPath, 'utf8');
-    return JSON.parse(raw.replace(/^\uFEFF/, ''));
+
+    try {
+      return JSON.parse(raw.replace(/^\uFEFF/, ''));
+    } catch {
+      throw new Error(`Arquivo JSON invalido em ${targetPath}.`);
+    }
   } catch (error) {
     if (error.code === 'ENOENT') {
       return null;

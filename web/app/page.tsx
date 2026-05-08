@@ -2141,6 +2141,11 @@ function FlowsPanel({
       return;
     }
 
+    if (telegramFlow === 'affiliate' && !state.affiliate?.termsAccepted) {
+      setNotice('Aceite os termos na aba Afiliados antes de ativar o Automatizador de Ofertas.');
+      return;
+    }
+
     setBusy('save-source');
 
     try {
@@ -2159,15 +2164,6 @@ function FlowsPanel({
         });
         setNotice('Fluxo Ponte Telegram -> WhatsApp salvo com sucesso.');
       } else {
-        await postJson('/api/settings', {
-          telegramMode: 'user',
-          telegramChannel: '',
-          telegramApiId: state.config.telegramApiId,
-          telegramApiHash: state.config.telegramApiHash,
-          telegramPhone: state.config.telegramPhone,
-          telegramBotToken: ''
-        });
-
         await postJson('/api/affiliate/automations', {
           id: configuredAffiliateAutomation?.id || undefined,
           name: configuredAffiliateAutomation?.name || 'Automatizador de Ofertas',
@@ -2183,6 +2179,7 @@ function FlowsPanel({
             affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
               ? getTelegramChatName(state, affiliateTelegramDestinationId)
               : '',
+          replaceTelegramBridgeSource: true,
           isActive: true
         });
         setNotice('Fluxo Automatizador de Ofertas salvo com sucesso.');
@@ -3607,23 +3604,32 @@ function AffiliateAutomationPanel({
       setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
       return;
     }
+    if (!affiliate.termsAccepted) {
+      setNotice('Aceite os termos de afiliados antes de salvar as credenciais.');
+      return;
+    }
     setBusy('affiliate-account');
     const form = new FormData(formElement);
 
-    await postJson('/api/affiliate/account', {
-      amazonEnabled: form.get('amazonEnabled') === 'on',
-      amazonTag: form.get('amazonTag'),
-      shopeeEnabled: form.get('shopeeEnabled') === 'on',
-      shopeeAffiliateId: form.get('shopeeAffiliateId'),
-      defaultSubId: form.get('defaultSubId'),
-      shopeeAppId: form.get('shopeeAppId'),
-      shopeeSecret: form.get('shopeeSecret')
-    });
+    try {
+      await postJson('/api/affiliate/account', {
+        amazonEnabled: form.get('amazonEnabled') === 'on',
+        amazonTag: form.get('amazonTag'),
+        shopeeEnabled: form.get('shopeeEnabled') === 'on',
+        shopeeAffiliateId: form.get('shopeeAffiliateId'),
+        defaultSubId: form.get('defaultSubId'),
+        shopeeAppId: form.get('shopeeAppId'),
+        shopeeSecret: form.get('shopeeSecret')
+      });
 
-    await refresh();
-    setAffiliateAccountEditing(false);
-    setNotice('Dados de afiliado salvos.');
-    setBusy('');
+      await refresh();
+      setAffiliateAccountEditing(false);
+      setNotice('Dados de afiliado salvos.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar os dados de afiliado.');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function runManualTest() {
@@ -3635,8 +3641,13 @@ function AffiliateAutomationPanel({
       setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
       return;
     }
+    if (!affiliate.termsAccepted) {
+      setNotice('Aceite os termos de afiliados antes de rodar o teste.');
+      return;
+    }
 
     setBusy('affiliate-test');
+    try {
       const draftAutomation = {
         ...(activeAutomation || {
           name: 'Teste manual',
@@ -3653,14 +3664,18 @@ function AffiliateAutomationPanel({
         messageBeautifierEnabled: false,
         aiRewriteEnabled: false
       };
-    const result = await postJson<typeof testResult>('/api/affiliate/test', {
-      automationId: '',
-      automation: draftAutomation,
-      message: testMessage
-    });
-    setTestResult(result);
-    setNotice('Teste de conversao concluido.');
-    setBusy('');
+      const result = await postJson<typeof testResult>('/api/affiliate/test', {
+        automationId: '',
+        automation: draftAutomation,
+        message: testMessage
+      });
+      setTestResult(result);
+      setNotice('Teste de conversao concluido.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Nao foi possivel concluir o teste de conversao.');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function saveAffiliateRules(formElement: HTMLFormElement) {
@@ -3670,6 +3685,10 @@ function AffiliateAutomationPanel({
     }
     if (!affiliateModuleAllowed) {
       setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      return;
+    }
+    if (!affiliate.termsAccepted) {
+      setNotice('Aceite os termos de afiliados antes de salvar as regras.');
       return;
     }
     if (!activeAutomation?.id || !activeAutomation.telegramSourceGroupId) {
@@ -3722,8 +3741,9 @@ function AffiliateAutomationPanel({
     'rounded-xl border border-emerald-300/20 bg-[linear-gradient(135deg,rgba(37,211,102,0.96),rgba(34,158,217,0.92))] px-5 py-3 font-semibold text-slate-950 shadow-[0_14px_30px_rgba(25,140,102,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_38px_rgba(25,140,102,0.36)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none';
   const affiliateSecondaryButtonClass =
     'rounded-xl border border-cyan-400/20 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(34,158,217,0.2))] px-4 py-2 text-sm font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/30 hover:bg-[linear-gradient(135deg,rgba(16,185,129,0.24),rgba(34,158,217,0.28))] hover:text-white disabled:opacity-60';
+  const affiliateTermsAccepted = Boolean(affiliate.termsAccepted);
   const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
-  const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || affiliateAccountLocked || busy === 'affiliate-account';
+  const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || affiliateAccountLocked || busy === 'affiliate-account';
   const testLinks = testResult?.convertedUrls || [];
   const testConvertedLinks = testLinks.filter((url) => url.status === 'converted' && url.affiliateUrl);
   const testConvertedCount = testLinks.filter((url) => url.status === 'converted').length;
@@ -3862,7 +3882,7 @@ function AffiliateAutomationPanel({
                   <select
                     name="unknownLinkBehavior"
                     defaultValue={activeAutomation?.unknownLinkBehavior || 'keep'}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                     className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
                   >
                     <option value="keep">Manter link original</option>
@@ -3899,7 +3919,7 @@ function AffiliateAutomationPanel({
                   <textarea
                     name="customFooter"
                     defaultValue={activeAutomation?.customFooter || ''}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                     placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la`}
                     className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
                   />
@@ -3913,7 +3933,7 @@ function AffiliateAutomationPanel({
                     type="checkbox"
                     name="removeOriginalFooter"
                     defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)}
-                    disabled={readOnlyAccount || !affiliateModuleAllowed || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                   />
                   Remover rodape original da mensagem captada
                 </label>
@@ -3929,7 +3949,7 @@ function AffiliateAutomationPanel({
                       void saveAffiliateRules(event.currentTarget.form);
                     }
                   }}
-                  disabled={readOnlyAccount || busy === 'affiliate-rules' || !affiliateModuleAllowed || !activeAutomation}
+                  disabled={readOnlyAccount || busy === 'affiliate-rules' || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation}
                   className={affiliatePrimaryButtonClass}
                 >
                   {busy === 'affiliate-rules' ? 'Salvando...' : affiliateRulesEditing ? 'Salvar regras' : 'Editar'}
@@ -3946,7 +3966,7 @@ function AffiliateAutomationPanel({
                   Cole uma oferta e veja exatamente como ela sera entregue, sem enviar nada ao WhatsApp.
                 </p>
               </div>
-              <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test'} onClick={runManualTest} className={affiliateSecondaryButtonClass}>
+              <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test' || !affiliateModuleAllowed || !affiliateTermsAccepted} onClick={runManualTest} className={affiliateSecondaryButtonClass}>
                 {busy === 'affiliate-test' ? 'Testando...' : 'Rodar teste'}
               </button>
             </div>
@@ -4145,7 +4165,9 @@ function AffiliateAutomationPanel({
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
                 <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret/API Secret'} />
-                <span className="text-xs leading-5 text-[var(--muted)]">Usado apenas na comunicacao segura com a Shopee. Nao sera exibido novamente.</span>
+                <span className="text-xs leading-5 text-[var(--muted)]">
+                  Usado apenas na comunicacao segura com a Shopee. Se ja estiver configurado, deixe em branco para manter o secret atual.
+                </span>
               </label>
             </div>
             {affiliateAccountLocked ? (
@@ -4156,7 +4178,7 @@ function AffiliateAutomationPanel({
                   event.stopPropagation();
                   setAffiliateAccountEditing(true);
                 }}
-                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
+                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed || !affiliateTermsAccepted}
                 className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
               >
                 Editar
@@ -4169,7 +4191,7 @@ function AffiliateAutomationPanel({
                   event.stopPropagation();
                   void submitAccount();
                 }}
-                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed}
+                disabled={readOnlyAccount || busy === 'affiliate-account' || !affiliateModuleAllowed || !affiliateTermsAccepted}
                 className={`mt-4 w-full ${affiliatePrimaryButtonClass}`}
               >
                 {busy === 'affiliate-account' ? 'Salvando...' : 'Salvar dados'}

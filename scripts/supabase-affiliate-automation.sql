@@ -8,13 +8,35 @@ create table if not exists public.affiliate_automations (
   telegram_source_group_name text,
   unknown_link_behavior text not null default 'keep',
   custom_footer text,
+  preserve_original_text_enabled boolean not null default false,
+  message_beautifier_enabled boolean not null default false,
+  message_beautifier_style text not null default 'clean',
+  ai_rewrite_enabled boolean not null default false,
+  ai_rewrite_style text not null default 'clean',
+  telegram_forward_enabled boolean not null default false,
+  telegram_destination_group_id text,
+  telegram_destination_group_name text,
   remove_original_footer boolean not null default false,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint affiliate_automations_unknown_link_behavior_check
-    check (unknown_link_behavior in ('keep', 'remove', 'ignore_message'))
+    check (unknown_link_behavior in ('keep', 'remove', 'ignore_message')),
+  constraint affiliate_automations_message_beautifier_style_check
+    check (message_beautifier_style in ('clean', 'sales', 'urgent', 'plain')),
+  constraint affiliate_automations_ai_rewrite_style_check
+    check (ai_rewrite_style in ('clean', 'sales', 'urgent', 'plain'))
 );
+
+alter table if exists public.affiliate_automations
+  add column if not exists preserve_original_text_enabled boolean not null default false,
+  add column if not exists message_beautifier_enabled boolean not null default false,
+  add column if not exists message_beautifier_style text not null default 'clean',
+  add column if not exists ai_rewrite_enabled boolean not null default false,
+  add column if not exists ai_rewrite_style text not null default 'clean',
+  add column if not exists telegram_forward_enabled boolean not null default false,
+  add column if not exists telegram_destination_group_id text,
+  add column if not exists telegram_destination_group_name text;
 
 create table if not exists public.affiliate_automation_destinations (
   id uuid primary key default gen_random_uuid(),
@@ -98,4 +120,3 @@ create index if not exists idx_affiliate_conversion_logs_user_id
   on public.affiliate_conversion_logs(user_id);
 create index if not exists idx_affiliate_conversion_logs_marketplace
   on public.affiliate_conversion_logs(marketplace);
-

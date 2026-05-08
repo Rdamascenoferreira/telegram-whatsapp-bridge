@@ -1,6 +1,7 @@
 node_modules/
 web/node_modules/
 web/.next/
+.local-logs/
 .wwebjs_auth/
 .wwebjs_cache/
 .env
