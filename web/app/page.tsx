@@ -3665,10 +3665,15 @@ function AffiliateAutomationPanel({
     }
 
     setBusy('affiliate-terms');
-    await postJson('/api/affiliate/terms/accept');
-    await refresh();
-    setNotice('Termo de uso aceito.');
-    setBusy('');
+    try {
+      await postJson('/api/affiliate/terms/accept');
+      await refresh();
+      setNotice('Termo de uso aceito.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Nao foi possivel aceitar o termo.');
+    } finally {
+      setBusy('');
+    }
   }
 
   const affiliatePrimaryButtonClass =
@@ -3748,7 +3753,7 @@ function AffiliateAutomationPanel({
               Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automacao. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
             </p>
             <button type="button" disabled={readOnlyAccount || busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
-              Aceitar termo e liberar modulo
+              {busy === 'affiliate-terms' ? 'Liberando modulo...' : 'Aceitar termo e liberar modulo'}
             </button>
           </div>
         ) : null}

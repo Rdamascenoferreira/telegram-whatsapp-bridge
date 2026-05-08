@@ -246,6 +246,23 @@ export async function deleteAffiliateAutomationsForUser(userId) {
 }
 
 export async function acceptAffiliateTerms(userId, metadata = {}) {
+  if (!cloudEnabled || !userId) {
+    return;
+  }
+
+  const existingRows = await supabaseRequest('/rest/v1/affiliate_terms_acceptance', {
+    searchParams: {
+      select: 'id',
+      user_id: `eq.${userId}`,
+      terms_version: `eq.${affiliateTermsVersion}`,
+      limit: '1'
+    }
+  });
+
+  if (existingRows.length > 0) {
+    return;
+  }
+
   await supabaseRequest('/rest/v1/affiliate_terms_acceptance', {
     method: 'POST',
     body: {
