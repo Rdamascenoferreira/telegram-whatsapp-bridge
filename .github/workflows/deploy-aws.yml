@@ -82,21 +82,61 @@ jobs:
           timeout 15 bash -c "cat < /dev/null > /dev/tcp/$AWS_DEPLOY_HOST/22"
           echo "TCP connection OK"
 
+      - name: Test SSH authentication
+        env:
+          AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
+          AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -p 22 \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "echo 'SSH authentication OK'"
+
       - name: Upload release archive
         env:
           AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
-          scp \
+          ARCHIVE_PATH="/tmp/telegram-whatsapp-bridge-release.tgz"
+          ARCHIVE_SIZE="$(wc -c < "$ARCHIVE_PATH")"
+          ARCHIVE_SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
+
+          ssh \
             -o ConnectTimeout=15 \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=6 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
-            -P 22 \
-            /tmp/telegram-whatsapp-bridge-release.tgz \
-            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST:/tmp/telegram-whatsapp-bridge-release.tgz"
+            -p 22 \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "rm -f /tmp/telegram-whatsapp-bridge-release.tgz"
+
+          cat "$ARCHIVE_PATH" | ssh \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -p 22 \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "cat > /tmp/telegram-whatsapp-bridge-release.tgz"
+
+          ssh \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=6 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -p 22 \
+            "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
+            "REMOTE_SIZE=\$(wc -c < /tmp/telegram-whatsapp-bridge-release.tgz); REMOTE_SHA=\$(sha256sum /tmp/telegram-whatsapp-bridge-release.tgz | awk '{print \$1}'); test \"\$REMOTE_SIZE\" = \"$ARCHIVE_SIZE\"; test \"\$REMOTE_SHA\" = \"$ARCHIVE_SHA\""
 
       - name: Run deploy script
         env:
