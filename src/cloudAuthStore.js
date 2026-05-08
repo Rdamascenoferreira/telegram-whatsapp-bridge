@@ -288,6 +288,11 @@ async function seedCloudUsers(localUsers) {
       continue;
     }
 
+    const repairPayload = buildSeedRepairPayload(existing, localUser);
+    if (repairPayload) {
+      await patchUserRow(existing.id, repairPayload);
+    }
+
     if ((!existing.avatarUrl || existing.avatarStorage === 'none') && localUser.avatarStorage === 'upload' && localUser.avatarFileExt) {
       const avatarUrl = await maybeMigrateLocalAvatar(localUser);
 
@@ -299,6 +304,38 @@ async function seedCloudUsers(localUsers) {
       }
     }
   }
+}
+
+function buildSeedRepairPayload(existing, localUser) {
+  const payload = {};
+  const isSeedAdmin = String(localUser?.role ?? '').trim() === 'admin';
+
+  if (!existing.passwordHash && localUser.passwordHash) {
+    payload.password_hash = localUser.passwordHash;
+  }
+
+  if (!existing.googleId && localUser.googleId) {
+    payload.google_id = localUser.googleId;
+  }
+
+  if (isSeedAdmin && existing.role !== localUser.role) {
+    payload.role = localUser.role;
+  }
+
+  if (isSeedAdmin && existing.accountStatus !== localUser.accountStatus) {
+    payload.account_status = localUser.accountStatus;
+  }
+
+  if (!existing.name && localUser.name) {
+    payload.name = localUser.name;
+  }
+
+  if (!Object.keys(payload).length) {
+    return null;
+  }
+
+  payload.updated_at = new Date().toISOString();
+  return payload;
 }
 
 async function maybeMigrateLocalAvatar(localUser) {

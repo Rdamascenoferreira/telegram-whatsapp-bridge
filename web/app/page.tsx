@@ -310,6 +310,41 @@ function isReadOnlyAccount(state: AppState) {
   return state.auth.user?.accountStatus === 'trial' && state.auth.user?.role !== 'admin';
 }
 
+function createAuthenticatedShellState(auth: AppState['auth']): AppState {
+  return {
+    auth,
+    whatsAppStatus: 'loading',
+    telegramStatus: 'loading',
+    config: {
+      telegramMode: 'user',
+      telegramChannel: '',
+      telegramApiId: '',
+      telegramApiHash: '',
+      telegramPhone: '',
+      hasTelegramBotToken: false,
+      hasTelegramSession: false,
+      bridgeEnabled: false,
+      selectedGroupIds: []
+    },
+    metrics: {},
+    telegram: {
+      authPhase: 'loading',
+      availableChats: []
+    },
+    activity: [],
+    offers: [],
+    groups: [],
+    admin: null,
+    affiliate: {
+      account: null,
+      automations: [],
+      logs: [],
+      termsAccepted: false
+    },
+    issue: null
+  };
+}
+
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
   const [view, setView] = useState<ViewKey>('overview');
@@ -375,16 +410,16 @@ export default function Home() {
     return (
         <AuthScreen
           googleEnabled={state.auth.googleEnabled}
-          onAuthenticated={async () => {
-            const previousState = state;
+          onAuthenticated={(auth) => {
             setView('overview');
-            setState(null);
-            try {
-              await loadState();
-            } catch (error) {
-              setState(previousState);
-              setNotice(error instanceof Error ? error.message : 'Login realizado, mas nao foi possivel carregar o painel.');
-            }
+            setState(createAuthenticatedShellState(auth));
+            void loadState().catch((error) => {
+              setNotice(
+                error instanceof Error
+                  ? `Login realizado, mas o painel completo demorou para carregar: ${error.message}`
+                  : 'Login realizado, mas nao foi possivel carregar o painel completo.'
+              );
+            });
           }}
           notice={notice || state.auth.error || ''}
           setNotice={setNotice}
@@ -563,7 +598,7 @@ function AuthScreen({
   setNotice
 }: {
   googleEnabled: boolean;
-  onAuthenticated: () => void | Promise<void>;
+  onAuthenticated: (auth: AppState['auth']) => void | Promise<void>;
   notice: string;
   setNotice: (message: string) => void;
 }) {
@@ -590,8 +625,8 @@ function AuthScreen({
     const payload = Object.fromEntries(form.entries());
 
     try {
-      await postJson(mode === 'login' ? '/api/auth/login' : '/api/auth/register', payload);
-      void onAuthenticated();
+      const auth = await postJson<AppState['auth']>(mode === 'login' ? '/api/auth/login' : '/api/auth/register', payload);
+      void onAuthenticated(auth);
       setNotice('Login realizado com sucesso.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Nao foi possivel continuar.');
