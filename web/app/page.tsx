@@ -347,6 +347,7 @@ function createAuthenticatedShellState(auth: AppState['auth']): AppState {
 
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
+  const [bootError, setBootError] = useState('');
   const [view, setView] = useState<ViewKey>('overview');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
@@ -361,11 +362,18 @@ export default function Home() {
 
   async function loadState() {
     const nextState = await requestJson<AppState>('/api/state');
+    setBootError('');
     setState(nextState);
   }
 
   useEffect(() => {
-    void loadState();
+    void loadState().catch((error) => {
+      setBootError(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel carregar o painel agora. Tente novamente.'
+      );
+    });
     const timer = window.setInterval(() => {
       if (view === 'flows' && affiliateAutomationEditing) {
         return;
@@ -403,7 +411,21 @@ export default function Home() {
   }, [state?.auth.authenticated]);
 
   if (!state) {
-    return <LoadingScreen />;
+    return (
+      <LoadingScreen
+        error={bootError}
+        onRetry={() => {
+          setBootError('');
+          void loadState().catch((error) => {
+            setBootError(
+              error instanceof Error
+                ? error.message
+                : 'Nao foi possivel carregar o painel agora. Tente novamente.'
+            );
+          });
+        }}
+      />
+    );
   }
 
   if (!state.auth.authenticated) {
@@ -534,11 +556,31 @@ export default function Home() {
   );
 }
 
-function LoadingScreen() {
+function LoadingScreen({
+  error,
+  onRetry
+}: {
+  error?: string;
+  onRetry?: () => void;
+}) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)] px-5 py-4 text-sm text-[var(--muted)]">
-        Carregando painel...
+      <div className="min-w-[280px] rounded-lg border border-[var(--border)] bg-[var(--panel)] px-5 py-4 text-sm text-[var(--muted)]">
+        <div>Carregando painel...</div>
+        {error ? (
+          <div className="mt-3 space-y-3">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              {error}
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-md border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : null}
       </div>
     </main>
   );
