@@ -396,6 +396,19 @@ export class AuthService {
       });
     });
 
+    if (request.session) {
+      await new Promise((resolve, reject) => {
+        request.session.save((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+
     if (request.sessionID && user?.id) {
       this.registerSession(request.sessionID, user.id);
     }

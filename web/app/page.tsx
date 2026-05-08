@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.10';
+const panelVersion = 'Versao 1.11';
 
 type AuthUser = {
   id: string;
@@ -376,8 +376,15 @@ export default function Home() {
         <AuthScreen
           googleEnabled={state.auth.googleEnabled}
           onAuthenticated={async () => {
+            const previousState = state;
             setView('overview');
-            await loadState();
+            setState(null);
+            try {
+              await loadState();
+            } catch (error) {
+              setState(previousState);
+              setNotice(error instanceof Error ? error.message : 'Login realizado, mas nao foi possivel carregar o painel.');
+            }
           }}
           notice={notice || state.auth.error || ''}
           setNotice={setNotice}
@@ -556,7 +563,7 @@ function AuthScreen({
   setNotice
 }: {
   googleEnabled: boolean;
-  onAuthenticated: () => Promise<void>;
+  onAuthenticated: () => void | Promise<void>;
   notice: string;
   setNotice: (message: string) => void;
 }) {
@@ -584,7 +591,7 @@ function AuthScreen({
 
     try {
       await postJson(mode === 'login' ? '/api/auth/login' : '/api/auth/register', payload);
-      await onAuthenticated();
+      void onAuthenticated();
       setNotice('Login realizado com sucesso.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Nao foi possivel continuar.');
