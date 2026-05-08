@@ -3708,7 +3708,7 @@ function AffiliateAutomationPanel({
 
     setBusy('affiliate-terms');
     try {
-      await postJson('/api/affiliate/terms/accept');
+      await postJson('/api/affiliate/terms/accept', {});
       await refresh();
       setNotice('Termo de uso aceito.');
     } catch (error) {
