@@ -513,7 +513,7 @@ export class AuthService {
 
       const source = request.headers.origin || request.headers.referer;
 
-      if (!source || this.isAllowedRequestSource(source, request.headers.host)) {
+      if (!source || this.isAllowedRequestSource(source, getRequestHosts(request))) {
         next();
         return;
       }
@@ -526,11 +526,11 @@ export class AuthService {
     };
   }
 
-  isAllowedRequestSource(source, hostHeader) {
+  isAllowedRequestSource(source, requestHosts = []) {
     try {
       const sourceUrl = new URL(String(source));
       const allowedHosts = new Set(
-        [hostHeader, ...this.allowedOriginHosts]
+        [...requestHosts, ...this.allowedOriginHosts]
           .map((value) => String(value || '').trim().toLowerCase())
           .filter(Boolean)
       );
@@ -612,7 +612,20 @@ function resolveCookieSecure(appBaseUrl) {
     return false;
   }
 
-  return String(appBaseUrl || '').trim().toLowerCase().startsWith('https://');
+  return String(appBaseUrl || '').trim().toLowerCase().startsWith('https://') ? 'auto' : false;
+}
+
+function getRequestHosts(request) {
+  const forwardedHost = String(request.headers['x-forwarded-host'] ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [
+    request.headers.host,
+    request.hostname,
+    ...forwardedHost
+  ];
 }
 
 function createSessionStore(options = {}) {
