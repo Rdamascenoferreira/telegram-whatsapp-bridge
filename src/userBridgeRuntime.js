@@ -15,6 +15,7 @@ import {
   upsertActivityOffer
 } from './activityStore.js';
 import {
+  deleteAffiliateAutomationsForUser,
   getActiveAffiliateAutomationsBySource,
   getAffiliateState,
   updateAffiliateMessageLog
@@ -366,6 +367,8 @@ export class UserBridgeRuntime {
       selectedGroupIds: [],
       bridgeEnabled: false
     });
+
+    await deleteAffiliateAutomationsForUser(this.userId);
 
     this.log('Conexoes do Telegram removidas e configuracao da ponte reiniciada.', {
       type: 'connections_reset'

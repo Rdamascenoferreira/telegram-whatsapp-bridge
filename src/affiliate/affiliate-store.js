@@ -232,6 +232,19 @@ export async function updateAffiliateAutomationRules(userId, automationId, paylo
   }
 }
 
+export async function deleteAffiliateAutomationsForUser(userId) {
+  if (!cloudEnabled || !userId) {
+    return;
+  }
+
+  await supabaseRequest('/rest/v1/affiliate_automations', {
+    method: 'DELETE',
+    searchParams: {
+      user_id: `eq.${userId}`
+    }
+  });
+}
+
 export async function acceptAffiliateTerms(userId, metadata = {}) {
   await supabaseRequest('/rest/v1/affiliate_terms_acceptance', {
     method: 'POST',
