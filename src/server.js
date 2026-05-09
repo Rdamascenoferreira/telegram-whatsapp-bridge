@@ -83,7 +83,9 @@ app.use((error, _request, response, _next) => {
   }
 
   response.status(error.status || error.statusCode || 500).json({
-    error: error.message || 'Nao foi possivel concluir a acao.'
+    error: error.message || 'Nao foi possivel concluir a acao.',
+    ...(error.code ? { code: error.code } : {}),
+    ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {})
   });
 });
 

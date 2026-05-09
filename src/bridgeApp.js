@@ -293,15 +293,20 @@ export class BridgeApp {
       await runUserOperation(request, 'affiliate:automation', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
         const affiliateState = await getAffiliateState(request.user.id);
-        ensureAffiliateTermsAccepted(affiliateState);
-        ensureAffiliateAutomationPlan(request.user.plan, request.body || {}, affiliateState.automations || []);
+        const normalizedPayload = request.body || {};
+        await ensureAffiliateAutomationPayload({
+          user: request.user,
+          runtime,
+          affiliateState,
+          payload: normalizedPayload
+        });
         const replaceTelegramBridgeSource = Boolean(request.body?.replaceTelegramBridgeSource);
         ensureAffiliateSourceIsNotUsedByTelegram(
           runtime.config.telegramChannel,
-          request.body?.telegramSourceGroupId,
+          normalizedPayload.telegramSourceGroupId,
           { allowReplacement: replaceTelegramBridgeSource }
         );
-        await upsertAffiliateAutomation(request.user.id, request.body || {});
+        await upsertAffiliateAutomation(request.user.id, normalizedPayload);
         if (replaceTelegramBridgeSource && runtime.config.telegramChannel) {
           await runtime.updateSettings({
             ...runtime.config,
@@ -760,6 +765,48 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
   };
 }
 
+async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState, payload }) {
+  ensureAffiliateTermsAccepted(affiliateState);
+  ensureAffiliateAutomationPlan(user.plan, payload, affiliateState.automations || []);
+  const fieldErrors = {};
+  const sourceId = normalizeRouteSourceId(payload.telegramSourceGroupId);
+  const destinations = Array.isArray(payload.destinations) ? payload.destinations : [];
+  const destinationIds = destinations
+    .map((destination) => String(destination?.whatsappGroupId ?? '').trim())
+    .filter(Boolean);
+
+  if (runtime.telegramStatus !== 'listening') {
+    fieldErrors.telegram = 'Conclua o login do Telegram antes de salvar o fluxo.';
+  }
+
+  if (!sourceId) {
+    fieldErrors.telegramSourceGroupId = 'Escolha uma origem do Telegram para este fluxo.';
+  }
+
+  if (!destinationIds.length) {
+    fieldErrors.destinations = 'Selecione ao menos um grupo de destino no WhatsApp.';
+  }
+
+  if (sourceId) {
+    const payloadAutomationId = String(payload.id ?? '').trim();
+    const duplicateSourceAutomation = (affiliateState.automations || []).find((automation) => {
+      const automationId = String(automation?.id ?? '').trim();
+      if (payloadAutomationId && automationId === payloadAutomationId) {
+        return false;
+      }
+      return normalizeRouteSourceId(automation?.telegramSourceGroupId) === sourceId;
+    });
+
+    if (duplicateSourceAutomation) {
+      fieldErrors.telegramSourceGroupId = `Esta origem ja esta em uso no fluxo "${duplicateSourceAutomation.name || 'Automatizador de Ofertas'}".`;
+    }
+  }
+
+  if (Object.keys(fieldErrors).length) {
+    throw createValidationError('Revise os campos destacados antes de salvar o fluxo.', fieldErrors, 'FLOW_VALIDATION_FAILED');
+  }
+}
+
 async function ensureTelegramSourceIsNotUsedByAffiliate(userId, telegramChannel) {
   const normalizedTelegramChannel = normalizeRouteSourceId(telegramChannel);
 
@@ -786,6 +833,14 @@ function ensureAffiliateSourceIsNotUsedByTelegram(telegramChannel, affiliateSour
 
     throw new Error('Este grupo ja esta configurado no fluxo Telegram normal. Escolha outra origem para Afiliados ou remova a origem na aba Telegram.');
   }
+}
+
+function createValidationError(message, fieldErrors = {}, code = 'VALIDATION_ERROR') {
+  const error = new Error(message);
+  error.status = 400;
+  error.code = code;
+  error.fieldErrors = fieldErrors;
+  return error;
 }
 
 function normalizeRouteSourceId(value) {

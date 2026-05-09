@@ -319,6 +319,7 @@ type AppState = {
 };
 
 type ViewKey = 'overview' | 'connections' | 'groups' | 'flows' | 'affiliate' | 'planUsage' | 'activity' | 'account' | 'admin';
+type FlowFieldErrors = Partial<Record<'telegram' | 'telegramSourceGroupId' | 'destinations' | 'flow', string>>;
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
@@ -2175,6 +2176,8 @@ function FlowsPanel({
   const [affiliateTelegramDestinationId, setAffiliateTelegramDestinationId] = useState(
     activeAutomation?.telegramDestinationGroupId || ''
   );
+  const [flowFieldErrors, setFlowFieldErrors] = useState<FlowFieldErrors>({});
+  const [reviewBeforeSave, setReviewBeforeSave] = useState(false);
   const flowFormRef = useRef<HTMLFormElement | null>(null);
   const selectedWhatsAppDestinations = state.groups
     .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
@@ -2200,6 +2203,20 @@ function FlowsPanel({
     { label: 'Fluxo escolhido', done: hasSavedSource, ready: canChooseTelegramSource && selectedWhatsAppDestinationCount > 0 }
   ];
   const flowChecklistComplete = flowChecklist.every((step) => step.done);
+  const bridgeFlowStatus = getFlowHealthStatus({
+    selected: telegramFlow === 'bridge',
+    saved: Boolean(state.config.telegramChannel),
+    hasTelegramSession,
+    sourceId: telegramChannel || state.config.telegramChannel
+  });
+  const affiliateFlowStatus = getFlowHealthStatus({
+    selected: telegramFlow === 'affiliate',
+    saved: Boolean(savedAffiliateSource),
+    hasTelegramSession,
+    sourceId: affiliateTelegramChannel || savedAffiliateSource,
+    requiresPlan: affiliateModuleAllowed,
+    hasDestinations: selectedWhatsAppDestinationCount > 0
+  });
 
   useEffect(() => {
     if (!isAutomationEditing) {
@@ -2210,6 +2227,8 @@ function FlowsPanel({
       );
       setAffiliateTelegramDestinationId(activeAutomation?.telegramDestinationGroupId || '');
       setTelegramFlow(savedTelegramFlow);
+      setFlowFieldErrors({});
+      setReviewBeforeSave(false);
     }
   }, [
     activeAutomation?.telegramDestinationGroupId,
@@ -2227,33 +2246,45 @@ function FlowsPanel({
   }, [hasSavedSource, readOnlyAccount, setAutomationEditing]);
 
   async function saveFlow() {
+    const nextFieldErrors: FlowFieldErrors = {};
+
     if (readOnlyAccount) {
       setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
       return;
     }
 
     if (!hasTelegramSession) {
-      setNotice('Conclua o login do Telegram antes de configurar um fluxo.');
-      return;
+      nextFieldErrors.telegram = 'Conclua o login do Telegram antes de configurar um fluxo.';
     }
 
     if (!selectedWhatsAppDestinationCount) {
-      setNotice('Escolha ao menos um destino WhatsApp nesta tela antes de salvar o fluxo.');
-      return;
+      nextFieldErrors.destinations = 'Escolha ao menos um destino WhatsApp nesta tela antes de salvar o fluxo.';
     }
 
     if (!selectedRouteSource.trim()) {
-      setNotice('Escolha uma origem do Telegram antes de salvar o fluxo.');
-      return;
+      nextFieldErrors.telegramSourceGroupId = 'Escolha uma origem do Telegram antes de salvar o fluxo.';
     }
 
     if (telegramFlow === 'affiliate' && !affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automatizador de Ofertas.`);
-      return;
+      nextFieldErrors.flow = `O plano ${planLimits?.label || 'atual'} ainda nao inclui Automatizador de Ofertas.`;
     }
 
     if (telegramFlow === 'affiliate' && !state.affiliate?.termsAccepted) {
-      setNotice('Aceite os termos na aba Afiliados antes de ativar o Automatizador de Ofertas.');
+      nextFieldErrors.flow = 'Aceite os termos na aba Afiliados antes de ativar o Automatizador de Ofertas.';
+    }
+
+    if (Object.keys(nextFieldErrors).length) {
+      setFlowFieldErrors(nextFieldErrors);
+      setReviewBeforeSave(false);
+      setNotice('Revise os campos destacados antes de salvar o fluxo.');
+      return;
+    }
+
+    setFlowFieldErrors({});
+
+    if (!reviewBeforeSave) {
+      setReviewBeforeSave(true);
+      setNotice('Revise o resumo e confirme para salvar o fluxo.');
       return;
     }
 
@@ -2298,7 +2329,17 @@ function FlowsPanel({
       }
 
       await refresh();
+      setReviewBeforeSave(false);
       setAutomationEditing(false);
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        const apiFieldErrors = (error.fieldErrors || {}) as FlowFieldErrors;
+        if (Object.keys(apiFieldErrors).length) {
+          setFlowFieldErrors(apiFieldErrors);
+          setReviewBeforeSave(false);
+        }
+      }
+      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar o fluxo.');
     } finally {
       setBusy('');
     }
@@ -2343,6 +2384,11 @@ function FlowsPanel({
           />
 
           <form ref={flowFormRef} onSubmit={(event) => { event.preventDefault(); void saveFlow(); }} className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations ? (
+              <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-3 text-xs leading-5 text-amber-100">
+                {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations}
+              </div>
+            ) : null}
             <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de operacao</p>
@@ -2373,6 +2419,10 @@ function FlowsPanel({
                       {telegramFlow === 'bridge' ? 'Selecionado' : 'Escolher'}
                     </span>
                   </div>
+                  <p className="mt-2 text-xs font-semibold text-emerald-100">
+                    Status: {bridgeFlowStatus.label}
+                    {bridgeFlowStatus.reason ? ` - ${bridgeFlowStatus.reason}` : ''}
+                  </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
                     Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos ja salvos no WhatsApp.
                   </p>
@@ -2383,7 +2433,10 @@ function FlowsPanel({
                     Origem da ponte
                     <select
                       value={telegramChannel}
-                      onChange={(event) => setTelegramChannel(event.target.value)}
+                      onChange={(event) => {
+                        setTelegramChannel(event.target.value);
+                        setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                      }}
                       className={inputClass}
                       disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
                     >
@@ -2398,10 +2451,16 @@ function FlowsPanel({
                   <Field
                     label="ID manual da origem"
                     value={telegramChannel}
-                    onChange={setTelegramChannel}
+                    onChange={(value) => {
+                      setTelegramChannel(value);
+                      setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                    }}
                     placeholder="-100..."
                     disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
                   />
+                  {telegramFlow === 'bridge' && flowFieldErrors.telegramSourceGroupId ? (
+                    <p className="text-xs font-semibold text-amber-100">{flowFieldErrors.telegramSourceGroupId}</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -2421,6 +2480,10 @@ function FlowsPanel({
                       {telegramFlow === 'affiliate' ? 'Selecionado' : 'Escolher'}
                     </span>
                   </div>
+                  <p className="mt-2 text-xs font-semibold text-cyan-100">
+                    Status: {affiliateFlowStatus.label}
+                    {affiliateFlowStatus.reason ? ` - ${affiliateFlowStatus.reason}` : ''}
+                  </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
                     Ideal para ler a oferta, converter links Amazon ou Shopee com suas configuracoes de afiliado e so depois enviar a mensagem final.
                   </p>
@@ -2431,7 +2494,10 @@ function FlowsPanel({
                     Origem das ofertas
                     <select
                       value={affiliateTelegramChannel}
-                      onChange={(event) => setAffiliateTelegramChannel(event.target.value)}
+                      onChange={(event) => {
+                        setAffiliateTelegramChannel(event.target.value);
+                        setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                      }}
                       className={inputClass}
                       disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
                     >
@@ -2446,10 +2512,16 @@ function FlowsPanel({
                   <Field
                     label="ID manual da origem"
                     value={affiliateTelegramChannel}
-                    onChange={setAffiliateTelegramChannel}
+                    onChange={(value) => {
+                      setAffiliateTelegramChannel(value);
+                      setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                    }}
                     placeholder="-100..."
                     disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
                   />
+                  {telegramFlow === 'affiliate' && flowFieldErrors.telegramSourceGroupId ? (
+                    <p className="text-xs font-semibold text-amber-100">{flowFieldErrors.telegramSourceGroupId}</p>
+                  ) : null}
                   <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
                     <input
                       type="checkbox"
@@ -2521,6 +2593,9 @@ function FlowsPanel({
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
                 </p>
+                {flowFieldErrors.destinations ? (
+                  <p className="mt-2 text-xs font-semibold text-amber-100">{flowFieldErrors.destinations}</p>
+                ) : null}
                 {telegramFlow === 'affiliate' ? (
                   <p className="mt-2 text-xs font-semibold text-cyan-100">
                     Modo de imagem: {formatMediaSourceMode(activeAutomation?.mediaSourceMode)}
@@ -2549,6 +2624,20 @@ function FlowsPanel({
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   Edite a origem, recarregue a lista de chats do Telegram e salve a operacao escolhida.
                 </p>
+                {reviewBeforeSave ? (
+                  <div className="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-400/10 px-3 py-3 text-xs leading-5 text-cyan-100">
+                    <p className="font-semibold">Resumo para revisao</p>
+                    <p className="mt-1">Fluxo: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}</p>
+                    <p>Origem: {getTelegramChatName(state, selectedRouteSource)}</p>
+                    <p>Destinos WhatsApp: {selectedWhatsAppDestinationCount}</p>
+                    <p>
+                      Encaminhar para Telegram:{' '}
+                      {telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
+                        ? getTelegramChatName(state, affiliateTelegramDestinationId)
+                        : 'Nao'}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="mt-4 grid gap-2">
                   <button
                     type="button"
@@ -2562,8 +2651,21 @@ function FlowsPanel({
                     }}
                     className={primaryButton}
                   >
-                    {isAutomationEditing || !hasSavedSource ? 'Salvar fluxo' : 'Editar fluxo'}
+                    {isAutomationEditing || !hasSavedSource
+                      ? reviewBeforeSave
+                        ? 'Confirmar e salvar'
+                        : 'Revisar antes de salvar'
+                      : 'Editar fluxo'}
                   </button>
+                  {reviewBeforeSave ? (
+                    <button
+                      type="button"
+                      className={secondaryButton}
+                      onClick={() => setReviewBeforeSave(false)}
+                    >
+                      Voltar e editar
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={readOnlyAccount || busy === 'telegram-chats'}
@@ -5237,6 +5339,42 @@ function normalizeRouteSourceId(value?: string | null) {
   return String(value ?? '').trim();
 }
 
+function getFlowHealthStatus({
+  selected,
+  saved,
+  hasTelegramSession,
+  sourceId,
+  requiresPlan = true,
+  hasDestinations = true
+}: {
+  selected: boolean;
+  saved: boolean;
+  hasTelegramSession: boolean;
+  sourceId: string;
+  requiresPlan?: boolean;
+  hasDestinations?: boolean;
+}) {
+  if (!requiresPlan) {
+    return { label: 'Com erro', reason: 'Plano atual sem suporte' };
+  }
+  if (!hasTelegramSession) {
+    return { label: 'Incompleto', reason: 'Telegram desconectado' };
+  }
+  if (!String(sourceId || '').trim()) {
+    return { label: 'Incompleto', reason: 'Sem origem configurada' };
+  }
+  if (!hasDestinations) {
+    return { label: 'Incompleto', reason: 'Sem destino WhatsApp' };
+  }
+  if (selected && saved) {
+    return { label: 'Ativo', reason: '' };
+  }
+  if (!selected && saved) {
+    return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
+  }
+  return { label: 'Incompleto', reason: 'Nao salvo' };
+}
+
 function getActiveAffiliateAutomation(state: AppState) {
   return (state.affiliate?.automations || []).find((automation) => automation.isActive) || null;
 }
@@ -5464,6 +5602,18 @@ async function readFileAsDataUrl(file: File) {
   });
 }
 
+class ApiRequestError extends Error {
+  code?: string;
+  fieldErrors?: Record<string, string>;
+
+  constructor(message: string, options?: { code?: string; fieldErrors?: Record<string, string> }) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.code = options?.code;
+    this.fieldErrors = options?.fieldErrors;
+  }
+}
+
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 15000);
@@ -5489,7 +5639,10 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload?.error || 'Nao foi possivel concluir a acao.');
+    throw new ApiRequestError(payload?.error || 'Nao foi possivel concluir a acao.', {
+      code: payload?.code,
+      fieldErrors: payload?.fieldErrors
+    });
   }
 
   return payload as T;
