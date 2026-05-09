@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { Api, TelegramClient } from 'telegram';
 import { NewMessage } from 'telegram/events/index.js';
 import { computeCheck } from 'telegram/Password.js';
+import { CustomFile } from 'telegram/client/uploads.js';
 import { StringSession } from 'telegram/sessions/index.js';
 import pkg from 'whatsapp-web.js';
 import {
@@ -1637,10 +1638,16 @@ export class UserBridgeRuntime {
 
     if (messageText?.type === 'media' && messageText?.base64) {
       const mediaBuffer = Buffer.from(messageText.base64, 'base64');
+      const mimeType = String(messageText.mimeType || '').toLowerCase();
+      const isImage = mimeType.startsWith('image/');
+      const fallbackImageName = `affiliate-image-${Date.now()}.${inferImageExtension(mimeType || 'image/jpeg')}`;
+      const fallbackDocumentName = `affiliate-media-${Date.now()}`;
+      const filename = String(messageText.filename || '').trim() || (isImage ? fallbackImageName : fallbackDocumentName);
+      const uploadableMedia = new CustomFile(filename, mediaBuffer.length, '', mediaBuffer);
       await this.telegramClient.sendFile(destinationId, {
-        file: mediaBuffer,
+        file: uploadableMedia,
         caption: String(messageText.caption || ''),
-        forceDocument: false
+        forceDocument: !isImage
       });
       return { destinationId };
     }
