@@ -1052,7 +1052,25 @@ export class UserBridgeRuntime {
   }
 
   async maybeProcessAffiliateAutomation({ sourceGroupId, sourceGroupName, telegramMessageId, messageText, telegramMessage }) {
-    const automations = await getActiveAffiliateAutomationsBySource(this.userId, sourceGroupId);
+    const sourceCandidates = buildTelegramChatRefCandidates(sourceGroupId);
+    const automations = [];
+    const seenAutomationIds = new Set();
+
+    for (const candidate of sourceCandidates) {
+      const candidateAutomations = await getActiveAffiliateAutomationsBySource(this.userId, candidate);
+
+      for (const automation of candidateAutomations) {
+        if (seenAutomationIds.has(automation.id)) {
+          continue;
+        }
+        seenAutomationIds.add(automation.id);
+        automations.push(automation);
+      }
+
+      if (automations.length > 0) {
+        break;
+      }
+    }
 
     if (!automations.length) {
       return false;
@@ -2402,7 +2420,7 @@ function getTelegramUserMessageChatRefs(message) {
     message?.inputSender?.chatId
   ];
 
-  return [...new Set(candidates.map(normalizeTelegramUserChatId).filter(Boolean))];
+  return [...new Set(candidates.map(serializeTelegramChatRef).filter(Boolean))];
 }
 
 function matchesTelegramUserMessage(message, configuredChannel) {
@@ -2411,7 +2429,9 @@ function matchesTelegramUserMessage(message, configuredChannel) {
   }
 
   const configured = normalizeTelegramUserChatId(configuredChannel);
-  return getTelegramUserMessageChatRefs(message).includes(configured);
+  return getTelegramUserMessageChatRefs(message).some(
+    (candidate) => normalizeTelegramUserChatId(candidate) === configured
+  );
 }
 
 function describeTelegramEntity(chat, fallbackId = '') {
@@ -2431,6 +2451,35 @@ function inferTelegramFilename(message) {
       : [];
   const attributeWithName = attributes.find((attribute) => attribute?.fileName);
   return String(attributeWithName?.fileName || '').trim();
+}
+
+function serializeTelegramChatRef(value) {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function buildTelegramChatRefCandidates(value) {
+  const raw = serializeTelegramChatRef(value);
+
+  if (!raw) {
+    return [];
+  }
+
+  const candidates = new Set([raw]);
+  const normalized = normalizeTelegramChatRef(raw);
+
+  if (normalized) {
+    candidates.add(normalized);
+    candidates.add(`-${normalized}`);
+    if (/^\d+$/.test(normalized)) {
+      candidates.add(`-100${normalized}`);
+    }
+  }
+
+  return [...candidates];
 }
 
 async function pathExists(targetPath) {
