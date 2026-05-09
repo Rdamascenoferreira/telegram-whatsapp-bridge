@@ -2010,18 +2010,23 @@ function Connections({
                   disabled={readOnlyAccount || busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
                   onClick={async () => {
                     setBusy('telegram-send-code');
-                    await postJson('/api/settings', {
-                      telegramMode: 'user',
-                      telegramChannel: state.config.telegramChannel,
-                      telegramApiId,
-                      telegramApiHash,
-                      telegramPhone,
-                      telegramBotToken: ''
-                    });
-                    await postJson('/api/telegram/send-code');
-                    await refresh();
-                    setNotice('Codigo enviado para o Telegram.');
-                    setBusy('');
+                    try {
+                      await postJson('/api/settings', {
+                        telegramMode: 'user',
+                        telegramChannel: state.config.telegramChannel,
+                        telegramApiId,
+                        telegramApiHash,
+                        telegramPhone,
+                        telegramBotToken: ''
+                      });
+                      await postJson('/api/telegram/send-code');
+                      await refresh();
+                      setNotice('Codigo enviado para o Telegram.');
+                    } catch (error) {
+                      setNotice(error instanceof Error ? error.message : 'Nao foi possivel enviar o codigo do Telegram.');
+                    } finally {
+                      setBusy('');
+                    }
                   }}
                   className={primaryButton}
                 >
@@ -2052,17 +2057,22 @@ function Connections({
                   disabled={readOnlyAccount || busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
                   onClick={async () => {
                     setBusy('telegram-complete-auth');
-                    await postJson('/api/telegram/complete-auth', {
-                      code: telegramCode,
-                      password: telegramPassword
-                    });
-                    await refresh();
-                    setNotice(
-                      authPhase === 'password_required'
-                        ? 'Senha enviada. Conta do Telegram conectada.'
-                        : 'Login do Telegram concluido.'
-                    );
-                    setBusy('');
+                    try {
+                      await postJson('/api/telegram/complete-auth', {
+                        code: telegramCode,
+                        password: telegramPassword
+                      });
+                      await refresh();
+                      setNotice(
+                        authPhase === 'password_required'
+                          ? 'Senha enviada. Conta do Telegram conectada.'
+                          : 'Login do Telegram concluido.'
+                      );
+                    } catch (error) {
+                      setNotice(error instanceof Error ? error.message : 'Nao foi possivel concluir o login do Telegram.');
+                    } finally {
+                      setBusy('');
+                    }
                   }}
                   className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
                 >
