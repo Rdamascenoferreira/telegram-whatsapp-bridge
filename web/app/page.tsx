@@ -4882,7 +4882,7 @@ function StatusBadge({ label, value }: { label: string; value: string }) {
 }
 
 function isWhatsAppConnectedStatus(value: string) {
-  return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
+  return ['ready'].includes(String(value ?? '').trim().toLowerCase());
 }
 
 function normalizeRouteSourceId(value?: string | null) {

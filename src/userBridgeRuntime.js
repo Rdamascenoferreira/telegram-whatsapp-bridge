@@ -1694,8 +1694,11 @@ export class UserBridgeRuntime {
   }
 
   async refreshAvailableGroups() {
-    if (!this.whatsAppClient || this.whatsAppStatus !== 'ready' || this.isRefreshingGroups) {
+    if (this.isRefreshingGroups) {
       return;
+    }
+    if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
+      throw new Error('O WhatsApp ainda esta finalizando a conexao. Aguarde o status "Pronto" e tente atualizar os grupos novamente.');
     }
 
     if (!this.isWhatsAppBrowserAlive()) {
