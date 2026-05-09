@@ -768,6 +768,22 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
 async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState, payload }) {
   ensureAffiliateTermsAccepted(affiliateState);
   ensureAffiliateAutomationPlan(user.plan, payload, affiliateState.automations || []);
+  const fieldErrors = computeAffiliateAutomationFieldErrors({
+    payload,
+    runtimeTelegramStatus: runtime.telegramStatus,
+    automations: affiliateState.automations || []
+  });
+
+  if (Object.keys(fieldErrors).length) {
+    throw createValidationError('Revise os campos destacados antes de salvar o fluxo.', fieldErrors, 'FLOW_VALIDATION_FAILED');
+  }
+}
+
+export function computeAffiliateAutomationFieldErrors({
+  payload = {},
+  runtimeTelegramStatus = '',
+  automations = []
+}) {
   const fieldErrors = {};
   const sourceId = normalizeRouteSourceId(payload.telegramSourceGroupId);
   const destinations = Array.isArray(payload.destinations) ? payload.destinations : [];
@@ -775,7 +791,7 @@ async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState,
     .map((destination) => String(destination?.whatsappGroupId ?? '').trim())
     .filter(Boolean);
 
-  if (runtime.telegramStatus !== 'listening') {
+  if (runtimeTelegramStatus !== 'listening') {
     fieldErrors.telegram = 'Conclua o login do Telegram antes de salvar o fluxo.';
   }
 
@@ -789,7 +805,7 @@ async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState,
 
   if (sourceId) {
     const payloadAutomationId = String(payload.id ?? '').trim();
-    const duplicateSourceAutomation = (affiliateState.automations || []).find((automation) => {
+    const duplicateSourceAutomation = automations.find((automation) => {
       const automationId = String(automation?.id ?? '').trim();
       if (payloadAutomationId && automationId === payloadAutomationId) {
         return false;
@@ -802,9 +818,7 @@ async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState,
     }
   }
 
-  if (Object.keys(fieldErrors).length) {
-    throw createValidationError('Revise os campos destacados antes de salvar o fluxo.', fieldErrors, 'FLOW_VALIDATION_FAILED');
-  }
+  return fieldErrors;
 }
 
 async function ensureTelegramSourceIsNotUsedByAffiliate(userId, telegramChannel) {

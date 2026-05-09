@@ -2245,6 +2245,22 @@ function FlowsPanel({
     }
   }, [hasSavedSource, readOnlyAccount, setAutomationEditing]);
 
+  useEffect(() => {
+    if (!isAutomationEditing) {
+      return;
+    }
+
+    setReviewBeforeSave(false);
+  }, [
+    isAutomationEditing,
+    telegramFlow,
+    telegramChannel,
+    affiliateTelegramChannel,
+    affiliateTelegramForwardEnabled,
+    affiliateTelegramDestinationId,
+    selectedWhatsAppDestinationCount
+  ]);
+
   async function saveFlow() {
     const nextFieldErrors: FlowFieldErrors = {};
 
