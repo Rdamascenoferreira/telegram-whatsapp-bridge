@@ -1310,7 +1310,7 @@ export class UserBridgeRuntime {
         } else {
           try {
             await this.sendAffiliateMessageToTelegramDestination(
-              result.processedMessage,
+              whatsAppPayload,
               automation.telegramDestinationGroupId
             );
             telegramForwardResult.sent = true;
@@ -1577,7 +1577,21 @@ export class UserBridgeRuntime {
       throw new Error('Destino Telegram nao configurado.');
     }
 
-    await this.telegramClient.sendMessage(destinationId, { message: messageText });
+    if (messageText?.type === 'media' && messageText?.base64) {
+      const mediaBuffer = Buffer.from(messageText.base64, 'base64');
+      await this.telegramClient.sendFile(destinationId, {
+        file: mediaBuffer,
+        caption: String(messageText.caption || ''),
+        forceDocument: false
+      });
+      return { destinationId };
+    }
+
+    const finalText = messageText?.type === 'text'
+      ? String(messageText.text || '')
+      : String(messageText || '');
+
+    await this.telegramClient.sendMessage(destinationId, { message: finalText });
     return { destinationId };
   }
 
