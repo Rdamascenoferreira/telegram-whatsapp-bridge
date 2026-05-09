@@ -4894,15 +4894,15 @@ function getActiveAffiliateAutomation(state: AppState) {
 }
 
 function getOperationalTelegramSource(state: AppState) {
+  if (state.telegramStatus !== 'listening') {
+    return '';
+  }
+
   const activeAffiliateAutomation = getActiveAffiliateAutomation(state);
-  const configuredAffiliateAutomation = (state.affiliate?.automations || []).find((automation) =>
-    normalizeRouteSourceId(automation.telegramSourceGroupId)
-  );
 
   return normalizeRouteSourceId(
     activeAffiliateAutomation?.telegramSourceGroupId ||
-      state.config.telegramChannel ||
-      configuredAffiliateAutomation?.telegramSourceGroupId
+      state.config.telegramChannel
   );
 }
 
