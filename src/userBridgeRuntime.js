@@ -44,6 +44,10 @@ const whatsAppStartupWatchdogMs = parseProtocolTimeout(
   process.env.WHATSAPP_STARTUP_WATCHDOG_MS,
   75 * 1000
 );
+const whatsAppDestroyTimeoutMs = parseProtocolTimeout(
+  process.env.WHATSAPP_DESTROY_TIMEOUT_MS,
+  60 * 1000
+);
 const backgroundBrowserArgs = defaultWhatsAppHeadless
   ? ['--disable-gpu', '--mute-audio', '--hide-scrollbars', '--window-size=1280,900']
   : process.platform === 'win32'
@@ -616,7 +620,22 @@ export class UserBridgeRuntime {
     this.whatsAppClient = null;
     this.clearWhatsAppStartupWatchdog();
     client.removeAllListeners();
-    await client.destroy().catch(() => {});
+    await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch((error) => {
+      this.log(
+        `Timeout ao encerrar a sessao travada do WhatsApp (${Math.round(
+          whatsAppDestroyTimeoutMs / 1000
+        )}s). Forcando nova tentativa de conexao.`,
+        {
+          level: 'error',
+          type: 'whatsapp_destroy_timeout',
+          increments: { errors: 1 },
+          metadata: {
+            timeoutMs: whatsAppDestroyTimeoutMs,
+            error: String(error?.message ?? error ?? '')
+          }
+        }
+      );
+    });
     await wait(1200);
   }
 
@@ -1947,7 +1966,6 @@ export class UserBridgeRuntime {
   scheduleWhatsAppRestart(reason) {
     if (
       this.whatsAppResetInProgress ||
-      this.whatsAppReconnectInProgress ||
       this.whatsAppStatus === 'session_error' ||
       this.whatsAppStatus === 'browser_closed'
     ) {
@@ -2518,6 +2536,17 @@ function wait(delayMs) {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
+}
+
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`timeout_after_${timeoutMs}ms`));
+      }, timeoutMs);
+    })
+  ]);
 }
 
 function parseProtocolTimeout(value, fallbackMs) {
