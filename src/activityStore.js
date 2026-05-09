@@ -38,7 +38,7 @@ export async function loadActivityForUser(userId) {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new Error(`Atividade invalida em ${paths.activityPath}.`);
+      return await recoverInvalidActivityFile(userId, paths.activityPath);
     }
 
     return normalizeActivity(parsed);
@@ -50,6 +50,47 @@ export async function loadActivityForUser(userId) {
 
     throw error;
   }
+}
+
+async function recoverInvalidActivityFile(userId, activityPath) {
+  const recoveredAt = new Date().toISOString();
+  const backupPath = `${activityPath}.corrupt-${recoveredAt.replace(/[:.]/g, '-')}.json`;
+  const recoveredActivity = normalizeActivity({
+    ...defaultActivity,
+    metrics: {
+      ...defaultMetrics,
+      totalEvents: 1,
+      totalErrors: 1,
+      lastActivityAt: recoveredAt,
+      lastErrorAt: recoveredAt
+    },
+    events: [
+      {
+        id: crypto.randomUUID(),
+        at: recoveredAt,
+        level: 'error',
+        type: 'activity_store_recovered',
+        message: 'Historico local de atividade estava corrompido e foi reiniciado com seguranca.',
+        metadata: {
+          backupPath
+        }
+      }
+    ],
+    offers: []
+  });
+
+  try {
+    await fs.rename(activityPath, backupPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`[activity:${userId}] Falha ao preservar backup corrompido: ${error.message}`);
+    }
+  }
+
+  await saveActivityForUser(userId, recoveredActivity);
+  console.warn(`[activity:${userId}] Activity store invalido recuperado. Backup: ${backupPath}`);
+
+  return recoveredActivity;
 }
 
 export async function saveActivityForUser(userId, activity) {
