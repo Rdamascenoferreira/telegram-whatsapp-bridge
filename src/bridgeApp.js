@@ -1,4 +1,4 @@
-import { loadActivityForUser } from './activityStore.js';
+import { defaultMetrics, loadActivityForUser } from './activityStore.js';
 import {
   acceptAffiliateTerms,
   getActiveAffiliateAutomationsBySource,
@@ -59,6 +59,7 @@ export class BridgeApp {
           runtimeState = runtime ? await runtime.getState() : {};
         } catch (error) {
           console.warn(`Runtime state unavailable for ${request.user.id}: ${error.message}`);
+          runtimeState = this.buildUnavailableRuntimeState(error);
           stateIssues.push({
             scope: 'runtime',
             message: error.message
@@ -537,6 +538,59 @@ export class BridgeApp {
       },
       users: [],
       error: error?.message || 'Nao foi possivel carregar a area administrativa.'
+    };
+  }
+
+  buildUnavailableRuntimeState(error) {
+    return {
+      whatsAppStatus: 'offline',
+      whatsAppPhone: null,
+      qrDataUrl: null,
+      telegramStatus: 'offline',
+      config: {
+        telegramMode: 'user',
+        telegramChannel: '',
+        telegramApiId: '',
+        telegramApiHash: '',
+        telegramPhone: '',
+        hasTelegramBotToken: false,
+        hasTelegramSession: false,
+        bridgeEnabled: false,
+        dashboardViewClearedAt: '',
+        selectedGroupIds: []
+      },
+      metrics: {
+        ...defaultMetrics,
+        selectedGroupCount: 0,
+        availableAdminGroupCount: 0,
+        whatsAppStatus: 'offline',
+        telegramStatus: 'offline',
+        groupsRefreshing: false,
+        groupRefreshProgress: null,
+        groupCacheRefreshedAt: '',
+        hasCachedGroups: false,
+        pendingTelegramCount: 0,
+        whatsAppDeliveryQueue: null,
+        canResetWhatsAppSession: false,
+        canReconnectWhatsApp: false
+      },
+      telegram: {
+        authPhase: 'idle',
+        phoneNumber: '',
+        passwordRequired: false,
+        codeSentViaApp: false,
+        user: null,
+        availableChats: []
+      },
+      issue: {
+        scope: 'runtime',
+        message: error?.message || 'Nao foi possivel carregar o runtime deste usuario.'
+      },
+      activity: [],
+      offers: [],
+      diagnostics: null,
+      groups: [],
+      logs: []
     };
   }
 }
