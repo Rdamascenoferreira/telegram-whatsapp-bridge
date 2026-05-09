@@ -986,6 +986,7 @@ export class UserBridgeRuntime {
         id: String(dialog.id),
         name: String(dialog.title || dialog.name || 'Chat do Telegram'),
         type: dialog.isChannel && !dialog.isGroup ? 'channel' : 'group',
+        role: resolveTelegramDialogRole(dialog),
         selected: String(dialog.id) === String(this.config.telegramChannel || '')
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
@@ -2242,6 +2243,19 @@ function intersects(left, right) {
   }
 
   return false;
+}
+
+function resolveTelegramDialogRole(dialog) {
+  const entity = dialog?.entity || {};
+  const adminRights =
+    entity?.adminRights ||
+    entity?.admin_rights ||
+    dialog?.adminRights ||
+    dialog?.admin_rights;
+  const isCreator = Boolean(dialog?.isCreator ?? entity?.creator ?? entity?.isCreator);
+  const isAdmin = Boolean(dialog?.isAdmin ?? entity?.admin ?? entity?.isAdmin ?? adminRights);
+
+  return isCreator || isAdmin ? 'admin' : 'member';
 }
 
 function matchesChannel(chat, configuredChannel) {

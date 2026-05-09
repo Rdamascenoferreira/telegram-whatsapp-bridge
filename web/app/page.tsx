@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.11';
+const panelVersion = 'Versao 1.12';
 
 type AuthUser = {
   id: string;
@@ -85,6 +85,7 @@ type TelegramChat = {
   id: string;
   name: string;
   type: 'group' | 'channel';
+  role?: 'admin' | 'member';
 };
 
 type AffiliateAccount = {
@@ -2128,6 +2129,10 @@ function FlowsPanel({
     .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
   const selectedWhatsAppDestinationCount = selectedWhatsAppDestinations.length;
   const selectedRouteSource = telegramFlow === 'bridge' ? telegramChannel : affiliateTelegramChannel;
+  const telegramAdminDestinationChats = useMemo(
+    () => (state.telegram.availableChats || []).filter((chat) => chat.role === 'admin'),
+    [state.telegram.availableChats]
+  );
   const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
   const canChooseTelegramSource = hasTelegramSession;
   const affiliateModuleAllowed = (planLimits?.affiliateAutomations ?? 0) > 0;
@@ -2428,12 +2433,15 @@ function FlowsPanel({
                       }
                     >
                       <option value="">Nao encaminhar para Telegram</option>
-                      {(state.telegram.availableChats || []).map((chat) => (
+                      {telegramAdminDestinationChats.map((chat) => (
                         <option key={`forward-${chat.id}`} value={chat.id}>
                           {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
                         </option>
                       ))}
                     </select>
+                    <span className="text-xs font-normal text-[var(--muted)]">
+                      Lista restrita a grupos/canais em que sua conta e admin.
+                    </span>
                   </label>
                   <Field
                     label="ID manual do destino opcional"
