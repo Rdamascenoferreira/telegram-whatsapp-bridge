@@ -27,6 +27,12 @@ const r2Client = r2Enabled
   : null;
 
 let seedPromise = null;
+const supabaseBreakerFailureThreshold = Number(process.env.SUPABASE_BREAKER_FAILURE_THRESHOLD ?? 5);
+const supabaseBreakerCooldownMs = Number(process.env.SUPABASE_BREAKER_COOLDOWN_MS ?? 30_000);
+const supabaseBreakerState = {
+  consecutiveFailures: 0,
+  openUntil: 0
+};
 
 export function isCloudAuthEnabled() {
   return cloudEnabled;
@@ -435,6 +441,10 @@ async function supabaseRequest(endpoint, options = {}) {
     throw new Error('Supabase nao configurado.');
   }
 
+  if (Date.now() < supabaseBreakerState.openUntil) {
+    throw new Error('Supabase indisponivel temporariamente. Tente novamente em alguns segundos.');
+  }
+
   const url = new URL(`${supabaseUrl}${endpoint}`);
   const searchParams = options.searchParams || {};
 
@@ -463,18 +473,23 @@ async function supabaseRequest(endpoint, options = {}) {
     });
   } catch (error) {
     if (error?.name === 'AbortError') {
+      registerSupabaseFailure();
       throw new Error('Tempo esgotado ao acessar o Supabase.');
     }
 
+    registerSupabaseFailure();
     throw error;
   } finally {
     clearTimeout(timeout);
   }
 
   if (!response.ok) {
+    registerSupabaseFailure();
     const payload = await response.text().catch(() => '');
     throw new Error(`Falha ao acessar o Supabase (${response.status}). ${payload}`.trim());
   }
+
+  clearSupabaseBreakerFailures();
 
   if (response.status === 204) {
     return [];
@@ -491,6 +506,19 @@ async function supabaseRequest(endpoint, options = {}) {
   } catch {
     throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
   }
+}
+
+function registerSupabaseFailure() {
+  supabaseBreakerState.consecutiveFailures += 1;
+
+  if (supabaseBreakerState.consecutiveFailures >= supabaseBreakerFailureThreshold) {
+    supabaseBreakerState.openUntil = Date.now() + supabaseBreakerCooldownMs;
+  }
+}
+
+function clearSupabaseBreakerFailures() {
+  supabaseBreakerState.consecutiveFailures = 0;
+  supabaseBreakerState.openUntil = 0;
 }
 
 function mapCloudUser(row) {

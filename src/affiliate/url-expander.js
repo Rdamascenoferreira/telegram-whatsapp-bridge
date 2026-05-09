@@ -2,6 +2,7 @@ const cache = new Map();
 const defaultTimeoutMs = 8000;
 const defaultMaxRedirects = 10;
 const defaultTtlMs = 10 * 60 * 1000;
+const defaultMaxContentLengthBytes = Number(process.env.URL_EXPANDER_MAX_CONTENT_LENGTH_BYTES ?? 3_000_000);
 
 export async function expandUrl(inputUrl, options = {}) {
   const originalUrl = String(inputUrl ?? '').trim();
@@ -106,7 +107,7 @@ async function fetchWithTimeout(url, method, timeoutMs) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, {
+    const response = await fetch(url, {
       method,
       redirect: 'manual',
       signal: controller.signal,
@@ -115,6 +116,14 @@ async function fetchWithTimeout(url, method, timeoutMs) {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
       }
     });
+
+    const contentLength = Number(response.headers.get('content-length') || 0);
+
+    if (Number.isFinite(contentLength) && contentLength > defaultMaxContentLengthBytes) {
+      throw new Error('Response content too large');
+    }
+
+    return response;
   } finally {
     clearTimeout(timeout);
   }
@@ -128,4 +137,3 @@ function isSafeHttpUrl(value) {
     return false;
   }
 }
-

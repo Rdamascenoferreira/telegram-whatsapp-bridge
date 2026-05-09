@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import QRCode from 'qrcode';
@@ -25,12 +26,18 @@ import {
   loadConfigForUser,
   saveConfigForUser
 } from './configStore.js';
+import { waitForFileOperations, writeJsonFileAtomic } from './jsonFileStore.js';
 import { WhatsAppDeliveryQueue } from './whatsAppDeliveryQueue.js';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
 const pendingTelegramMessageLimit = 60;
 const pendingTelegramMessageTtlMs = 5 * 60 * 1000;
+const deliveryReceiptTtlMs = 6 * 60 * 60 * 1000;
+const maxRecentDeliveryReceipts = 4000;
+const deliveryReceiptsFilename = 'delivery-receipts.json';
+const ogImageFetchTimeoutMs = 7000;
+const ogImageMaxBytes = 3 * 1024 * 1024;
 const modernChromeUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
 const defaultWhatsAppHeadless = !['0', 'false', 'no', 'off'].includes(
@@ -113,6 +120,13 @@ export class UserBridgeRuntime {
     };
     this.groupCacheRefreshedAt = '';
     this.persistActivityPromise = Promise.resolve();
+    this.recentDeliveryReceipts = new Map();
+    this.deliveryStats = {
+      skippedDuplicates: 0,
+      transientFailures: 0,
+      fatalFailures: 0
+    };
+    this.persistDeliveryReceiptsPromise = Promise.resolve();
     this.initialized = false;
   }
 
@@ -124,6 +138,7 @@ export class UserBridgeRuntime {
     this.paths = await ensureWorkspaceForUser(this.userId);
     this.config = await loadConfigForUser(this.userId);
     this.activity = await loadActivityForUser(this.userId);
+    await this.loadDeliveryReceipts();
     this.logs = buildLogLines(this.activity.events).slice(0, 80);
     this.hydrateGroupCache();
     this.startWhatsApp().catch((error) => {
@@ -173,6 +188,7 @@ export class UserBridgeRuntime {
         hasCachedGroups: this.availableGroups.length > 0,
         pendingTelegramCount: this.pendingTelegramMessages.length,
         whatsAppDeliveryQueue: this.whatsAppDeliveryQueue.getSnapshot(),
+        deliveryStats: this.deliveryStats,
         canResetWhatsAppSession: Boolean(this.whatsAppIssue?.canResetSession),
         canReconnectWhatsApp: this.whatsAppStatus !== 'connecting' && !this.whatsAppReconnectInProgress
       },
@@ -206,6 +222,7 @@ export class UserBridgeRuntime {
       selectedGroupCount: this.resolveWhatsAppTargetGroupIds().length,
       pendingTelegramCount: this.pendingTelegramMessages.length,
       deliveryQueue: this.whatsAppDeliveryQueue.getSnapshot(),
+      deliveryStats: this.deliveryStats,
       lastActivityAt: this.activity?.metrics?.lastActivityAt || null,
       lastForwardedAt: this.activity?.metrics?.lastForwardedAt || null,
       totalErrors: this.activity?.metrics?.totalErrors || 0
@@ -419,9 +436,134 @@ export class UserBridgeRuntime {
 
   syncActivityArtifacts() {
     this.logs = buildLogLines(this.activity.events).slice(0, 80);
+    this.pruneRecentDeliveryReceipts();
     this.persistActivity().catch((error) => {
       console.error(`[bridge:${this.userId}] Falha ao persistir atividade: ${error.message}`);
     });
+  }
+
+  pruneRecentDeliveryReceipts() {
+    const now = Date.now();
+
+    for (const [key, deliveredAt] of this.recentDeliveryReceipts.entries()) {
+      if (now - deliveredAt > deliveryReceiptTtlMs) {
+        this.recentDeliveryReceipts.delete(key);
+      }
+    }
+
+    if (this.recentDeliveryReceipts.size <= maxRecentDeliveryReceipts) {
+      return;
+    }
+
+    const entries = [...this.recentDeliveryReceipts.entries()].sort((left, right) => left[1] - right[1]);
+    const toDelete = entries.slice(0, Math.max(0, entries.length - maxRecentDeliveryReceipts));
+
+    for (const [key] of toDelete) {
+      this.recentDeliveryReceipts.delete(key);
+    }
+
+    this.persistDeliveryReceipts().catch((error) => {
+      console.error(`[bridge:${this.userId}] Falha ao persistir dedupe de entregas: ${error.message}`);
+    });
+  }
+
+  hasRecentDelivery(deliveryKey) {
+    if (!deliveryKey) {
+      return false;
+    }
+
+    const deliveredAt = this.recentDeliveryReceipts.get(deliveryKey);
+
+    if (!deliveredAt) {
+      return false;
+    }
+
+    if (Date.now() - deliveredAt > deliveryReceiptTtlMs) {
+      this.recentDeliveryReceipts.delete(deliveryKey);
+      return false;
+    }
+
+    return true;
+  }
+
+  markRecentDelivery(deliveryKey) {
+    if (!deliveryKey) {
+      return;
+    }
+
+    this.recentDeliveryReceipts.set(deliveryKey, Date.now());
+    this.pruneRecentDeliveryReceipts();
+    this.persistDeliveryReceipts().catch((error) => {
+      console.error(`[bridge:${this.userId}] Falha ao persistir dedupe de entregas: ${error.message}`);
+    });
+  }
+
+  getDeliveryReceiptsPath() {
+    if (!this.paths?.workspaceDir) {
+      return '';
+    }
+
+    return path.join(this.paths.workspaceDir, deliveryReceiptsFilename);
+  }
+
+  async loadDeliveryReceipts() {
+    const filePath = this.getDeliveryReceiptsPath();
+
+    if (!filePath) {
+      this.recentDeliveryReceipts = new Map();
+      return;
+    }
+
+    try {
+      await waitForFileOperations(filePath);
+      const raw = await fs.readFile(filePath, 'utf8');
+      const payload = JSON.parse(raw.replace(/^\uFEFF/, ''));
+      const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+      const now = Date.now();
+
+      this.recentDeliveryReceipts = new Map(
+        entries
+          .map((entry) => [String(entry?.key ?? ''), Number(entry?.deliveredAt ?? 0)])
+          .filter(([key, deliveredAt]) => key && Number.isFinite(deliveredAt) && now - deliveredAt <= deliveryReceiptTtlMs)
+      );
+      this.pruneRecentDeliveryReceipts();
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        this.recentDeliveryReceipts = new Map();
+        return;
+      }
+
+      this.recentDeliveryReceipts = new Map();
+      this.log(`Nao foi possivel carregar dedupe de entregas: ${error.message}`, {
+        level: 'error',
+        type: 'delivery_dedupe_load_error',
+        increments: { errors: 1 }
+      });
+    }
+  }
+
+  async persistDeliveryReceipts() {
+    const filePath = this.getDeliveryReceiptsPath();
+
+    if (!filePath) {
+      return;
+    }
+
+    const entries = [...this.recentDeliveryReceipts.entries()].map(([key, deliveredAt]) => ({
+      key,
+      deliveredAt
+    }));
+
+    this.persistDeliveryReceiptsPromise = this.persistDeliveryReceiptsPromise
+      .catch(() => {})
+      .then(() =>
+        writeJsonFileAtomic(filePath, {
+          entries,
+          updatedAt: new Date().toISOString()
+        })
+      );
+
+    return this.persistDeliveryReceiptsPromise;
   }
 
   upsertOffer(messages, offer = {}) {
@@ -1035,7 +1177,7 @@ export class UserBridgeRuntime {
       sourceGroupName: describeTelegramEntity(chat, sourceChatId),
       telegramMessageId: String(message.id ?? ''),
       messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage),
-      telegramMessage: message
+      telegramMessage: runtimeMessage
     });
 
     if (!matchesTelegramUserMessage(message, this.config.telegramChannel)) {
@@ -1146,7 +1288,16 @@ export class UserBridgeRuntime {
         continue;
       }
 
-      const delivery = await this.sendAffiliateMessageToWhatsAppGroups(result.processedMessage, targetGroupIds);
+      const whatsAppPayload = await this.prepareAffiliateWhatsAppPayload({
+        messageText: result.processedMessage,
+        telegramMessage,
+        automation,
+        convertedUrls: result.convertedUrls
+      });
+      const delivery = await this.sendAffiliateMessageToWhatsAppGroups(whatsAppPayload, targetGroupIds, {
+        automationId: automation.id,
+        telegramMessageId: String(telegramMessageId || '')
+      });
       const telegramForwardResult = {
         enabled: Boolean(automation.telegramForwardEnabled && automation.telegramDestinationGroupId),
         sent: false,
@@ -1188,7 +1339,7 @@ export class UserBridgeRuntime {
         sentAt: delivery.sent.length || telegramForwardResult.sent ? new Date().toISOString() : null
       });
 
-      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}.`, {
+      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
         type: errorMessages.length ? 'affiliate_partial_error' : 'affiliate_sent',
         increments: {
           forwardBatches: 1,
@@ -1201,6 +1352,8 @@ export class UserBridgeRuntime {
           groups: targetGroupIds.length,
           sent: delivery.sent.length,
           failed: delivery.failed.length,
+          skipped: delivery.skipped?.length || 0,
+          payloadType: whatsAppPayload.type,
           telegramForwardEnabled: telegramForwardResult.enabled,
           telegramForwardSent: telegramForwardResult.sent,
           telegramDestinationId: automation.telegramDestinationGroupId || '',
@@ -1212,29 +1365,206 @@ export class UserBridgeRuntime {
     return true;
   }
 
-  async sendAffiliateMessageToWhatsAppGroups(messageText, targetGroupIds) {
+  async prepareAffiliateWhatsAppPayload({ messageText, telegramMessage, automation, convertedUrls }) {
+    const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
+
+    if (mode === 'product_image') {
+      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls);
+
+      if (productImagePayload) {
+        return productImagePayload;
+      }
+    }
+
+    if (telegramMessage) {
+      try {
+        const originalPayload = await this.prepareWhatsAppPayload(telegramMessage);
+
+        if (originalPayload.type === 'media') {
+          return {
+            ...originalPayload,
+            caption: messageText
+          };
+        }
+      } catch (error) {
+        this.log(`Nao foi possivel reaproveitar a midia original no fluxo de afiliados: ${error.message}`, {
+          level: 'error',
+          type: 'affiliate_media_fallback',
+          increments: { errors: 1 }
+        });
+      }
+    }
+
+    return {
+      type: 'text',
+      text: messageText
+    };
+  }
+
+  async prepareAffiliateProductImagePayload(messageText, convertedUrls = []) {
+    const productUrl = extractPrimaryConvertedProductUrl(convertedUrls);
+
+    if (!productUrl) {
+      return null;
+    }
+
+    const imageUrl = await this.fetchOpenGraphImageUrl(productUrl);
+
+    if (!imageUrl) {
+      return null;
+    }
+
+    const mediaPayload = await this.downloadExternalImageAsMediaPayload(imageUrl, messageText);
+    return mediaPayload;
+  }
+
+  async fetchOpenGraphImageUrl(targetUrl) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), ogImageFetchTimeoutMs);
+      let response;
+
+      try {
+        response = await fetch(targetUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'user-agent': modernChromeUserAgent
+          }
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!response?.ok) {
+        return '';
+      }
+
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+
+      if (!contentType.includes('text/html')) {
+        return '';
+      }
+
+      const html = await response.text();
+      const match = html.match(/<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+      const rawImageUrl = match?.[1] ? String(match[1]).trim() : '';
+
+      if (!rawImageUrl) {
+        return '';
+      }
+
+      return new URL(rawImageUrl, targetUrl).toString();
+    } catch {
+      return '';
+    }
+  }
+
+  async downloadExternalImageAsMediaPayload(imageUrl, caption) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ogImageFetchTimeoutMs);
+
+    try {
+      const response = await fetch(imageUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'user-agent': modernChromeUserAgent
+        }
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const mimeType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+
+      if (!mimeType.startsWith('image/')) {
+        return null;
+      }
+
+      const contentLength = Number(response.headers.get('content-length') || 0);
+
+      if (Number.isFinite(contentLength) && contentLength > ogImageMaxBytes) {
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      if (!buffer.length || buffer.byteLength > ogImageMaxBytes) {
+        return null;
+      }
+
+      return {
+        type: 'media',
+        base64: buffer.toString('base64'),
+        mimeType: mimeType || 'image/jpeg',
+        filename: `affiliate-product-${Date.now()}.${inferImageExtension(mimeType)}`,
+        caption
+      };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async sendAffiliateMessageToWhatsAppGroups(whatsAppPayload, targetGroupIds, options = {}) {
+    const messageText = whatsAppPayload.type === 'text' ? whatsAppPayload.text : whatsAppPayload.caption || '';
+    const sourceKey = `affiliate:${options.automationId || 'automation'}:${options.telegramMessageId || hashText(messageText)}`;
+
     return await this.whatsAppDeliveryQueue.enqueue('affiliate-message', async ({ sendWithRetry, waitBetweenDeliveries }) => {
       const sent = [];
       const failed = [];
+      const skipped = [];
 
       for (const groupId of targetGroupIds) {
+        const deliveryKey = buildDeliveryKey({
+          flow: 'affiliate',
+          sourceKey,
+          groupId,
+          messageType: whatsAppPayload.type
+        });
+
+        if (this.hasRecentDelivery(deliveryKey)) {
+          skipped.push({ groupId, reason: 'duplicate_delivery_key' });
+          this.deliveryStats.skippedDuplicates += 1;
+          continue;
+        }
+
         const delivery = await sendWithRetry(async () => {
-          await this.whatsAppClient.sendMessage(groupId, messageText);
+          if (whatsAppPayload.type === 'text') {
+            await this.whatsAppClient.sendMessage(groupId, whatsAppPayload.text);
+            return;
+          }
+
+          const media = new MessageMedia(whatsAppPayload.mimeType, whatsAppPayload.base64, whatsAppPayload.filename);
+          await this.whatsAppClient.sendMessage(groupId, media, {
+            caption: whatsAppPayload.caption || undefined
+          });
         });
 
         if (delivery.ok) {
-          sent.push({ groupId, attempt: delivery.attempt });
+          this.markRecentDelivery(deliveryKey);
+          sent.push({ groupId, attempt: delivery.attempt, type: whatsAppPayload.type });
         } else {
+          if (delivery.errorClass === 'fatal') {
+            this.deliveryStats.fatalFailures += 1;
+          } else {
+            this.deliveryStats.transientFailures += 1;
+          }
           failed.push({
             groupId,
-            error: delivery.error
+            error: delivery.error,
+            type: whatsAppPayload.type,
+            errorClass: delivery.errorClass || 'transient'
           });
         }
 
         await waitBetweenDeliveries();
       }
 
-      return { sent, failed };
+      return { sent, failed, skipped };
     });
   }
 
@@ -1524,15 +1854,33 @@ export class UserBridgeRuntime {
       : this.resolveWhatsAppTargetGroupIds();
 
     for (const message of messages) {
-      prepared.push(await this.prepareWhatsAppPayload(message));
+      prepared.push({
+        payload: await this.prepareWhatsAppPayload(message),
+        sourceKey: buildTelegramMessageKey(message) || buildTelegramOfferKey(message)
+      });
     }
 
     const delivery = await this.whatsAppDeliveryQueue.enqueue('telegram-forward', async ({ sendWithRetry, waitBetweenDeliveries }) => {
       const sent = [];
       const failed = [];
+      const skipped = [];
 
       for (const groupId of targetGroupIds) {
-        for (const item of prepared) {
+        for (const preparedItem of prepared) {
+          const item = preparedItem.payload;
+          const deliveryKey = buildDeliveryKey({
+            flow: 'telegram_forward',
+            sourceKey: preparedItem.sourceKey,
+            groupId,
+            messageType: item.type
+          });
+
+          if (this.hasRecentDelivery(deliveryKey)) {
+            skipped.push({ groupId, type: item.type, reason: 'duplicate_delivery_key' });
+            this.deliveryStats.skippedDuplicates += 1;
+            continue;
+          }
+
           const result = await sendWithRetry(async () => {
             if (item.type === 'text') {
               await this.whatsAppClient.sendMessage(groupId, item.text);
@@ -1548,16 +1896,27 @@ export class UserBridgeRuntime {
           });
 
           if (result.ok) {
+            this.markRecentDelivery(deliveryKey);
             sent.push({ groupId, attempt: result.attempt, type: item.type });
           } else {
-            failed.push({ groupId, type: item.type, error: result.error });
+            if (result.errorClass === 'fatal') {
+              this.deliveryStats.fatalFailures += 1;
+            } else {
+              this.deliveryStats.transientFailures += 1;
+            }
+            failed.push({
+              groupId,
+              type: item.type,
+              error: result.error,
+              errorClass: result.errorClass || 'transient'
+            });
           }
         }
 
         await waitBetweenDeliveries();
       }
 
-      return { sent, failed };
+      return { sent, failed, skipped };
     });
 
     if (delivery.failed.length > 0 && delivery.sent.length === 0) {
@@ -1570,12 +1929,13 @@ export class UserBridgeRuntime {
     }
 
     if (delivery.failed.length > 0) {
-      this.log(`Mensagem enviada parcialmente. ${delivery.failed.length} entrega(s) falharam.`, {
+      this.log(`Mensagem enviada parcialmente. ${delivery.failed.length} entrega(s) falharam${delivery.skipped?.length ? ` e ${delivery.skipped.length} duplicado(s) foram ignorado(s)` : ''}.`, {
         level: 'error',
         type: 'forward_partial_error',
         increments: { errors: delivery.failed.length },
         metadata: {
-          failed: delivery.failed.slice(0, 6)
+          failed: delivery.failed.slice(0, 6),
+          skipped: delivery.skipped?.length || 0
         }
       });
     }
@@ -1588,7 +1948,7 @@ export class UserBridgeRuntime {
       fromQueue: Boolean(options.fromQueue),
       reason: ''
     });
-    this.log(`Mensagem do Telegram encaminhada para ${groupCount} grupo(s).`, {
+    this.log(`Mensagem do Telegram encaminhada para ${groupCount} grupo(s)${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
       type: 'forward_success',
       increments: {
         forwardBatches: 1,
@@ -1598,7 +1958,8 @@ export class UserBridgeRuntime {
       metadata: {
         groups: groupCount,
         messages: prepared.length,
-        deliveries: delivery.sent.length
+        deliveries: delivery.sent.length,
+        skipped: delivery.skipped?.length || 0
       }
     });
   }
@@ -2400,6 +2761,48 @@ function buildTelegramMessageKey(message) {
   }
 
   return `${chatId}:${messageId}`;
+}
+
+function buildDeliveryKey({ flow, sourceKey, groupId, messageType }) {
+  return [
+    String(flow || 'unknown'),
+    String(sourceKey || 'unknown'),
+    String(groupId || 'unknown'),
+    String(messageType || 'unknown')
+  ].join('|');
+}
+
+function hashText(value) {
+  return crypto.createHash('sha1').update(String(value ?? '')).digest('hex').slice(0, 12);
+}
+
+function normalizeAffiliateMediaSourceMode(value) {
+  const mode = String(value ?? '').trim().toLowerCase();
+  return ['telegram_media', 'product_image'].includes(mode) ? mode : 'telegram_media';
+}
+
+function extractPrimaryConvertedProductUrl(convertedUrls = []) {
+  const converted = Array.isArray(convertedUrls)
+    ? convertedUrls.find((item) => item?.status === 'converted' && item?.affiliateUrl)
+    : null;
+
+  return converted ? String(converted.affiliateUrl).trim() : '';
+}
+
+function inferImageExtension(mimeType) {
+  const normalized = String(mimeType || '').toLowerCase();
+
+  if (normalized.includes('png')) {
+    return 'png';
+  }
+  if (normalized.includes('webp')) {
+    return 'webp';
+  }
+  if (normalized.includes('gif')) {
+    return 'gif';
+  }
+
+  return 'jpg';
 }
 
 function fallbackText(message) {

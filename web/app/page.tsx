@@ -55,6 +55,7 @@ type ActivityEvent = {
   level?: 'info' | 'error';
   type?: string;
   message: string;
+  metadata?: Record<string, unknown>;
 };
 
 type ActivityOffer = {
@@ -111,6 +112,7 @@ type AffiliateAutomation = {
   messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
   aiRewriteEnabled?: boolean;
   aiRewriteStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
+  mediaSourceMode?: 'telegram_media' | 'product_image';
   preserveOriginalTextEnabled?: boolean;
   telegramForwardEnabled?: boolean;
   telegramDestinationGroupId?: string;
@@ -187,6 +189,11 @@ type SupervisorSession = {
   lastActivityAt?: string | null;
   lastForwardedAt?: string | null;
   totalErrors?: number;
+  deliveryStats?: {
+    skippedDuplicates?: number;
+    transientFailures?: number;
+    fatalFailures?: number;
+  };
   deliveryQueue?: {
     active?: boolean;
     activeJob?: {
@@ -238,6 +245,11 @@ type AppState = {
     selectedGroupCount?: number;
     availableAdminGroupCount?: number;
     pendingTelegramCount?: number;
+    deliveryStats?: {
+      skippedDuplicates?: number;
+      transientFailures?: number;
+      fatalFailures?: number;
+    };
     groupsRefreshing?: boolean;
     groupRefreshProgress?: {
       phase?: string;
@@ -275,6 +287,14 @@ type AppState = {
       listeningTelegram?: number;
       queuedDeliveries?: number;
       activeDeliveries?: number;
+      skippedDuplicates?: number;
+      transientFailures?: number;
+      fatalFailures?: number;
+      healthAlerts?: Array<{
+        level?: 'warning' | 'critical' | string;
+        code?: string;
+        message?: string;
+      }>;
       sessions?: SupervisorSession[];
     };
   } | null;
@@ -1286,6 +1306,7 @@ function Overview({
     state.metrics.groupsRefreshing && progress?.total
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
       : `${state.metrics.availableAdminGroupCount || 0} grupos disponiveis`;
+  const deliveryStats = state.metrics.deliveryStats || {};
 
   return (
     <div className="grid gap-5">
@@ -1421,6 +1442,27 @@ function Overview({
           <Metric icon={MessageSquare} label="Telegram" value={state.metrics.totalTelegramReceived || 0} detail={lastLabel(state.metrics.lastTelegramMessageAt)} />
           <Metric icon={Send} label="Encaminhadas" value={state.metrics.totalForwardedMessages || 0} detail={lastLabel(state.metrics.lastForwardedAt)} />
           <Metric icon={Users} label="Grupos" value={state.metrics.selectedGroupCount || 0} detail={groupProgressText} />
+        </section>
+
+        <section className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
+          <Metric
+            icon={ShieldCheck}
+            label="Duplicados evitados"
+            value={deliveryStats.skippedDuplicates || 0}
+            detail="Mensagens repetidas ignoradas automaticamente"
+          />
+          <Metric
+            icon={Clock3}
+            label="Falhas transientes"
+            value={deliveryStats.transientFailures || 0}
+            detail="Falhas recuperaveis durante os envios"
+          />
+          <Metric
+            icon={AlertCircle}
+            label="Falhas fatais"
+            value={deliveryStats.fatalFailures || 0}
+            detail="Erros definitivos que exigem atencao operacional"
+          />
         </section>
       </section>
 
@@ -2232,6 +2274,7 @@ function FlowsPanel({
           unknownLinkBehavior: configuredAffiliateAutomation?.unknownLinkBehavior || 'keep',
           customFooter: configuredAffiliateAutomation?.customFooter || '',
           removeOriginalFooter: Boolean(configuredAffiliateAutomation?.removeOriginalFooter),
+          mediaSourceMode: configuredAffiliateAutomation?.mediaSourceMode || 'telegram_media',
           telegramForwardEnabled: affiliateTelegramForwardEnabled,
           telegramDestinationGroupId: affiliateTelegramForwardEnabled ? affiliateTelegramDestinationId : '',
           telegramDestinationGroupName:
@@ -2468,6 +2511,11 @@ function FlowsPanel({
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
                 </p>
+                {telegramFlow === 'affiliate' ? (
+                  <p className="mt-2 text-xs font-semibold text-cyan-100">
+                    Modo de imagem: {formatMediaSourceMode(activeAutomation?.mediaSourceMode)}
+                  </p>
+                ) : null}
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
                     <p className="font-semibold text-emerald-100">Ponte simples salva</p>
@@ -2564,6 +2612,7 @@ function WhatsAppDestinationSelector({
   const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<'all' | 'selected' | 'community' | 'announcement'>('all');
   const groupsProgress = state.metrics.groupRefreshProgress;
   const groupsPhase = groupsProgress?.phase || 'idle';
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
@@ -2592,12 +2641,43 @@ function WhatsAppDestinationSelector({
     () => state.groups.filter((group) => selected.has(group.id)),
     [selected, state.groups]
   );
+  const savedSelectedSet = useMemo(
+    () => new Set(state.config.selectedGroupIds || []),
+    [state.config.selectedGroupIds]
+  );
+  const selectedCount = selected.size;
+  const savedCount = savedSelectedSet.size;
+  const selectionDelta = selectedCount - savedCount;
+  const overPlanLimit = selectedCount > whatsappDestinationLimit;
+  const staleSelectedIds = useMemo(
+    () =>
+      [...selected].filter((groupId) => !state.groups.some((group) => group.id === groupId)),
+    [selected, state.groups]
+  );
+  const hasStaleSelections = staleSelectedIds.length > 0;
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
     return state.groups
+      .filter((group) => {
+        if (quickFilter === 'selected') {
+          return selected.has(group.id);
+        }
+        if (quickFilter === 'community') {
+          return Boolean(group.isCommunityLinked) && !Boolean(group.isAnnouncement);
+        }
+        if (quickFilter === 'announcement') {
+          return Boolean(group.isAnnouncement);
+        }
+        return true;
+      })
       .filter((group) => normalizeText(group.name).includes(normalized))
       .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
-  }, [filter, selected, state.groups]);
+  }, [filter, quickFilter, selected, state.groups]);
+
+  const visibleSelectableGroupIds = useMemo(
+    () => filteredGroups.map((group) => group.id),
+    [filteredGroups]
+  );
 
   useEffect(() => {
     const nextSelected = new Set(state.config.selectedGroupIds);
@@ -2744,6 +2824,102 @@ function WhatsAppDestinationSelector({
         />
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-black/10 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setQuickFilter('all')}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              quickFilter === 'all'
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
+            )}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickFilter('selected')}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              quickFilter === 'selected'
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
+            )}
+          >
+            Selecionados
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickFilter('community')}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              quickFilter === 'community'
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
+            )}
+          >
+            Comunidades
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickFilter('announcement')}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              quickFilter === 'announcement'
+                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
+            )}
+          >
+            Anúncios
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
+            onClick={() => {
+              const next = new Set(selected);
+
+              for (const groupId of visibleSelectableGroupIds) {
+                if (next.has(groupId)) {
+                  continue;
+                }
+
+                if (next.size >= whatsappDestinationLimit) {
+                  setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                  break;
+                }
+
+                next.add(groupId);
+              }
+
+              setSelected(next);
+              setHasPendingSelectionChanges(true);
+            }}
+            className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
+          >
+            Selecionar visíveis
+          </button>
+          <button
+            type="button"
+            disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
+            onClick={() => {
+              const next = new Set(selected);
+              for (const groupId of visibleSelectableGroupIds) {
+                next.delete(groupId);
+              }
+              setSelected(next);
+              setHasPendingSelectionChanges(true);
+            }}
+            className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] disabled:opacity-60"
+          >
+            Limpar visíveis
+          </button>
+        </div>
+      </div>
+
       <div className="mb-4 rounded-md border border-[var(--border)] bg-black/10 p-3">
         <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
           <div>
@@ -2826,17 +3002,48 @@ function WhatsAppDestinationSelector({
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-        <p className="text-sm text-[var(--muted)]">
-          {selected.size} grupo(s) selecionado(s)
-          {hasWhatsAppDestinationLimit ? ` de ${whatsappDestinationLimit} liberado(s) no plano ${planLimits?.label}` : ''}
-        </p>
+        <div className="flex-1 rounded-md border border-[var(--border)] bg-black/10 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Preview antes de salvar</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+              Selecionados: <span className="font-semibold text-[var(--foreground)]">{selectedCount}</span>
+            </span>
+            {hasWhatsAppDestinationLimit ? (
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                Limite plano {planLimits?.label}: <span className="font-semibold text-[var(--foreground)]">{whatsappDestinationLimit}</span>
+              </span>
+            ) : null}
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-1',
+                selectionDelta === 0
+                  ? 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
+                  : selectionDelta > 0
+                    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                    : 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+              )}
+            >
+              Delta vs salvo: {selectionDelta > 0 ? `+${selectionDelta}` : selectionDelta}
+            </span>
+          </div>
+          {overPlanLimit ? (
+            <p className="mt-2 text-xs text-red-100">
+              A seleção atual ultrapassa o limite do plano. Ajuste antes de salvar.
+            </p>
+          ) : null}
+          {hasStaleSelections ? (
+            <p className="mt-2 text-xs text-amber-100">
+              {staleSelectedIds.length} destino(s) selecionado(s) nao aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
+            </p>
+          ) : null}
+        </div>
         <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
           {hasPendingSelectionChanges ? (
             <span className="text-xs font-semibold text-amber-200">Selecao alterada. Clique em salvar para manter esses destinos.</span>
           ) : null}
           <button
             type="button"
-            disabled={readOnlyAccount || busy === 'save-groups'}
+            disabled={readOnlyAccount || busy === 'save-groups' || overPlanLimit}
             className={primaryButton}
             onClick={async () => {
               setBusy('save-groups');
@@ -2876,6 +3083,7 @@ function Groups({
   const whatsappDestinationLimit = planLimits?.whatsappDestinations ?? Number.POSITIVE_INFINITY;
   const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
   const [showAdvancedActions, setShowAdvancedActions] = useState(false);
+  const [destructiveConfirmStep, setDestructiveConfirmStep] = useState<'wa-reset' | 'reset-all' | null>(null);
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const groupsProgress = state.metrics.groupRefreshProgress;
@@ -3090,21 +3298,38 @@ function Groups({
                   type="button"
                   disabled={readOnlyAccount || busy === 'wa-reset'}
                   onClick={async () => {
+                    if (destructiveConfirmStep !== 'wa-reset') {
+                      setDestructiveConfirmStep('wa-reset');
+                      return;
+                    }
+
                     setBusy('wa-reset');
                     await postJson('/api/whatsapp/reset-session');
                     await refresh();
                     setNotice('Nova sessao do WhatsApp preparada.');
                     setBusy('');
+                    setDestructiveConfirmStep(null);
                   }}
-                  className="group rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-4 text-left transition hover:border-sky-400/20 hover:bg-sky-400/[0.06] disabled:opacity-60"
+                  className={cn(
+                    'group rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60',
+                    destructiveConfirmStep === 'wa-reset'
+                      ? 'border-amber-400/20 bg-amber-400/[0.08] hover:bg-amber-400/[0.12]'
+                      : 'border-[var(--border)] bg-white/[0.03] hover:border-sky-400/20 hover:bg-sky-400/[0.06]'
+                  )}
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-200 transition group-hover:scale-[1.02]">
                       <Bot size={18} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">Trocar conta</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">Gera uma nova sessao para autenticar outra conta.</p>
+                      <p className="text-sm font-semibold">
+                        {destructiveConfirmStep === 'wa-reset' ? 'Confirmar troca de conta' : 'Trocar conta'}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {destructiveConfirmStep === 'wa-reset'
+                          ? 'Clique novamente para confirmar. Isso invalida a sessao atual.'
+                          : 'Gera uma nova sessao para autenticar outra conta.'}
+                      </p>
                     </div>
                   </div>
                 </button>
@@ -3113,11 +3338,8 @@ function Groups({
                   type="button"
                   disabled={readOnlyAccount || busy === 'reset-all'}
                   onClick={async () => {
-                    const confirmed = window.confirm(
-                      'Isso vai esquecer Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
-                    );
-
-                    if (!confirmed) {
+                    if (destructiveConfirmStep !== 'reset-all') {
+                      setDestructiveConfirmStep('reset-all');
                       return;
                     }
 
@@ -3126,20 +3348,46 @@ function Groups({
                     await refresh();
                     setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexao.');
                     setBusy('');
+                    setDestructiveConfirmStep(null);
                   }}
-                  className="group rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-4 text-left transition hover:bg-red-400/[0.12] disabled:opacity-60"
+                  className={cn(
+                    'group rounded-2xl border px-4 py-4 text-left transition disabled:opacity-60',
+                    destructiveConfirmStep === 'reset-all'
+                      ? 'border-red-400/35 bg-red-400/[0.16] hover:bg-red-400/[0.2]'
+                      : 'border-red-400/20 bg-red-400/[0.08] hover:bg-red-400/[0.12]'
+                  )}
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 text-red-100 transition group-hover:scale-[1.02]">
                       <Power size={18} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-red-50">Reset completo</p>
-                      <p className="mt-1 text-xs text-red-100/75">Limpa conexoes e volta o painel ao estado inicial.</p>
+                      <p className="text-sm font-semibold text-red-50">
+                        {destructiveConfirmStep === 'reset-all' ? 'Confirmar reset completo' : 'Reset completo'}
+                      </p>
+                      <p className="mt-1 text-xs text-red-100/75">
+                        {destructiveConfirmStep === 'reset-all'
+                          ? 'Clique novamente para confirmar. Esta acao remove todas as conexoes ativas.'
+                          : 'Limpa conexoes e volta o painel ao estado inicial.'}
+                      </p>
                     </div>
                   </div>
                 </button>
                   </div>
+                  {destructiveConfirmStep ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 max-md:flex-col max-md:items-start">
+                      <span>
+                        Confirmacao em 2 passos ativa para acao destrutiva.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDestructiveConfirmStep(null)}
+                        className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold text-amber-100 hover:bg-amber-300/20"
+                      >
+                        Cancelar confirmacao
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -3720,7 +3968,8 @@ function AffiliateAutomationPanel({
           messageBeautifierEnabled: false,
           messageBeautifierStyle: 'clean',
           aiRewriteEnabled: false,
-          aiRewriteStyle: 'clean'
+          aiRewriteStyle: 'clean',
+          mediaSourceMode: 'telegram_media'
         }),
         preserveOriginalTextEnabled: true,
         messageBeautifierEnabled: false,
@@ -3765,6 +4014,7 @@ function AffiliateAutomationPanel({
         unknownLinkBehavior: form.get('unknownLinkBehavior'),
         customFooter: form.get('customFooter'),
         removeOriginalFooter: form.get('removeOriginalFooter') === 'on',
+        mediaSourceMode: form.get('mediaSourceMode'),
         messageBeautifierEnabled: false,
         messageBeautifierStyle: 'clean',
         aiRewriteEnabled: false,
@@ -3913,6 +4163,13 @@ function AffiliateAutomationPanel({
                   Os destinos do automatizador acompanham a selecao feita na aba Fluxos e sao aplicados quando o fluxo e salvo.
                 </p>
               </div>
+              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4 md:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo atual de imagem</p>
+                <p className="mt-2 text-sm font-semibold">{formatMediaSourceMode(activeAutomation?.mediaSourceMode)}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Define se o automatizador tenta usar a imagem original do Telegram ou a imagem do link do produto.
+                </p>
+              </div>
             </div>
 
             <form onSubmit={(event) => event.preventDefault()} className="mt-4 rounded-2xl border border-[var(--border)] bg-black/10 p-4">
@@ -3953,6 +4210,22 @@ function AffiliateAutomationPanel({
                   </select>
                   <span className="text-xs leading-5 text-[var(--muted)]">
                     Recomendado: manter o link original para nao perder conteudo quando o marketplace nao for reconhecido.
+                  </span>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Origem da imagem</span>
+                  <select
+                    name="mediaSourceMode"
+                    defaultValue={activeAutomation?.mediaSourceMode || 'telegram_media'}
+                    disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
+                    className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-65"
+                  >
+                    <option value="telegram_media">Usar imagem original do Telegram</option>
+                    <option value="product_image">Usar imagem do link do produto</option>
+                  </select>
+                  <span className="text-xs leading-5 text-[var(--muted)]">
+                    Se o modo escolhido falhar, o sistema usa fallback automatico para manter o envio.
                   </span>
                 </label>
 
@@ -4624,6 +4897,7 @@ function AdminPanel({
   const users = (state.admin?.users || []).filter((user) =>
     normalizeText(`${user.name} ${user.email}`).includes(normalizeText(search))
   );
+  const auditEvents = (state.activity || []).filter((event) => event.type === 'audit_admin').slice(0, 10);
 
   return (
     <section className="grid gap-5 rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -4643,13 +4917,59 @@ function AdminPanel({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-8">
         <AdminSupervisorMetric label="Runtimes" value={supervisor?.totalRuntimes || 0} />
         <AdminSupervisorMetric label="Telegram OK" value={supervisor?.listeningTelegram || 0} tone="success" />
         <AdminSupervisorMetric label="WhatsApp OK" value={supervisor?.readyWhatsApp || 0} tone="success" />
         <AdminSupervisorMetric label="Filas ativas" value={supervisor?.activeDeliveries || 0} tone="info" />
         <AdminSupervisorMetric label="Aguardando" value={supervisor?.queuedDeliveries || 0} tone="warning" />
+        <AdminSupervisorMetric label="Duplicados" value={supervisor?.skippedDuplicates || 0} tone="info" />
+        <AdminSupervisorMetric label="Falhas transit." value={supervisor?.transientFailures || 0} tone="warning" />
+        <AdminSupervisorMetric label="Falhas fatais" value={supervisor?.fatalFailures || 0} tone="default" />
       </div>
+
+      {(supervisor?.healthAlerts || []).length > 0 ? (
+        <div className="grid gap-2">
+          {(supervisor?.healthAlerts || []).map((alert, index) => (
+            <div
+              key={`${alert.code || 'alert'}-${index}`}
+              className={cn(
+                'rounded-md border px-3 py-2 text-xs',
+                alert.level === 'critical'
+                  ? 'border-red-400/20 bg-red-400/10 text-red-100'
+                  : 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+              )}
+            >
+              {alert.message || 'Alerta operacional ativo.'}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <section className="rounded-md border border-[var(--border)] bg-black/10 p-4">
+        <div className="mb-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Auditoria</p>
+          <h3 className="mt-1 text-sm font-semibold">Acoes admin recentes</h3>
+        </div>
+        <div className="grid gap-2">
+          {auditEvents.length ? (
+            auditEvents.map((event) => {
+              const action = String(event?.metadata?.action || 'admin.acao');
+              const outcome = String(event?.metadata?.outcome || 'unknown');
+              const target = String(event?.metadata?.targetUserId || '-');
+
+              return (
+                <article key={event.id} className="rounded border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs">
+                  <p className="font-semibold">{action} - {outcome}</p>
+                  <p className="mt-1 text-[var(--muted)]">alvo: {target} | {formatDate(event.at)}</p>
+                </article>
+              );
+            })
+          ) : (
+            <p className="text-xs text-[var(--muted)]">Sem eventos de auditoria recentes.</p>
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-3">
         {users.map((user) => (
@@ -4677,7 +4997,7 @@ function AdminPanel({
                 <AdminRuntimeStatusPill label="Telegram" value={user.supervisor?.telegramStatus || user.workspace?.telegramStatus || 'offline'} />
                 <AdminRuntimeStatusPill label="WhatsApp" value={user.supervisor?.whatsAppStatus || user.workspace?.whatsAppStatus || 'offline'} />
               </div>
-              <div className="mt-4 grid gap-2 rounded-md border border-[var(--border)] bg-white/[0.03] p-3 text-xs text-[var(--muted)] md:grid-cols-4">
+              <div className="mt-4 grid gap-2 rounded-md border border-[var(--border)] bg-white/[0.03] p-3 text-xs text-[var(--muted)] md:grid-cols-6">
                 <div>
                   <p className="font-semibold text-[var(--foreground)]">{user.supervisor?.deliveryQueue?.queuedCount || 0}</p>
                   <p>Na fila</p>
@@ -4695,6 +5015,16 @@ function AdminPanel({
                     {user.supervisor?.totalErrors || user.metrics?.totalErrors || 0}
                   </p>
                   <p>Erros</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--foreground)]">{user.supervisor?.deliveryStats?.skippedDuplicates || 0}</p>
+                  <p>Duplicados evitados</p>
+                </div>
+                <div>
+                  <p className={cn('font-semibold', (user.supervisor?.deliveryStats?.fatalFailures || 0) > 0 ? 'text-red-100' : 'text-[var(--foreground)]')}>
+                    {user.supervisor?.deliveryStats?.fatalFailures || 0}
+                  </p>
+                  <p>Falhas fatais</p>
                 </div>
                 {user.supervisor?.deliveryQueue?.lastError ? (
                   <p className="col-span-full rounded border border-red-400/20 bg-red-400/10 px-3 py-2 text-red-100">
@@ -4945,6 +5275,12 @@ function getAutomationLockReason(state: AppState) {
     return 'Escolha ao menos um destino do WhatsApp antes de ligar o sistema.';
   }
   return '';
+}
+
+function formatMediaSourceMode(value?: string) {
+  return String(value || '').toLowerCase() === 'product_image'
+    ? 'Imagem do link do produto'
+    : 'Imagem original do Telegram';
 }
 
 function getTelegramChatName(state: AppState, sourceId?: string | null) {

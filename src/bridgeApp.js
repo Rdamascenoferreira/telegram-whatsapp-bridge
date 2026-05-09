@@ -1,4 +1,4 @@
-import { defaultMetrics, loadActivityForUser } from './activityStore.js';
+import { appendActivityEvent, defaultMetrics, loadActivityForUser, saveActivityForUser } from './activityStore.js';
 import {
   acceptAffiliateTerms,
   getActiveAffiliateAutomationsBySource,
@@ -44,6 +44,35 @@ export class BridgeApp {
     const requireAdmin = this.auth?.requireAdmin() ?? ((_request, _response, next) => next());
     const runUserOperation = async (request, operationName, task) =>
       await this.manager.runUserOperation(request.user?.id, operationName, task);
+    const auditAdminAction = async (request, action, targetUserId, outcome = 'success', metadata = {}) => {
+      const actorId = String(request.user?.id ?? '').trim();
+
+      if (!actorId) {
+        return;
+      }
+
+      try {
+        const activity = await loadActivityForUser(actorId);
+        const nextActivity = appendActivityEvent(activity, {
+          at: new Date().toISOString(),
+          level: outcome === 'success' ? 'info' : 'error',
+          type: 'audit_admin',
+          message: `Admin action: ${action} (${outcome})`,
+          metadata: {
+            action,
+            outcome,
+            actorUserId: actorId,
+            actorEmail: String(request.user?.email ?? ''),
+            targetUserId: String(targetUserId ?? '').trim(),
+            ipAddress: getRequestIp(request),
+            ...metadata
+          }
+        });
+        await saveActivityForUser(actorId, nextActivity);
+      } catch (error) {
+        console.warn(`Admin audit unavailable: ${error.message}`);
+      }
+    };
     const respondWithState = async (request, response) => {
       const auth = this.auth
         ? this.auth.getClientSession(request.user)
@@ -228,6 +257,7 @@ export class BridgeApp {
         const runtime = await this.manager.getRuntimeForUser(request.user);
         await runtime.resetWhatsAppSession();
       });
+      await auditAdminAction(request, 'whatsapp.reset_session', request.user?.id, 'success');
       await respondWithState(request, response);
     });
 
@@ -244,6 +274,7 @@ export class BridgeApp {
         const runtime = await this.manager.getRuntimeForUser(request.user);
         await runtime.resetAllConnections();
       });
+      await auditAdminAction(request, 'connections.reset_all', request.user?.id, 'success');
       await respondWithState(request, response);
     });
 
@@ -344,6 +375,7 @@ export class BridgeApp {
     });
 
     app.post('/api/admin/users/:userId', requireAdmin, async (request, response) => {
+      const targetUserId = String(request.params.userId ?? '').trim();
       const updatedUser = await updateUserAdminSettings(String(request.params.userId ?? '').trim(), {
         role: request.body?.role,
         plan: request.body?.plan,
@@ -360,6 +392,11 @@ export class BridgeApp {
         await this.auth?.forceLogoutUser(updatedUser.id);
       }
 
+      await auditAdminAction(request, 'admin.update_user_settings', targetUserId, 'success', {
+        plan: request.body?.plan,
+        accountStatus: request.body?.accountStatus,
+        billingStatus: request.body?.billingStatus
+      });
       await respondWithState(request, response);
     });
 
@@ -368,6 +405,7 @@ export class BridgeApp {
       const targetUser = await findUserById(targetUserId);
 
       if (!targetUser) {
+        await auditAdminAction(request, 'admin.restart_runtime', targetUserId, 'not_found');
         response.status(404).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
@@ -377,6 +415,7 @@ export class BridgeApp {
       }
 
       await this.manager.restartRuntimeForUserId(targetUserId);
+      await auditAdminAction(request, 'admin.restart_runtime', targetUserId, 'success');
       await respondWithState(request, response);
     });
 
@@ -385,6 +424,7 @@ export class BridgeApp {
       const targetUser = await findUserById(targetUserId);
 
       if (!targetUser) {
+        await auditAdminAction(request, 'admin.delete_user', targetUserId, 'not_found');
         response.status(404).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
@@ -394,6 +434,7 @@ export class BridgeApp {
       }
 
       if (request.user?.id === targetUserId) {
+        await auditAdminAction(request, 'admin.delete_user', targetUserId, 'blocked_self_delete');
         response.status(400).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
@@ -404,6 +445,7 @@ export class BridgeApp {
 
       await this.manager.destroyRuntimeForUserId(targetUserId);
       await (this.auth ? this.auth.deleteAccount(targetUserId) : deleteUserAccount(targetUserId));
+      await auditAdminAction(request, 'admin.delete_user', targetUserId, 'success');
       await respondWithState(request, response);
     });
   }
@@ -459,6 +501,7 @@ export class BridgeApp {
       };
     }));
     const supervisor = this.manager.getRuntimeSnapshots();
+    const deliveryHealth = summarizeDeliveryHealth(supervisor);
 
     return {
       summary: buildAdminSummary(enrichedUsers),
@@ -468,6 +511,10 @@ export class BridgeApp {
         listeningTelegram: supervisor.filter((runtime) => runtime.telegramStatus === 'listening').length,
         queuedDeliveries: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryQueue?.queuedCount || 0), 0),
         activeDeliveries: supervisor.filter((runtime) => runtime.deliveryQueue?.active).length,
+        skippedDuplicates: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.skippedDuplicates || 0), 0),
+        transientFailures: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.transientFailures || 0), 0),
+        fatalFailures: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.fatalFailures || 0), 0),
+        healthAlerts: deliveryHealth.healthAlerts,
         sessions: supervisor
       },
       options: {
@@ -483,12 +530,18 @@ export class BridgeApp {
   getHealthSnapshot() {
     const operations = this.manager.getOperationsSnapshot();
     const runtimeSnapshots = this.manager.getRuntimeSnapshots();
+    const deliveryHealth = summarizeDeliveryHealth(runtimeSnapshots);
     const deliveryQueues = runtimeSnapshots.map((runtime) => ({
       userId: runtime.userId,
       telegramStatus: runtime.telegramStatus,
       whatsAppStatus: runtime.whatsAppStatus,
       pendingTelegramCount: runtime.pendingTelegramCount,
-      deliveryQueue: runtime.deliveryQueue
+      deliveryQueue: runtime.deliveryQueue,
+      deliveryStats: runtime.deliveryStats || {
+        skippedDuplicates: 0,
+        transientFailures: 0,
+        fatalFailures: 0
+      }
     }));
 
     return {
@@ -499,6 +552,8 @@ export class BridgeApp {
         listeningTelegram: runtimeSnapshots.filter((runtime) => runtime.telegramStatus === 'listening').length
       },
       operations,
+      delivery: deliveryHealth.totals,
+      healthAlerts: deliveryHealth.healthAlerts,
       deliveryQueues
     };
   }
@@ -519,6 +574,7 @@ export class BridgeApp {
 
   buildUnavailableAdminState(error) {
     const supervisor = this.manager.getRuntimeSnapshots();
+    const deliveryHealth = summarizeDeliveryHealth(supervisor);
 
     return {
       summary: buildAdminSummary([]),
@@ -528,6 +584,10 @@ export class BridgeApp {
         listeningTelegram: supervisor.filter((runtime) => runtime.telegramStatus === 'listening').length,
         queuedDeliveries: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryQueue?.queuedCount || 0), 0),
         activeDeliveries: supervisor.filter((runtime) => runtime.deliveryQueue?.active).length,
+        skippedDuplicates: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.skippedDuplicates || 0), 0),
+        transientFailures: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.transientFailures || 0), 0),
+        fatalFailures: supervisor.reduce((total, runtime) => total + Number(runtime.deliveryStats?.fatalFailures || 0), 0),
+        healthAlerts: deliveryHealth.healthAlerts,
         sessions: supervisor
       },
       options: {
@@ -571,6 +631,11 @@ export class BridgeApp {
         hasCachedGroups: false,
         pendingTelegramCount: 0,
         whatsAppDeliveryQueue: null,
+        deliveryStats: {
+          skippedDuplicates: 0,
+          transientFailures: 0,
+          fatalFailures: 0
+        },
         canResetWhatsAppSession: false,
         canReconnectWhatsApp: false
       },
@@ -686,6 +751,9 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
     messageBeautifierStyle: 'clean',
     aiRewriteEnabled: false,
     aiRewriteStyle: 'clean',
+    mediaSourceMode: String(payload.mediaSourceMode ?? 'telegram_media').trim().toLowerCase() === 'product_image'
+      ? 'product_image'
+      : 'telegram_media',
     preserveOriginalTextEnabled: true,
     isActive: true,
     destinations: []
@@ -735,6 +803,53 @@ function buildAdminSummary(users) {
     activeBridges: users.filter((user) => user.workspace?.bridgeEnabled).length,
     readySessions: users.filter((user) => ['authenticated', 'ready'].includes(String(user.workspace?.whatsAppStatus ?? '').toLowerCase())).length,
     paidPlans: users.filter((user) => ['starter', 'pro', 'enterprise'].includes(user.plan)).length
+  };
+}
+
+export function summarizeDeliveryHealth(runtimeSnapshots = []) {
+  const totals = runtimeSnapshots.reduce((aggregate, runtime) => {
+    aggregate.queued += Number(runtime?.deliveryQueue?.queuedCount || 0);
+    aggregate.pendingTelegram += Number(runtime?.pendingTelegramCount || 0);
+    aggregate.fatalFailures += Number(runtime?.deliveryStats?.fatalFailures || 0);
+    aggregate.transientFailures += Number(runtime?.deliveryStats?.transientFailures || 0);
+    aggregate.skippedDuplicates += Number(runtime?.deliveryStats?.skippedDuplicates || 0);
+    return aggregate;
+  }, {
+    queued: 0,
+    pendingTelegram: 0,
+    fatalFailures: 0,
+    transientFailures: 0,
+    skippedDuplicates: 0
+  });
+  const healthAlerts = [];
+
+  if (totals.queued >= 30) {
+    healthAlerts.push({
+      level: 'warning',
+      code: 'DELIVERY_QUEUE_HIGH',
+      message: `Fila de envio alta (${totals.queued} itens aguardando).`
+    });
+  }
+
+  if (totals.pendingTelegram >= 20) {
+    healthAlerts.push({
+      level: 'warning',
+      code: 'TELEGRAM_PENDING_HIGH',
+      message: `Mensagens pendentes do Telegram em alta (${totals.pendingTelegram}).`
+    });
+  }
+
+  if (totals.fatalFailures > 0) {
+    healthAlerts.push({
+      level: 'critical',
+      code: 'DELIVERY_FATAL_FAILURES',
+      message: `Falhas fatais de entrega detectadas (${totals.fatalFailures}).`
+    });
+  }
+
+  return {
+    totals,
+    healthAlerts
   };
 }
 
@@ -811,3 +926,4 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+

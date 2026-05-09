@@ -1,6 +1,12 @@
 const supabaseUrl = String(process.env.SUPABASE_URL ?? '').trim().replace(/\/$/, '');
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
 const cloudEnabled = Boolean(supabaseUrl && supabaseServiceRoleKey);
+const supabaseBreakerFailureThreshold = Number(process.env.SUPABASE_BREAKER_FAILURE_THRESHOLD ?? 5);
+const supabaseBreakerCooldownMs = Number(process.env.SUPABASE_BREAKER_COOLDOWN_MS ?? 30_000);
+const supabaseBreakerState = {
+  consecutiveFailures: 0,
+  openUntil: 0
+};
 const affiliateRulesMarkerPrefix = '<!--portal-affiliate-rules:';
 const affiliateRulesMarkerSuffix = '-->';
 
@@ -374,6 +380,10 @@ async function supabaseRequest(endpoint, options = {}) {
     throw new Error('Supabase nao configurado.');
   }
 
+  if (Date.now() < supabaseBreakerState.openUntil) {
+    throw new Error('Supabase indisponivel temporariamente. Tente novamente em alguns segundos.');
+  }
+
   const url = new URL(`${supabaseUrl}${endpoint}`);
   Object.entries(options.searchParams || {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -400,18 +410,23 @@ async function supabaseRequest(endpoint, options = {}) {
     });
   } catch (error) {
     if (error?.name === 'AbortError') {
+      registerSupabaseFailure();
       throw new Error('Tempo esgotado ao acessar o Supabase.');
     }
 
+    registerSupabaseFailure();
     throw error;
   } finally {
     clearTimeout(timeout);
   }
 
   if (!response.ok) {
+    registerSupabaseFailure();
     const payload = await response.text().catch(() => '');
     throw new Error(`Falha ao acessar o Supabase (${response.status}). ${payload}`.trim());
   }
+
+  clearSupabaseBreakerFailures();
 
   if (response.status === 204) {
     return [];
@@ -428,6 +443,19 @@ async function supabaseRequest(endpoint, options = {}) {
   } catch {
     throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
   }
+}
+
+function registerSupabaseFailure() {
+  supabaseBreakerState.consecutiveFailures += 1;
+
+  if (supabaseBreakerState.consecutiveFailures >= supabaseBreakerFailureThreshold) {
+    supabaseBreakerState.openUntil = Date.now() + supabaseBreakerCooldownMs;
+  }
+}
+
+function clearSupabaseBreakerFailures() {
+  supabaseBreakerState.consecutiveFailures = 0;
+  supabaseBreakerState.openUntil = 0;
 }
 
 function isAffiliateAutomationRulesSchemaMissing(error) {
@@ -514,6 +542,9 @@ function mapAffiliateAutomation(row) {
     aiRewriteStyle: useLegacyRules
       ? footerRules.aiRewriteStyle
       : normalizeBeautifierStyle(row.ai_rewrite_style),
+    mediaSourceMode: useLegacyRules
+      ? footerRules.mediaSourceMode
+      : 'telegram_media',
     telegramForwardEnabled: useLegacyRules
       ? footerRules.telegramForwardEnabled
       : Boolean(row.telegram_forward_enabled),
@@ -588,9 +619,14 @@ function normalizeBeautifierStyle(value) {
   return ['clean', 'sales', 'urgent', 'plain'].includes(style) ? style : 'clean';
 }
 
+function normalizeMediaSourceMode(value) {
+  const mode = String(value ?? '').trim().toLowerCase();
+  return ['telegram_media', 'product_image'].includes(mode) ? mode : 'telegram_media';
+}
+
 function mapAutomationRulesColumns(payload = {}) {
   return {
-    custom_footer: cleanText(payload.customFooter),
+    custom_footer: encodeCustomFooterRules(payload),
     preserve_original_text_enabled: Boolean(payload.preserveOriginalTextEnabled),
     message_beautifier_enabled: Boolean(payload.messageBeautifierEnabled),
     message_beautifier_style: normalizeBeautifierStyle(payload.messageBeautifierStyle),
@@ -614,6 +650,7 @@ function defaultAutomationRules(customFooter = '') {
     messageBeautifierStyle: 'clean',
     aiRewriteEnabled: false,
     aiRewriteStyle: 'clean',
+    mediaSourceMode: 'telegram_media',
     telegramForwardEnabled: false,
     telegramDestinationGroupId: '',
     telegramDestinationGroupName: ''
@@ -646,6 +683,7 @@ function decodeCustomFooterRules(value) {
       messageBeautifierStyle: normalizeBeautifierStyle(rules.messageBeautifierStyle),
       aiRewriteEnabled: Boolean(rules.aiRewriteEnabled),
       aiRewriteStyle: normalizeBeautifierStyle(rules.aiRewriteStyle),
+      mediaSourceMode: normalizeMediaSourceMode(rules.mediaSourceMode),
       telegramForwardEnabled: Boolean(rules.telegramForwardEnabled),
       telegramDestinationGroupId: cleanText(rules.telegramDestinationGroupId),
       telegramDestinationGroupName: cleanText(rules.telegramDestinationGroupName)
@@ -679,6 +717,10 @@ function mergeAffiliateAutomationRulesPayload(currentAutomation, payload = {}) {
       payload.aiRewriteStyle !== undefined
         ? payload.aiRewriteStyle
         : currentAutomation?.aiRewriteStyle,
+    mediaSourceMode:
+      payload.mediaSourceMode !== undefined
+        ? payload.mediaSourceMode
+        : currentAutomation?.mediaSourceMode,
     telegramForwardEnabled:
       payload.telegramForwardEnabled !== undefined
         ? payload.telegramForwardEnabled
@@ -696,4 +738,21 @@ function mergeAffiliateAutomationRulesPayload(currentAutomation, payload = {}) {
 
 function cleanText(value) {
   return String(value ?? '').trim();
+}
+
+function encodeCustomFooterRules(payload = {}) {
+  const encodedRules = {
+    preserveOriginalTextEnabled: Boolean(payload.preserveOriginalTextEnabled),
+    messageBeautifierEnabled: Boolean(payload.messageBeautifierEnabled),
+    messageBeautifierStyle: normalizeBeautifierStyle(payload.messageBeautifierStyle),
+    aiRewriteEnabled: Boolean(payload.aiRewriteEnabled),
+    aiRewriteStyle: normalizeBeautifierStyle(payload.aiRewriteStyle),
+    mediaSourceMode: normalizeMediaSourceMode(payload.mediaSourceMode),
+    telegramForwardEnabled: Boolean(payload.telegramForwardEnabled),
+    telegramDestinationGroupId: cleanText(payload.telegramDestinationGroupId),
+    telegramDestinationGroupName: cleanText(payload.telegramDestinationGroupName)
+  };
+  const customFooter = cleanText(payload.customFooter);
+
+  return `${affiliateRulesMarkerPrefix}${JSON.stringify(encodedRules)}${affiliateRulesMarkerSuffix}${customFooter ? `\n${customFooter}` : ''}`;
 }

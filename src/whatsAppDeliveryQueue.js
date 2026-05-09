@@ -2,6 +2,7 @@ const defaultDelayMs = Number(process.env.WHATSAPP_DELIVERY_DELAY_MS ?? 2200);
 const defaultRetryLimit = Number(process.env.WHATSAPP_DELIVERY_RETRY_LIMIT ?? 3);
 const defaultRetryBaseDelayMs = Number(process.env.WHATSAPP_DELIVERY_RETRY_BASE_DELAY_MS ?? 1200);
 const defaultMaxQueuedJobs = Number(process.env.WHATSAPP_DELIVERY_MAX_QUEUED_JOBS ?? 120);
+const defaultRetryJitterMs = Number(process.env.WHATSAPP_DELIVERY_RETRY_JITTER_MS ?? 250);
 
 export class WhatsAppDeliveryQueue {
   constructor(options = {}) {
@@ -9,6 +10,7 @@ export class WhatsAppDeliveryQueue {
     this.delayMs = normalizePositiveNumber(options.delayMs, defaultDelayMs);
     this.retryLimit = normalizePositiveNumber(options.retryLimit, defaultRetryLimit);
     this.retryBaseDelayMs = normalizePositiveNumber(options.retryBaseDelayMs, defaultRetryBaseDelayMs);
+    this.retryJitterMs = normalizePositiveNumber(options.retryJitterMs, defaultRetryJitterMs);
     this.maxQueuedJobs = normalizePositiveNumber(options.maxQueuedJobs, defaultMaxQueuedJobs);
     this.chain = Promise.resolve();
     this.activeJob = null;
@@ -65,25 +67,42 @@ export class WhatsAppDeliveryQueue {
   async sendWithRetry(send, options = {}) {
     const retryLimit = normalizePositiveNumber(options.retryLimit, this.retryLimit);
     let lastError = null;
+    let lastErrorClass = 'unknown';
+    let attemptsMade = 0;
 
     for (let attempt = 1; attempt <= retryLimit; attempt += 1) {
+      attemptsMade = attempt;
       try {
         await send(attempt);
         return { ok: true, attempt };
       } catch (error) {
         lastError = error;
+        lastErrorClass = classifyDeliveryError(error);
+
+        if (lastErrorClass === 'fatal') {
+          break;
+        }
 
         if (attempt < retryLimit) {
-          await wait(this.retryBaseDelayMs * attempt);
+          const delayMs = this.computeRetryDelayMs(attempt, lastErrorClass);
+          await wait(delayMs);
         }
       }
     }
 
     return {
       ok: false,
-      attempt: retryLimit,
-      error: lastError?.message || 'Falha desconhecida no envio'
+      attempt: attemptsMade || retryLimit,
+      error: lastError?.message || 'Falha desconhecida no envio',
+      errorClass: lastErrorClass
     };
+  }
+
+  computeRetryDelayMs(attempt, errorClass = 'transient') {
+    const transientMultiplier = errorClass === 'transient' ? 1 : 2;
+    const baseDelay = this.retryBaseDelayMs * attempt * transientMultiplier;
+    const jitter = Math.floor(Math.random() * this.retryJitterMs);
+    return baseDelay + jitter;
   }
 
   async waitBetweenDeliveries() {
@@ -99,12 +118,41 @@ export class WhatsAppDeliveryQueue {
       failedCount: this.failedCount,
       delayMs: this.delayMs,
       retryLimit: this.retryLimit,
+      retryJitterMs: this.retryJitterMs,
       maxQueuedJobs: this.maxQueuedJobs,
       lastCompletedAt: this.lastCompletedAt,
       lastFailedAt: this.lastFailedAt,
       lastError: this.lastError
     };
   }
+}
+
+function classifyDeliveryError(error) {
+  const message = String(error?.message ?? error ?? '').toLowerCase();
+
+  if (
+    message.includes('invalid wid') ||
+    message.includes('not a whatsapp user') ||
+    message.includes('wid error') ||
+    message.includes('evaluation failed') ||
+    message.includes('cannot read properties of undefined')
+  ) {
+    return 'fatal';
+  }
+
+  if (
+    message.includes('rate limit') ||
+    message.includes('target closed') ||
+    message.includes('session closed') ||
+    message.includes('execution context was destroyed') ||
+    message.includes('navigation') ||
+    message.includes('timed out') ||
+    message.includes('timeout')
+  ) {
+    return 'transient';
+  }
+
+  return 'transient';
 }
 
 function normalizePositiveNumber(value, fallback) {
