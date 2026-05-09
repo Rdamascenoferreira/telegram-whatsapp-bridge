@@ -34,7 +34,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.14';
+const panelVersion = 'Versao 1.15';
 
 type AuthUser = {
   id: string;
@@ -233,6 +233,7 @@ type AppState = {
     hasTelegramBotToken: boolean;
     hasTelegramSession: boolean;
     bridgeEnabled: boolean;
+    disconnectWhatsAppOnLogout?: boolean;
     dashboardViewClearedAt?: string;
     selectedGroupIds: string[];
   };
@@ -351,6 +352,7 @@ function createAuthenticatedShellState(auth: AppState['auth']): AppState {
       hasTelegramBotToken: false,
       hasTelegramSession: false,
       bridgeEnabled: false,
+      disconnectWhatsAppOnLogout: false,
       selectedGroupIds: []
     },
     metrics: {},
@@ -572,6 +574,9 @@ export default function Home() {
             state={state}
             onLogout={async () => {
               setView('overview');
+              try {
+                await postJson('/api/whatsapp/logout-action');
+              } catch {}
               await postJson('/api/auth/logout');
               await loadState();
             }}
@@ -2197,6 +2202,47 @@ function FlowsPanel({
     state,
     activeAutomation?.telegramDestinationGroupId
   );
+  const savedBridgeSourceId = normalizeRouteSourceId(state.config.telegramChannel);
+  const savedAffiliateSourceId = normalizeRouteSourceId(savedAffiliateSource);
+  const savedAffiliateForwardEnabled = Boolean(
+    configuredAffiliateAutomation?.telegramForwardEnabled &&
+      normalizeRouteSourceId(configuredAffiliateAutomation?.telegramDestinationGroupId)
+  );
+  const savedAffiliateForwardDestinationId = normalizeRouteSourceId(
+    configuredAffiliateAutomation?.telegramDestinationGroupId
+  );
+  const nextRouteSourceId = normalizeRouteSourceId(selectedRouteSource);
+  const pendingFlowChanges: string[] = [];
+
+  if (telegramFlow !== savedTelegramFlow) {
+    pendingFlowChanges.push(
+      `Modo: ${savedTelegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'} -> ${telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}`
+    );
+  }
+
+  if (telegramFlow === 'bridge') {
+    if (nextRouteSourceId !== savedBridgeSourceId) {
+      pendingFlowChanges.push(
+        `Origem da ponte: ${getTelegramChatName(state, savedBridgeSourceId)} -> ${getTelegramChatName(state, nextRouteSourceId)}`
+      );
+    }
+  } else {
+    if (nextRouteSourceId !== savedAffiliateSourceId) {
+      pendingFlowChanges.push(
+        `Origem das ofertas: ${getTelegramChatName(state, savedAffiliateSourceId)} -> ${getTelegramChatName(state, nextRouteSourceId)}`
+      );
+    }
+
+    const nextForwardDestinationId = affiliateTelegramForwardEnabled
+      ? normalizeRouteSourceId(affiliateTelegramDestinationId)
+      : '';
+    if (affiliateTelegramForwardEnabled !== savedAffiliateForwardEnabled || nextForwardDestinationId !== savedAffiliateForwardDestinationId) {
+      pendingFlowChanges.push(
+        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'Nao'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'Nao'}`
+      );
+    }
+  }
+  const hasPendingFlowChanges = pendingFlowChanges.length > 0;
   const flowChecklist = [
     { label: 'Telegram conectado', done: hasTelegramSession, ready: Boolean(state.config.telegramApiId) },
     { label: 'Destinos WhatsApp prontos', done: selectedWhatsAppDestinationCount > 0, ready: state.groups.length > 0 },
@@ -2297,6 +2343,12 @@ function FlowsPanel({
     }
 
     setFlowFieldErrors({});
+
+    if (!hasPendingFlowChanges) {
+      setReviewBeforeSave(false);
+      setNotice('Nenhuma alteracao detectada no fluxo.');
+      return;
+    }
 
     if (!reviewBeforeSave) {
       setReviewBeforeSave(true);
@@ -2652,12 +2704,21 @@ function FlowsPanel({
                         ? getTelegramChatName(state, affiliateTelegramDestinationId)
                         : 'Nao'}
                     </p>
+                    <p className="mt-2 font-semibold">Alteracoes detectadas:</p>
+                    {pendingFlowChanges.map((change, index) => (
+                      <p key={`flow-change-${index}`}>- {change}</p>
+                    ))}
                   </div>
                 ) : null}
                 <div className="mt-4 grid gap-2">
                   <button
                     type="button"
-                    disabled={readOnlyAccount || busy === 'save-source' || (isAutomationEditing && !selectedRouteSource.trim())}
+                    disabled={
+                      readOnlyAccount ||
+                      busy === 'save-source' ||
+                      (isAutomationEditing && !selectedRouteSource.trim()) ||
+                      (isAutomationEditing && !hasPendingFlowChanges && !reviewBeforeSave)
+                    }
                     onClick={() => {
                       if (!isAutomationEditing) {
                         setAutomationEditing(true);
@@ -3212,6 +3273,7 @@ function Groups({
   const hasWhatsAppDestinationLimit = Number.isFinite(whatsappDestinationLimit);
   const [showAdvancedActions, setShowAdvancedActions] = useState(false);
   const [destructiveConfirmStep, setDestructiveConfirmStep] = useState<'wa-reset' | 'reset-all' | null>(null);
+  const [disconnectOnLogout, setDisconnectOnLogout] = useState(Boolean(state.config.disconnectWhatsAppOnLogout));
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const groupsProgress = state.metrics.groupRefreshProgress;
@@ -3261,6 +3323,10 @@ function Groups({
       setHasPendingSelectionChanges(false);
     }
   }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
+
+  useEffect(() => {
+    setDisconnectOnLogout(Boolean(state.config.disconnectWhatsAppOnLogout));
+  }, [state.config.disconnectWhatsAppOnLogout]);
 
   return (
     <div className="grid gap-5">
@@ -3518,6 +3584,49 @@ function Groups({
                   ) : null}
                 </div>
               ) : null}
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+              <p className="text-sm font-semibold">Comportamento ao sair</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                Recomendado manter a sessao conectada para reconexao mais rapida ao voltar.
+              </p>
+              <label className="mt-3 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  checked={disconnectOnLogout}
+                  onChange={(event) => setDisconnectOnLogout(event.target.checked)}
+                  disabled={readOnlyAccount || busy === 'wa-logout-behavior'}
+                  className="mt-1 h-4 w-4 rounded border-white/15 bg-transparent accent-emerald-400"
+                />
+                <span>
+                  <span className="block font-semibold text-white">Desconectar WhatsApp ao sair</span>
+                  <span className="mt-1 block text-xs leading-5">
+                    Quando ativado, ao clicar em Sair o sistema derruba a sessao do WhatsApp e exige novo QR no proximo login.
+                  </span>
+                </span>
+              </label>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  disabled={readOnlyAccount || busy === 'wa-logout-behavior'}
+                  onClick={async () => {
+                    setBusy('wa-logout-behavior');
+                    try {
+                      await postJson('/api/whatsapp/logout-behavior', {
+                        disconnectWhatsAppOnLogout: disconnectOnLogout
+                      });
+                      await refresh();
+                      setNotice('Preferencia de logout do WhatsApp salva.');
+                    } finally {
+                      setBusy('');
+                    }
+                  }}
+                >
+                  Salvar preferencia
+                </button>
+              </div>
             </div>
           </div>
 

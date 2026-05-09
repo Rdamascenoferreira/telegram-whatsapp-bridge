@@ -85,6 +85,7 @@ export class BridgeApp {
       if (request.user) {
         try {
           const runtime = await this.manager.getRuntimeForUser(request.user);
+          await runtime.maybeRecoverWhatsAppOnLogin();
           runtimeState = runtime ? await runtime.getState() : {};
         } catch (error) {
           console.warn(`Runtime state unavailable for ${request.user.id}: ${error.message}`);
@@ -276,6 +277,22 @@ export class BridgeApp {
       });
       await auditAdminAction(request, 'connections.reset_all', request.user?.id, 'success');
       await respondWithState(request, response);
+    });
+
+    app.post('/api/whatsapp/logout-behavior', requireWriteAccess, async (request, response) => {
+      await runUserOperation(request, 'whatsapp:logout-behavior', async () => {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        await runtime.updateWhatsAppLogoutBehavior(Boolean(request.body?.disconnectWhatsAppOnLogout));
+      });
+      await respondWithState(request, response);
+    });
+
+    app.post('/api/whatsapp/logout-action', requireWriteAccess, async (request, response) => {
+      await runUserOperation(request, 'whatsapp:logout-action', async () => {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        await runtime.handleUserLogout();
+      });
+      response.json({ ok: true });
     });
 
     app.post('/api/affiliate/account', requireWriteAccess, async (request, response) => {
@@ -621,6 +638,7 @@ export class BridgeApp {
         hasTelegramBotToken: false,
         hasTelegramSession: false,
         bridgeEnabled: false,
+        disconnectWhatsAppOnLogout: false,
         dashboardViewClearedAt: '',
         selectedGroupIds: []
       },

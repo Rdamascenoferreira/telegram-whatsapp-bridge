@@ -128,6 +128,7 @@ export class UserBridgeRuntime {
       fatalFailures: 0
     };
     this.persistDeliveryReceiptsPromise = Promise.resolve();
+    this.lastWhatsAppRecoveryAttemptAt = 0;
     this.initialized = false;
   }
 
@@ -174,6 +175,7 @@ export class UserBridgeRuntime {
         hasTelegramBotToken: false,
         hasTelegramSession: Boolean(this.config.telegramSession),
         bridgeEnabled: this.config.bridgeEnabled,
+        disconnectWhatsAppOnLogout: Boolean(this.config.disconnectWhatsAppOnLogout),
         dashboardViewClearedAt,
         selectedGroupIds: this.config.selectedGroupIds
       },
@@ -1019,6 +1021,48 @@ export class UserBridgeRuntime {
         useWSS: true
       }
     );
+  }
+
+  async updateWhatsAppLogoutBehavior(disconnectWhatsAppOnLogout) {
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      disconnectWhatsAppOnLogout: Boolean(disconnectWhatsAppOnLogout)
+    });
+  }
+
+  async handleUserLogout() {
+    if (!this.config.disconnectWhatsAppOnLogout) {
+      return;
+    }
+
+    await this.resetWhatsAppSession();
+  }
+
+  async maybeRecoverWhatsAppOnLogin() {
+    const now = Date.now();
+    if (now - this.lastWhatsAppRecoveryAttemptAt < 30 * 1000) {
+      return;
+    }
+
+    const normalizedStatus = String(this.whatsAppStatus || '').trim().toLowerCase();
+    if (['ready', 'authenticated', 'connecting', 'qr_required', 'reconnecting', 'resetting'].includes(normalizedStatus)) {
+      return;
+    }
+
+    this.lastWhatsAppRecoveryAttemptAt = now;
+
+    try {
+      await this.reconnectWhatsApp();
+      this.log('Reconexao automatica do WhatsApp iniciada ao retomar sessao do painel.', {
+        type: 'whatsapp_auto_reconnect'
+      });
+    } catch (error) {
+      this.log(`Falha na reconexao automatica do WhatsApp ao retomar sessao: ${error.message}`, {
+        level: 'error',
+        type: 'whatsapp_auto_reconnect_error',
+        increments: { errors: 1 }
+      });
+    }
   }
 
   normalizeTelegramPhone(phone) {
