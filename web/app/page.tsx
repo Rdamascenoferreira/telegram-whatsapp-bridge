@@ -50,7 +50,7 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.16';
+const panelVersion = 'Versao 1.17';
 
 type AuthUser = {
   id: string;

@@ -833,7 +833,7 @@ export class UserBridgeRuntime {
 
     if (!this.config.telegramBotToken) {
       this.telegramStatus = 'not_configured';
-      this.log('Telegram ainda nÃ£o configurado.', {
+      this.log('Telegram ainda não configurado.', {
         type: 'telegram_not_configured'
       });
       return;
@@ -905,7 +905,7 @@ export class UserBridgeRuntime {
   async startTelegramUser() {
     if (!this.config.telegramApiId || !this.config.telegramApiHash || !this.config.telegramPhone) {
       this.telegramStatus = 'not_configured';
-      this.log('Telegram ainda nÃ£o configurado. Informe API ID, API Hash e telefone para usar a sessÃ£o de usuÃ¡rio.', {
+      this.log('Telegram ainda não configurado. Informe API ID, API Hash e telefone para usar a sessão de usuário.', {
         type: 'telegram_not_configured'
       });
       return;
@@ -913,7 +913,7 @@ export class UserBridgeRuntime {
 
     if (!this.config.telegramSession) {
       this.telegramStatus = this.telegramAuthFlow?.phase === 'code_required' ? 'code_required' : 'auth_required';
-      this.log('SessÃ£o do Telegram aguardando autenticaÃ§Ã£o por cÃ³digo.', {
+      this.log('Sessão do Telegram aguardando autenticação por código.', {
         type: 'telegram_auth_required'
       });
       return;
@@ -929,7 +929,7 @@ export class UserBridgeRuntime {
       this.telegramStatus = 'auth_required';
       this.telegramClient = null;
       await client.disconnect().catch(() => {});
-      this.log('A sessÃ£o salva do Telegram expirou. Envie um novo cÃ³digo para autenticar novamente.', {
+      this.log('A sessão salva do Telegram expirou. Envie um novo código para autenticar novamente.', {
         level: 'error',
         type: 'telegram_auth_expired',
         increments: { errors: 1 }
@@ -1112,7 +1112,7 @@ export class UserBridgeRuntime {
   async sendTelegramUserCode() {
     const normalizedPhone = this.normalizeTelegramPhone(this.config.telegramPhone);
     if (!this.config.telegramApiId || !this.config.telegramApiHash || !normalizedPhone) {
-      throw new Error('Preencha API ID, API Hash e telefone antes de pedir o cÃ³digo do Telegram.');
+      throw new Error('Preencha API ID, API Hash e telefone antes de pedir o código do Telegram.');
     }
 
     await this.stopTelegramTransport();
@@ -1137,8 +1137,8 @@ export class UserBridgeRuntime {
       this.telegramStatus = 'code_required';
       this.log(
         sendResult.isCodeViaApp
-          ? 'CÃ³digo do Telegram enviado para o aplicativo oficial.'
-          : 'CÃ³digo do Telegram enviado por SMS ou outro canal disponÃ­vel.',
+          ? 'Código do Telegram enviado para o aplicativo oficial.'
+          : 'Código do Telegram enviado por SMS ou outro canal disponível.',
         {
           type: 'telegram_code_sent'
         }
@@ -1159,7 +1159,7 @@ export class UserBridgeRuntime {
 
   async completeTelegramUserAuth({ code, password }) {
     if (!this.telegramAuthFlow?.client || !this.telegramAuthFlow?.phoneCodeHash) {
-      throw new Error('PeÃ§a um novo cÃ³digo do Telegram antes de concluir a autenticaÃ§Ã£o.');
+      throw new Error('Peça um novo código do Telegram antes de concluir a autenticação.');
     }
 
     const client = this.telegramAuthFlow.client;
@@ -1175,7 +1175,7 @@ export class UserBridgeRuntime {
         await client.invoke(new Api.auth.CheckPassword({ password: passwordSrpCheck }));
       } else {
         if (!code) {
-          throw new Error('Informe o cÃ³digo enviado pelo Telegram.');
+          throw new Error('Informe o código enviado pelo Telegram.');
         }
 
         await client.invoke(new Api.auth.SignIn({
@@ -1232,7 +1232,7 @@ export class UserBridgeRuntime {
     this.telegramAvailableChats = [];
     this.telegramUserProfile = null;
     this.telegramStatus = 'not_configured';
-    this.log('SessÃ£o da conta do Telegram desconectada.', {
+    this.log('Sessão da conta do Telegram desconectada.', {
       type: 'telegram_disconnected'
     });
   }
@@ -2203,7 +2203,7 @@ export class UserBridgeRuntime {
     const buffer = await rawMessage.downloadMedia({});
 
     if (!buffer) {
-      throw new Error('NÃ£o foi possÃ­vel baixar a mÃ­dia da sessÃ£o do Telegram.');
+      throw new Error('Não foi possível baixar a mídia da sessão do Telegram.');
     }
 
     return {
