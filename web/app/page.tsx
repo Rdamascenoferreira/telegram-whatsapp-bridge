@@ -50,7 +50,7 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.15';
+const panelVersion = 'Versao 1.16';
 
 type AuthUser = {
   id: string;
@@ -586,7 +586,7 @@ export default function Home() {
           {readOnlyAccount ? <ReadOnlyModeBanner /> : null}
 
           {view === 'overview' ? (
-            <Overview state={state} setNotice={setNotice} setBusy={setBusy} busy={busy} refresh={loadState} />
+            <Overview state={state} setNotice={setNotice} setBusy={setBusy} busy={busy} refresh={loadState} setView={setView} />
           ) : null}
           {view === 'connections' ? (
             <ConnectionsPanel
@@ -1178,13 +1178,15 @@ function Overview({
   setNotice,
   setBusy,
   busy,
-  refresh
+  refresh,
+  setView
 }: {
   state: AppState;
   setNotice: (message: string) => void;
   setBusy: (value: string) => void;
   busy: string;
   refresh: () => Promise<void>;
+  setView: (view: ViewKey) => void;
 }) {
   const readOnlyAccount = isReadOnlyAccount(state);
   const isAdmin = state.auth.user?.role === 'admin';
@@ -1198,10 +1200,113 @@ function Overview({
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
       : `${state.metrics.availableAdminGroupCount || 0} grupos disponiveis`;
   const deliveryStats = state.metrics.deliveryStats || {};
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'errors' | 'delivery' | 'auth'>('all');
+  const totalForwarded = state.metrics.totalForwardedMessages || 0;
+  const totalErrors = state.metrics.totalErrors || 0;
+  const transientFailures = deliveryStats.transientFailures || 0;
+  const fatalFailures = deliveryStats.fatalFailures || 0;
+  const successRate = totalForwarded > 0
+    ? Math.max(0, Math.min(100, Math.round(((totalForwarded - totalErrors) / totalForwarded) * 100)))
+    : 100;
+  const pendingTelegramCount = state.metrics.pendingTelegramCount || 0;
+  const queuedCount = state.metrics.pendingTelegramCount || 0;
+  const errorRate = totalForwarded > 0 ? Math.round((totalErrors / totalForwarded) * 100) : 0;
+  const retriesShare = totalForwarded > 0 ? Math.round((transientFailures / totalForwarded) * 100) : 0;
+  const automationScore = Math.max(0, 100 - Math.min(100, errorRate + Math.round(fatalFailures / 2)));
+  const activeAffiliateAutomation = getActiveAffiliateAutomation(state);
+  const savedAffiliateSourceId = normalizeRouteSourceId(activeAffiliateAutomation?.telegramSourceGroupId);
+  const savedFlowMode: 'bridge' | 'affiliate' = state.config.telegramChannel ? 'bridge' : savedAffiliateSourceId ? 'affiliate' : 'bridge';
+  const hasDestinationsReady = (state.config.selectedGroupIds?.length || 0) > 0;
+  const bridgeHealth = getFlowHealthStatus({
+    selected: savedFlowMode === 'bridge',
+    saved: Boolean(normalizeRouteSourceId(state.config.telegramChannel)),
+    hasTelegramSession: state.telegramStatus === 'listening',
+    sourceId: state.config.telegramChannel,
+    hasDestinations: hasDestinationsReady
+  });
+  const affiliateHealth = getFlowHealthStatus({
+    selected: savedFlowMode === 'affiliate',
+    saved: Boolean(savedAffiliateSourceId),
+    hasTelegramSession: state.telegramStatus === 'listening',
+    sourceId: savedAffiliateSourceId,
+    requiresPlan: (state.planLimits?.affiliateAutomations ?? 0) > 0,
+    hasDestinations: hasDestinationsReady
+  });
+  const timelineEvents = useMemo(() => {
+    const deduped = state.activity.filter((event, index, events) => {
+      const previous = events[index - 1];
+      if (!previous) {
+        return true;
+      }
+      return !(previous.message === event.message && previous.level === event.level);
+    });
+
+    return deduped.filter((event) => {
+      if (timelineFilter === 'all') {
+        return true;
+      }
+      if (timelineFilter === 'errors') {
+        return event.level === 'error';
+      }
+
+      const typeText = String(event.type || '').toLowerCase();
+      const messageText = String(event.message || '').toLowerCase();
+
+      if (timelineFilter === 'delivery') {
+        return (
+          typeText.includes('delivery') ||
+          messageText.includes('envio') ||
+          messageText.includes('encaminh') ||
+          messageText.includes('fila')
+        );
+      }
+
+      return (
+        typeText.includes('auth') ||
+        typeText.includes('telegram') ||
+        typeText.includes('whatsapp') ||
+        messageText.includes('login') ||
+        messageText.includes('sessao') ||
+        messageText.includes('telegram') ||
+        messageText.includes('whatsapp')
+      );
+    }).slice(0, 8);
+  }, [state.activity, timelineFilter]);
+  const criticalAlerts: Array<{ id: string; title: string; detail: string; cta: string; goTo: ViewKey }> = [];
+
+  if (state.telegramStatus !== 'listening') {
+    criticalAlerts.push({
+      id: 'telegram-session',
+      title: 'Telegram desconectado',
+      detail: 'A captura de mensagens esta pausada ate concluir o login.',
+      cta: 'Revisar conexao',
+      goTo: 'connections'
+    });
+  }
+
+  if (state.whatsAppStatus !== 'ready') {
+    criticalAlerts.push({
+      id: 'whatsapp-session',
+      title: 'WhatsApp nao esta pronto',
+      detail: 'As entregas podem falhar enquanto a sessao nao estiver autenticada.',
+      cta: 'Abrir config. WhatsApp',
+      goTo: 'groups'
+    });
+  }
+
+  if (!hasOperationalTelegramSource(state) || !state.config.selectedGroupIds?.length) {
+    criticalAlerts.push({
+      id: 'flow-config',
+      title: 'Fluxo incompleto',
+      detail: 'Falta origem Telegram ou destino WhatsApp para a operacao completa.',
+      cta: 'Configurar fluxo',
+      goTo: 'flows'
+    });
+  }
 
   return (
-    <div className="grid gap-5">
-      <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+    <div className="grid gap-6">
+      <section className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(8,20,16,0.98),rgba(8,20,16,0.92))] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.2)]">
         <div className="flex items-start justify-between gap-4 max-md:flex-col">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -1217,7 +1322,7 @@ function Overview({
               Acompanhe a saude das conexoes, controle a automacao e valide se as mensagens estao fluindo.
             </p>
           </div>
-          <div className="grid min-w-[280px] gap-3 rounded-lg border border-[var(--border)] bg-black/10 p-4">
+          <div className="grid min-w-[280px] gap-3 rounded-xl border border-[var(--border)] bg-black/20 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold">Automacao ativa</p>
@@ -1293,6 +1398,109 @@ function Overview({
         </div>
       </section>
 
+      <section className="grid gap-3 xl:grid-cols-4 max-xl:grid-cols-2 max-md:grid-cols-1">
+        <Metric
+          icon={TrendingUp}
+          label="Taxa de sucesso"
+          value={successRate}
+          detail={`${formatNumber(totalForwarded)} envio(s) monitorado(s) - percentual`}
+        />
+        <Metric
+          icon={Clock3}
+          label="Fila pendente"
+          value={queuedCount}
+          detail={queuedCount > 0 ? 'Mensagens aguardando processamento' : 'Fila operacional em dia'}
+        />
+        <Metric
+          icon={Activity}
+          label="Pendencias Telegram"
+          value={pendingTelegramCount}
+          detail={pendingTelegramCount > 0 ? 'Mensagens aguardando encaminhamento' : 'Sem backlog no Telegram'}
+        />
+        <Metric
+          icon={AlertCircle}
+          label="Alertas ativos"
+          value={criticalAlerts.length}
+          detail={criticalAlerts.length > 0 ? 'Requer acao da operacao' : 'Sem alertas criticos no momento'}
+        />
+      </section>
+
+      <section className="grid gap-3 xl:grid-cols-3 max-xl:grid-cols-1">
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
+          <p className="mt-2 text-sm font-semibold">Qualidade de entrega</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Sucesso {successRate}% vs erros {errorRate}% com base no volume atual.
+          </p>
+        </article>
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
+          <p className="mt-2 text-sm font-semibold">Pressao de retries</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Falhas transientes representam {retriesShare}% do fluxo monitorado.
+          </p>
+        </article>
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
+          <p className="mt-2 text-sm font-semibold">Score operacional</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Score atual {automationScore}/100 considerando erros e severidade.
+          </p>
+        </article>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+        <div className="flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Atencao agora</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
+          </div>
+          <button
+            type="button"
+            className={secondaryButton}
+            disabled={busy === 'overview-refresh'}
+            onClick={async () => {
+              setBusy('overview-refresh');
+              try {
+                await refresh();
+                setNotice('Dashboard atualizada.');
+              } finally {
+                setBusy('');
+              }
+            }}
+          >
+            <RefreshCcw size={15} />
+            Atualizar agora
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-3">
+          {criticalAlerts.length ? (
+            criticalAlerts.slice(0, 4).map((alert) => (
+              <article key={alert.id} className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-3">
+                <div className="flex items-start justify-between gap-3 max-md:flex-col">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-100">{alert.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-amber-100/90">{alert.detail}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setView(alert.goTo)}
+                    className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+                  >
+                    {alert.cta}
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
+              Operacao estavel: conexoes, fluxo e destinos estao prontos.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="grid gap-3 xl:grid-cols-[1.2fr_1fr] max-xl:grid-cols-1">
         <PlanUsageCard
           title="Plano e limites"
@@ -1357,12 +1565,184 @@ function Overview({
         </section>
       </section>
 
+      <section className="grid gap-4 xl:grid-cols-2">
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Saude dos fluxos</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Visao rapida da Ponte e do Automatizador de Ofertas.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setView('flows')}
+              className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
+            >
+              Abrir Fluxos
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3">
+            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Ponte Telegram -&gt; WhatsApp</p>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                    bridgeHealth.label === 'Ativo'
+                      ? 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                      : bridgeHealth.label === 'Pausado'
+                        ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
+                        : 'border border-red-400/20 bg-red-400/10 text-red-100'
+                  )}
+                >
+                  {bridgeHealth.label}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em operacao.'}</p>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Automatizador de Ofertas</p>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                    affiliateHealth.label === 'Ativo'
+                      ? 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                      : affiliateHealth.label === 'Pausado'
+                        ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
+                        : 'border border-red-400/20 bg-red-400/10 text-red-100'
+                  )}
+                >
+                  {affiliateHealth.label}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em operacao.'}</p>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+          <div className="flex items-start justify-between gap-3 max-md:flex-col">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Timeline operacional</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Ultimos eventos com filtro rapido para investigacao.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'all' ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Todos</button>
+              <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'errors' ? 'border-red-400/20 bg-red-400/10 text-red-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Erros</button>
+              <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'delivery' ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Entrega</button>
+              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Autenticacao</button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            {timelineEvents.length ? (
+              timelineEvents.map((event) => (
+                <div key={event.id} className="rounded-lg border border-white/10 bg-black/15 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-2">
+                      {event.level === 'error' ? (
+                        <AlertCircle size={16} className="mt-0.5 text-red-300" />
+                      ) : (
+                        <CheckCircle2 size={16} className="mt-0.5 text-emerald-300" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{event.message}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--muted)]">{humanize(event.type || 'atividade')}</p>
+                      </div>
+                    </div>
+                    <p className="shrink-0 text-[11px] text-[var(--muted)]">{formatDate(event.at)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-[var(--border)] px-3 py-4 text-sm text-[var(--muted)]">
+                Nenhum evento encontrado para esse filtro.
+              </p>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+        <div className="flex items-start justify-between gap-3 max-md:flex-col">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Drill-down de falhas</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Separacao por tipo para acelerar correcao operacional.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setView('activity')}
+            className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
+          >
+            Abrir historico completo
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+          <article className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-amber-100">Falhas transientes</p>
+              <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                {transientFailures}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-amber-100/90">
+              Geralmente ligadas a instabilidade de sessao/rede. Recomendado: revisar conexoes e repetir sincronizacao.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setView('connections')}
+                className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+              >
+                Revisar conexoes
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('flows')}
+                className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+              >
+                Validar fluxo
+              </button>
+            </div>
+          </article>
+
+          <article className="rounded-lg border border-red-400/20 bg-red-400/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-red-100">Falhas fatais</p>
+              <span className="rounded-full border border-red-300/30 bg-red-300/10 px-2.5 py-1 text-xs font-semibold text-red-100">
+                {fatalFailures}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-red-100/90">
+              Erros que pedem acao imediata. Recomendado: checar historico detalhado e regras de envio/credenciais.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setView('activity')}
+                className="rounded-md border border-red-300/30 bg-red-300/10 px-3 py-1.5 text-xs font-semibold text-red-50 hover:bg-red-300/20"
+              >
+                Investigar eventos
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('groups')}
+                className="rounded-md border border-red-300/30 bg-red-300/10 px-3 py-1.5 text-xs font-semibold text-red-50 hover:bg-red-300/20"
+              >
+                Revisar destinos
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section className="grid grid-cols-[1fr_360px] gap-5 max-xl:grid-cols-1">
         <OffersPanel state={state} compact refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
         <ConnectionSummary state={state} />
       </section>
-
-      <ActivityLog state={state} compact />
     </div>
   );
 }
