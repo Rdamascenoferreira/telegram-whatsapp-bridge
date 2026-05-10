@@ -37,7 +37,7 @@ export function LoadingScreen({
 export function ReadOnlyModeBanner() {
   return (
     <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50">
-      <span className="font-semibold">Conta em teste:</span> este acesso esta em modo somente leitura. Voce pode navegar pelos paineis, mas edicoes e configuracoes precisam ser liberadas pelo administrador.
+      <span className="font-semibold">Conta em teste:</span> este acesso esta em modo somente leitura. Voc? pode navegar pelos paineis, mas edi??es e configura??es precisam ser liberadas pelo administrador.
     </div>
   );
 }

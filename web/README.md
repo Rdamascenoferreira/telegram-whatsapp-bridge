@@ -23,4 +23,4 @@ node .\node_modules\next\dist\bin\next dev
 http://localhost:3000
 ```
 
-O frontend usa `BACKEND_URL` para encaminhar `/api/*` e `/auth/*` para o backend. Em desenvolvimento, o padrao e `http://localhost:3100`.
+O frontend usa `BACKEND_URL` para encaminhar `/api/*` e `/auth/*` para o backend. Em desenvolvimento, o padr?o e `http://localhost:3100`.

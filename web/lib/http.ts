@@ -35,7 +35,7 @@ export async function requestJson<T>(url: string, options?: RequestInit): Promis
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new ApiRequestError(payload?.error || 'Nao foi possivel concluir a acao.', {
+    throw new ApiRequestError(payload?.error || 'N?o foi poss?vel concluir a a??o.', {
       code: payload?.code,
       fieldErrors: payload?.fieldErrors
     });

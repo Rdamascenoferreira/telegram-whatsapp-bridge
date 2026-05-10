@@ -1,19 +1,19 @@
 # Ponte Telegram -> WhatsApp
 
-Programa local para ler novos posts de um canal do Telegram e encaminhar para grupos do WhatsApp que voce escolher.
+Programa local para ler novos posts de um canal do Telegram e encaminhar para grupos do WhatsApp que voc? escolher.
 
 ## Como funciona
 
 - O painel agora pede login antes de liberar o acesso.
-- O usuario pode criar conta com email e senha.
-- O login com Google pode ser habilitado por configuracao no servidor.
+- O usu?rio pode criar conta com email e senha.
+- O login com Google pode ser habilitado por configura??o no servidor.
 - O lado Telegram usa um bot.
-- O lado WhatsApp usa sua sessao do WhatsApp Web via QR Code.
+- O lado WhatsApp usa sua sess?o do WhatsApp Web via QR Code.
 - O painel local mostra apenas grupos onde sua conta atual aparece como admin.
 - Voce marca os grupos desejados e salva.
 - Quando chegar um novo post no canal configurado, a mensagem e encaminhada para esses grupos.
 
-## O que esta versao faz
+## O que esta vers?o faz
 
 - Encaminha texto.
 - Encaminha foto com legenda.
@@ -23,8 +23,8 @@ Programa local para ler novos posts de um canal do Telegram e encaminhar para gr
 - Login com email e senha.
 - Sessao persistente com botao de sair.
 - Estrutura pronta para login com Google.
-- Isola configuracao por usuario.
-- Isola a sessao do WhatsApp por usuario.
+- Isola configura??o por usu?rio.
+- Isola a sess?o do WhatsApp por usu?rio.
 
 ## Como rodar
 
@@ -59,14 +59,14 @@ Na primeira vez, crie sua conta na tela inicial antes de acessar o painel. Se `F
 ## Configuracao
 
 1. Crie sua conta com email e senha na tela inicial.
-2. Configure sua sessao de usuario do Telegram com API ID, API Hash e telefone.
+2. Configure sua sess?o de usu?rio do Telegram com API ID, API Hash e telefone.
 3. Informe a origem do Telegram na aba Fluxos.
 4. Escaneie o QR Code do WhatsApp.
 5. Atualize a lista de grupos e marque os grupos desejados.
 
 ## Login com Google
 
-Se quiser habilitar o botao `Entrar com Google`, voce pode copiar o arquivo `.env.example` para `.env` e preencher:
+Se quiser habilitar o botao `Entrar com Google`, voc? pode copiar o arquivo `.env.example` para `.env` e preencher:
 
 ```env
 SESSION_SECRET=troque-por-um-segredo-forte
@@ -84,7 +84,7 @@ WHATSAPP_HEADLESS=true
 WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
 
-No PowerShell, voce pode fazer assim:
+No PowerShell, voc? pode fazer assim:
 
 ```powershell
 cd "C:\Users\Rod&Ju\Documents\Codex\2026-04-23-oi\telegram-whatsapp-bridge"
@@ -92,7 +92,7 @@ Copy-Item .env.example .env
 npm.cmd start
 ```
 
-Se nao definir essas variaveis, o painel continua funcionando com cadastro por email e senha.
+Se n?o definir essas variaveis, o painel continua funcionando com cadastro por email e senha.
 
 ## Ajuste para servidor AWS/Linux
 
@@ -102,14 +102,14 @@ Se a conta tiver muitos chats e a leitura dos grupos do WhatsApp demorar no serv
 WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
 
-O valor e em milissegundos. Nesta versao, o padrao ja foi elevado para `600000` (10 minutos), o que costuma ajudar em instancias Linux mais lentas.
+O valor e em milissegundos. Nesta vers?o, o padr?o ja foi elevado para `600000` (10 minutos), o que costuma ajudar em instancias Linux mais lentas.
 
 ## Deploy na AWS
 
-Esta versao agora ja vem com:
+Esta vers?o agora ja vem com:
 
 - healthcheck em `/api/health`
-- configuracao do PM2 em `ecosystem.config.cjs`
+- configura??o do PM2 em `ecosystem.config.cjs`
 - script de bootstrap do Ubuntu em `scripts/install-ubuntu.sh`
 - script de release em `scripts/deploy-release.sh`
 - workflow do GitHub Actions em `.github/workflows/deploy-aws.yml`
@@ -144,7 +144,7 @@ Preencha o `.env` com as credenciais reais do servidor.
 No repositório do GitHub, crie estes `Repository secrets`:
 
 - `AWS_DEPLOY_HOST`: IP ou dominio da EC2
-- `AWS_DEPLOY_USER`: usuario SSH, por exemplo `ubuntu`
+- `AWS_DEPLOY_USER`: usu?rio SSH, por exemplo `ubuntu`
 - `AWS_DEPLOY_PORT`: porta SSH, normalmente `22`
 - `AWS_DEPLOY_PATH`: pasta do app no servidor, por exemplo `/var/www/telegram-whatsapp-bridge`
 - `AWS_DEPLOY_SSH_KEY`: chave privada SSH usada para entrar na EC2
@@ -155,7 +155,7 @@ No repositório do GitHub, crie estes `Repository secrets`:
 
 Cada `push` na branch `main`:
 
-1. monta um pacote da versao nova
+1. monta um pacote da vers?o nova
 2. envia esse pacote por SSH para a EC2
 3. aplica a release no servidor sem sobrescrever `.env`, `data/`, `.wwebjs_auth/` e `.wwebjs_cache`
 4. roda `npm ci --omit=dev`
@@ -164,13 +164,13 @@ Cada `push` na branch `main`:
 
 ### Primeira subida no servidor
 
-Voce nao precisa fazer `git clone` na EC2 para o deploy automatico funcionar. Depois de:
+Voce n?o precisa fazer `git clone` na EC2 para o deploy automatico funcionar. Depois de:
 
 - instalar as dependencias com `install-ubuntu.sh`
 - criar o `.env`
 - cadastrar os segredos no GitHub
 
-voce pode disparar o primeiro deploy em:
+voc? pode disparar o primeiro deploy em:
 
 - `GitHub > Actions > Deploy AWS > Run workflow`
 
@@ -178,20 +178,20 @@ Depois disso, cada `push` na `main` atualiza o servidor automaticamente.
 
 ## Dados locais
 
-- Usuarios ficam em `data/users.json`
+- Usu?rios ficam em `data/users.json`
 - Cada workspace fica em `data/workspaces/<userId>/config.json`
-- Historico e metricas ficam em `data/workspaces/<userId>/activity.json`
+- Hist?rico e m?tricas ficam em `data/workspaces/<userId>/activity.json`
 - A migracao da ponte antiga fica registrada em `data/migrations/legacy-workspace-owner.json`
-- As sessoes do WhatsApp ficam separadas em `.wwebjs_auth/session-user-<userId>`
+- As sess?es do WhatsApp ficam separadas em `.wwebjs_auth/session-user-<userId>`
 
-Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configurados, usuarios e perfis passam a ser lidos e gravados no Supabase. O schema esperado fica em `scripts/supabase-auth-schema.sql`.
+Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configurados, usu?rios e perfis passam a ser lidos e gravados no Supabase. O schema esperado fica em `scripts/supabase-auth-schema.sql`.
 
 ## Observacoes importantes
 
-- Esta ponte usa `whatsapp-web.js`, que opera em cima do WhatsApp Web. Segundo a documentacao do projeto, isso reduz risco, mas nao garante que a conta nunca sera bloqueada.
-- A API oficial do WhatsApp Business/Cloud API e focada em mensagens para usuarios/contatos; eu nao encontrei, nas fontes oficiais que consultei, uma documentacao primaria equivalente para esse caso de encaminhar para grupos arbitrarios escolhidos no seu WhatsApp pessoal. Por isso esta versao local usa sessao web.
-- O modo antigo com bot do Telegram foi removido; o runtime atual usa sessao de usuario do Telegram.
-- Primeira versao: nao tenta sincronizar edicoes posteriores do post no Telegram. Ela encaminha novos posts.
+- Esta ponte usa `whatsapp-web.js`, que opera em cima do WhatsApp Web. Segundo a documentacao do projeto, isso reduz risco, mas n?o garante que a conta nunca sera bloqueada.
+- A API oficial do WhatsApp Business/Cloud API e focada em mensagens para usu?rios/contatos; eu n?o encontrei, nas fontes oficiais que consultei, uma documentacao primaria equivalente para esse caso de encaminhar para grupos arbitrarios escolhidos no seu WhatsApp pessoal. Por isso esta vers?o local usa sess?o web.
+- O modo antigo com bot do Telegram foi removido; o runtime atual usa sess?o de usu?rio do Telegram.
+- Primeira vers?o: n?o tenta sincronizar edicoes posteriores do post no Telegram. Ela encaminha novos posts.
 
 ## Fontes consultadas
 
