@@ -1,4 +1,4 @@
-import { Bot, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
+﻿import { Bot, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { Field } from './common-ui';
 import { postJson } from '../../lib/http';
@@ -80,8 +80,8 @@ export function ConnectionsPanel({
   const telegramCodeSent = hasTelegramSession || authPhase === 'code_required' || authPhase === 'password_required';
   const telegramInternalChecklist = [
     { label: 'Salvar credenciais', done: hasSavedCredentials, ready: credentialsEditing && Boolean(telegramApiId && telegramApiHash && telegramPhone) },
-    { label: 'Enviar código', done: telegramCodeSent, ready: canUseAuthStep },
-    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession }
+    { label: 'Enviar código', done: telegramCodeSent, ready: canUseAuthStep, blockedReason: hasSavedCredentials ? undefined : 'Salve as credenciais antes' },
+    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession, blockedReason: telegramCodeSent ? undefined : 'Envie o código primeiro' }
   ];
   const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
   const telegramHeroStatusLabel = hasTelegramSession
@@ -300,7 +300,7 @@ export function ConnectionsPanel({
                     setTelegramCode('');
                     setTelegramPassword('');
                     await refresh();
-                    setNotice('Telegram desconectado e configura??es removidas.');
+                    setNotice('Telegram desconectado e configurações removidas.');
                     setBusy('');
                   }}
                   className={secondaryButtonClassName}
@@ -397,11 +397,15 @@ export function InternalSetupChecklist({
     label: string;
     done: boolean;
     ready?: boolean;
+    blockedReason?: string;
   }>;
   complete: boolean;
   completeLabel: string;
 }) {
   const doneCount = steps.filter((step) => step.done).length;
+  const progressPercent = Math.round((doneCount / Math.max(steps.length, 1)) * 100);
+  const nextStep = steps.find((step) => !step.done);
+  const blockedStep = steps.find((step) => !step.done && !step.ready && Boolean(step.blockedReason));
 
   return (
     <section
@@ -418,32 +422,57 @@ export function InternalSetupChecklist({
           <p className={cn('mt-1 text-sm font-semibold', complete ? 'text-emerald-100' : 'text-[var(--foreground)]')}>
             {complete ? completeLabel : 'Complete as etapas para liberar a configuração.'}
           </p>
+          {!complete && nextStep ? (
+            <p className="mt-1 text-xs text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
+              Pr?ximo passo: <span className="font-semibold text-[var(--foreground)]">{nextStep.label}</span>
+            </p>
+          ) : null}
+          {!complete && blockedStep?.blockedReason ? (
+            <p className="mt-1 text-xs text-amber-200/90">
+              Bloqueio: <span className="font-semibold text-amber-100">{blockedStep.blockedReason}</span>
+            </p>
+          ) : null}
         </div>
         <span
           className={cn(
             'rounded-full px-3 py-1.5 text-sm font-bold',
             complete
-              ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/30 animate-pulse'
+              ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/30'
               : 'bg-white/5 text-[var(--muted)] ring-1 ring-white/10'
           )}
         >
-          {doneCount}/{steps.length}
+          {doneCount}/{steps.length} ({progressPercent}%)
         </span>
       </div>
 
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div
+          className={cn(
+            'h-full rounded-full transition-all duration-500',
+            complete ? 'bg-emerald-300' : 'bg-[linear-gradient(90deg,#22c55e,#38bdf8)]'
+          )}
+          style={{ width: progressPercent + '%' }}
+        />
+      </div>
+
       <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        {steps.map((step, index) => (
-          <div
-            key={step.label}
-            className={cn(
-              'rounded-xl border px-3 py-3 transition',
-              step.done
-                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-50'
-                : step.ready
-                  ? 'border-sky-400/25 bg-sky-400/10 text-sky-50'
-                  : 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
-            )}
-          >
+        {steps.map((step, index) => {
+          const blocked = !step.done && !step.ready && Boolean(step.blockedReason);
+
+          return (
+            <div
+              key={step.label}
+              className={cn(
+                'rounded-xl border px-3 py-3 transition',
+                step.done
+                  ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-50'
+                  : step.ready
+                    ? 'border-sky-400/25 bg-sky-400/10 text-sky-50'
+                    : blocked
+                      ? 'border-amber-400/30 bg-amber-400/10 text-amber-50'
+                      : 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
+              )}
+            >
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -452,19 +481,39 @@ export function InternalSetupChecklist({
                     ? 'border-emerald-300/40 bg-emerald-400/20 text-emerald-100'
                     : step.ready
                       ? 'border-sky-300/40 bg-sky-400/20 text-sky-100'
-                      : 'border-white/15 bg-white/5 text-[var(--muted)]'
+                      : blocked
+                        ? 'border-amber-300/40 bg-amber-400/20 text-amber-100'
+                        : 'border-white/15 bg-white/5 text-[var(--muted)]'
                 )}
               >
                 {step.done ? <CheckCircle2 size={14} /> : index + 1}
               </span>
               <p className="text-sm font-semibold">{step.label}</p>
             </div>
-            <p className="mt-2 text-xs leading-5 opacity-80">
-              {step.done ? 'Concluido' : step.ready ? 'Pronto para executar' : 'Pendente'}
-            </p>
+            <div className="mt-2">
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em]',
+                  step.done
+                    ? 'bg-emerald-400/20 text-emerald-100'
+                    : step.ready
+                      ? 'bg-sky-400/20 text-sky-100'
+                      : blocked
+                        ? 'bg-amber-400/20 text-amber-100'
+                        : 'bg-white/10 text-[var(--muted)]'
+                )}
+              >
+                {step.done ? 'Conclu?do' : step.ready ? 'Em andamento' : blocked ? 'Bloqueada' : 'Pendente'}
+              </span>
+            </div>
+            {blocked && step.blockedReason ? (
+              <p className="mt-2 text-xs text-amber-100/90">{step.blockedReason}</p>
+            ) : null}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
 }
+

@@ -897,7 +897,7 @@ function AuthScreen({
                 <AuthTrustItem
                   icon={Users}
                   title="Estrutura de SaaS real"
-                  label="conta, grupos, fluxos, afiliados, Histórico e administra??o no mesmo ambiente."
+                  label="conta, grupos, fluxos, afiliados, Histórico e administração no mesmo ambiente."
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
@@ -1307,7 +1307,7 @@ function Overview({
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(8,20,16,0.98),rgba(8,20,16,0.92))] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.2)]">
+      <section className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(8,20,16,0.99),rgba(8,20,16,0.95))] p-6 shadow-[0_16px_44px_rgba(0,0,0,0.24)]">
         <div className="flex items-start justify-between gap-4 max-md:flex-col">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -1318,16 +1318,19 @@ function Overview({
                 Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold">Operação da ponte</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">Operação da ponte</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">
               Acompanhe a saúde das conexões, controle a automação e valide se as mensagens estão fluindo.
             </p>
           </div>
-          <div className="grid min-w-[280px] gap-3 rounded-xl border border-[var(--border)] bg-black/20 p-4">
+          <div className="grid min-w-[300px] gap-3 rounded-xl border border-[var(--border)] bg-black/25 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold">automação ativa</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Status da automação</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {effectiveBridgeEnabled ? 'Automação ativa' : 'Automação pausada'}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
                   {effectiveBridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
                     : state.config.bridgeEnabled
@@ -1428,23 +1431,23 @@ function Overview({
 
       <section className="grid gap-3 xl:grid-cols-3 max-xl:grid-cols-1">
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entrega</p>
           <p className="mt-2 text-sm font-semibold">Qualidade de entrega</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
             Sucesso {successRate}% vs erros {errorRate}% com base no volume atual.
           </p>
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estabilidade</p>
           <p className="mt-2 text-sm font-semibold">Pressão de retries</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
             Falhas transientes representam {retriesShare}% do fluxo monitorado.
           </p>
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Eficiência</p>
           <p className="mt-2 text-sm font-semibold">Score operacional</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
             Score atual {automationScore}/100 considerando erros e severidade.
           </p>
         </article>
@@ -1454,7 +1457,7 @@ function Overview({
         <div className="flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Atenção agora</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
+            <p className="mt-1 text-sm text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
           </div>
           <button
             type="button"
@@ -2439,7 +2442,7 @@ function FlowsPanel({
                     {affiliateFlowStatus.reason ? ` - ${affiliateFlowStatus.reason}` : ''}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configura??es de afiliado e so depois enviar a mensagem final.
+                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configurações de afiliado e só depois enviar a mensagem final.
                   </p>
                 </button>
 
@@ -4012,7 +4015,7 @@ function AffiliateAutomationPanel({
               <div>
                 <p className="text-sm font-semibold">Regras do automatizador</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui você concentra apenas as configura??es de afiliado, os testes e o Histórico.
+                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui você concentra apenas as configurações de afiliado, os testes e o Histórico.
                 </p>
               </div>
               <span className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">
