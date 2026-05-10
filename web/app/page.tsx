@@ -50,13 +50,13 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 1.17';
+const panelVersion = 'Versão 1.18';
 
 type AuthUser = {
   id: string;
   name: string;
   email: string;
-  avatarUrl?: string;
+  avatarUrl: string;
   avatarStorage?: 'none' | 'google' | 'upload';
   providers?: string[];
   role?: 'admin' | 'member';
@@ -68,7 +68,7 @@ type AuthUser = {
 type ActivityEvent = {
   id: string;
   at: string;
-  level?: 'info' | 'error';
+  level: 'info' | 'error';
   type?: string;
   message: string;
   metadata?: Record<string, unknown>;
@@ -147,9 +147,9 @@ type AffiliateLog = {
   processedMessage?: string;
   convertedUrls?: Array<{
     originalUrl: string;
-    expandedUrl?: string;
+    expandedUrl: string;
     marketplace: 'amazon' | 'shopee' | 'unknown';
-    affiliateUrl?: string;
+    affiliateUrl: string;
     affiliateId?: string;
     subIds?: Record<string, string>;
     utmContent?: string;
@@ -239,7 +239,7 @@ type AppState = {
   whatsAppPhone?: string | null;
   telegramStatus: string;
   planLimits?: PlanLimits;
-  qrDataUrl?: string | null;
+  qrDataUrl: string | null;
   config: {
     telegramMode: 'user' | 'bot';
     telegramChannel: string;
@@ -270,7 +270,7 @@ type AppState = {
     groupsRefreshing?: boolean;
     groupRefreshProgress?: {
       phase?: string;
-      total?: number;
+      total: number;
       processed?: number;
       percent?: number;
       foundAdmins?: number;
@@ -308,7 +308,7 @@ type AppState = {
       transientFailures?: number;
       fatalFailures?: number;
       healthAlerts?: Array<{
-        level?: 'warning' | 'critical' | string;
+        level: 'warning' | 'critical' | string;
         code?: string;
         message?: string;
       }>;
@@ -376,6 +376,7 @@ function createAuthenticatedShellState(auth: AppState['auth']): AppState {
       authPhase: 'loading',
       availableChats: []
     },
+    qrDataUrl: null,
     activity: [],
     offers: [],
     groups: [],
@@ -448,7 +449,7 @@ export default function Home() {
   const { state, setState, bootError, setBootError, reload } = usePolledState<AppState>({
     fetcher: async () => await requestJson<AppState>('/api/state'),
     normalize: normalizeAppState,
-    defaultErrorMessage: 'não foi possivel carregar o painel agora. Tente novamente.',
+    defaultErrorMessage: 'não foi possível carregar o painel agora. Tente novamente.',
     pausePolling: view === 'flows' && affiliateAutomationEditing,
     pollIntervalMs: 5000
   });
@@ -491,7 +492,7 @@ export default function Home() {
               setNotice(
                 error instanceof Error
                   ? `Login realizado, mas o painel completo demorou para carregar: ${error.message}`
-                  : 'Login realizado, mas não foi possivel carregar o painel completo.'
+                  : 'Login realizado, mas não foi possível carregar o painel completo.'
               );
             });
           }}
@@ -683,7 +684,7 @@ function AuthScreen({
       void onAuthenticated(auth);
       setNotice('Login realizado com sucesso.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'não foi possivel continuar.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível continuar.');
     } finally {
       setBusy(false);
     }
@@ -725,11 +726,11 @@ function AuthScreen({
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Centralize origem, destinos, sess?es, Histórico e testes em um painel pensado para Operação real. Quando quiser, ative o m?dulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para convers?o.
+                    Centralize origem, destinos, sessões, Histórico e testes em um painel pensado para Operação real. Quando quiser, ative o módulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para conversão.
                   </p>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <AuthMetricPill label="Origem Telegram" value="Conta pr?pria" accentClassName="text-[#25D366]" />
+                    <AuthMetricPill label="Origem Telegram" value="Conta própria" accentClassName="text-[#25D366]" />
                     <AuthMetricPill label="Entrega" value="WhatsApp controlado" accentClassName="text-[#229ED9]" />
                     <AuthMetricPill label="Afiliados" value="Amazon + Shopee" accentClassName="text-[#7EE59F]" />
                     <AuthMetricPill label="Operação" value="Histórico e testes" accentClassName="text-[#9FD7FF]" />
@@ -743,7 +744,7 @@ function AuthScreen({
                     <Rocket size={19} className="text-[#25D366]" />
                   </div>
                   <p className="text-base leading-7 text-[#DBEAE1]">
-                    O cliente escolhe a origem no Telegram, define os destinos no WhatsApp, valida o fluxo antes de ativar e acompanha tudo no painel. Sem c?pia e cola manual, sem perder contexto e com visibilidade clara do que foi captado, tratado e entregue.
+                    O cliente escolhe a origem no Telegram, define os destinos no WhatsApp, valida o fluxo antes de ativar e acompanha tudo no painel. Sem cópia e cola manual, sem perder contexto e com visibilidade clara do que foi captado, tratado e entregue.
                   </p>
                 </div>
               </div>
@@ -752,7 +753,7 @@ function AuthScreen({
                 <AuthFlowStep
                   icon={Send}
                   title="1. Conecte a origem"
-                  text="FaÃ§a login no Telegram com sua pr?pria conta e escolha o grupo ou canal que será monitorado."
+                  text="Faça login no Telegram com sua própria conta e escolha o grupo ou canal que será monitorado."
                 />
                 <AuthFlowStep
                   icon={Smartphone}
@@ -762,7 +763,7 @@ function AuthScreen({
                 <AuthFlowStep
                   icon={CreditCard}
                   title="3. Ative afiliados quando quiser"
-                  text="Trate links, adicione rodap? proprio, rode testes e publique a sa?da final de forma mais profissional."
+                  text="Trate links, adicione rodapé próprio, rode testes e publique a saída final de forma mais profissional."
                 />
               </div>
 
@@ -789,7 +790,7 @@ function AuthScreen({
                       <span className="h-2 w-2 rounded-full bg-[#25D366]" />
                       Modulo de afiliados separado
                     </span>
-                    <span className="text-[#8FA69C]">Cada fluxo tem regra pr?pria, com rastreabilidade do que entrou, do que foi tratado e para onde a mensagem saiu.</span>
+                    <span className="text-[#8FA69C]">Cada fluxo tem regra própria, com rastreabilidade do que entrou, do que foi tratado e para onde a mensagem saiu.</span>
                   </div>
                 </div>
 
@@ -864,19 +865,19 @@ function AuthScreen({
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
                   title="Origem controlada"
-                  text="Escolha exatamente qual grupo ou canal será monitorado. A Operação parte de uma origem definida, com menos erro e mais consist?ncia."
+                  text="Escolha exatamente qual grupo ou canal será monitorado. A Operação parte de uma origem definida, com menos erro e mais consistência."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
                   title="Teste antes do envio real"
-                  text="Simule mensagens, revise a sa?da final e ative a automação s? quando o fluxo estiver validado. Mais seguran?a e menos tentativa no escuro."
+                  text="Simule mensagens, revise a saída final e ative a automação só quando o fluxo estiver validado. Mais segurança e menos tentativa no escuro."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
                   title="Afiliados integrados"
-                  text="Converta links Amazon, organize a Operação da Shopee e mantenha o m?dulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
+                  text="Converta links Amazon, organize a Operação da Shopee e mantenha o módulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
                 />
               </div>
 
@@ -961,7 +962,7 @@ function AuthScreen({
               <div className="-mt-1 flex items-center justify-end">
                 <button
                   type="button"
-                  onClick={() => setNotice('Recuperação de senha estará dispon?vel em breve.')}
+                  onClick={() => setNotice('Recuperação de senha estará disponível em breve.')}
                   className="text-sm font-semibold text-[#32D07C] transition hover:text-[#5EE19C] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.16)]"
                 >
                   Esqueci minha senha
@@ -988,7 +989,7 @@ function AuthScreen({
                   <ul className="mt-2 grid gap-2 text-sm leading-6 text-[#AAB8B0]">
                     <li>configuração separada para Telegram, WhatsApp, Fluxos e Afiliados.</li>
                     <li>Histórico operacional com mensagens, entregas e eventos recentes.</li>
-                    <li>Teste manual para validar a sa?da antes de ligar a automação.</li>
+                    <li>Teste manual para validar a saída antes de ligar a automação.</li>
                   </ul>
                 </div>
               </div>
@@ -1010,7 +1011,7 @@ function AuthScreen({
               </a>
             ) : (
               <p className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[#AAB8B0]">
-                Login com Google estará dispon?vel em breve.
+                Login com Google estará disponível em breve.
               </p>
             )}
 
@@ -1022,7 +1023,7 @@ function AuthScreen({
                 <div>
                   <p className="text-base font-semibold text-[#E8F6EF]">Painel feito para Operação diaria</p>
                   <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">
-                    Login, sess?es, grupos, fluxos, Histórico e afiliados centralizados em uma experi?ncia ?nica para quem precisa publicar, acompanhar e ajustar rápido.
+                    Login, sessões, grupos, fluxos, Histórico e afiliados centralizados em uma experiência única para quem precisa publicar, acompanhar e ajustar rápido.
                   </p>
                 </div>
               </div>
@@ -1037,7 +1038,7 @@ function AuthScreen({
         </div>
 
         <footer className="mt-6 text-center text-xs leading-6 text-[#6F8178]">
-          Copyright 2026 Portal do Afiliado. Todos os direitos reservados. Proibida a c?pia, distribui??o ou reprodu??o sem autoriza??o. Criado por Rodrigo Damasceno.
+          Copyright 2026 Portal do Afiliado. Todos os direitos reservados. Proibida a cópia, distribuição ou reprodução sem autorização. Criado por Rodrigo Damasceno.
         </footer>
       </div>
     </main>
@@ -1361,7 +1362,7 @@ function Overview({
 
             {readOnlyAccount ? (
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                Conta em teste: a automação fica somente para visualiza??o até o administrador liberar.
+                Conta em teste: a automação fica somente para visualização até o administrador liberar.
               </p>
               ) : !canEnableAutomation ? (
                 <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
@@ -1863,7 +1864,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escada comercial</p>
                 <h2 className="mt-1 text-xl font-semibold">Planos recomendados</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  A ideia aqui e transformar limite em clareza: quando algo estiver bloqueado, o usu?rio entende qual upgrade libera.
+                  A ideia aqui e transformar limite em clareza: quando algo estiver bloqueado, o usuário entende qual upgrade libera.
                 </p>
               </div>
               <button
@@ -1927,7 +1928,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
               className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <p className="font-semibold">Configurar Afiliados</p>
-              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee e regras de convers?o.</p>
+              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee e regras de conversão.</p>
             </button>
           </section>
         </div>
@@ -1963,7 +1964,7 @@ function OffersPanel({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entregas</p>
           <h2 className="mt-1 text-xl font-semibold">Ofertas captadas</h2>
           <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-            Isso limpa apenas a visualiza??o do painel. Suas cotas, m?tricas reais e Histórico t?cnico continuam intactos.
+            Isso limpa apenas a visualização do painel. Suas cotas, métricas reais e Histórico técnico continuam intactos.
           </p>
           {dashboardViewClearedAt ? (
             <p className="mt-1 text-[11px] text-[var(--muted)]">Ultima limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
@@ -1984,7 +1985,7 @@ function OffersPanel({
                 }
 
                 const confirmed = window.confirm(
-                  'Isso vai limpar apenas a visualiza??o de ofertas e atividade recente deste painel. Deseja continuar?'
+                  'Isso vai limpar apenas a visualização de ofertas e atividade recente deste painel. Deseja continuar?'
                 );
 
                 if (!confirmed) {
@@ -1997,7 +1998,7 @@ function OffersPanel({
                   await refresh?.();
                   setNotice?.('Painel visual limpo com sucesso.');
                 } catch (error) {
-                  setNotice?.(error instanceof Error ? error.message : 'não foi possivel limpar o painel.');
+                  setNotice?.(error instanceof Error ? error.message : 'não foi possível limpar o painel.');
                 } finally {
                   setBusy?.('');
                 }
@@ -2292,7 +2293,7 @@ function FlowsPanel({
           setReviewBeforeSave(false);
         }
       }
-      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar o fluxo.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível salvar o fluxo.');
     } finally {
       setBusy('');
     }
@@ -2748,7 +2749,7 @@ function WhatsAppDestinationSelector({
                 setNotice('Lista de grupos do WhatsApp atualizada.');
               })
               .catch(() => {
-                setNotice('não foi possivel atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
+                setNotice('não foi possível atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
               })
               .finally(() => setBusy(''));
             window.setTimeout(() => {
@@ -2887,7 +2888,7 @@ function WhatsAppDestinationSelector({
                 : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
             )}
           >
-            AnÃºncios
+            Anúncios
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -2915,7 +2916,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
           >
-            Selecionar visÃ­veis
+            Selecionar visíveis
           </button>
           <button
             type="button"
@@ -2930,7 +2931,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] disabled:opacity-60"
           >
-            Limpar visÃ­veis
+            Limpar visíveis
           </button>
         </div>
       </div>
@@ -3043,7 +3044,7 @@ function WhatsAppDestinationSelector({
           </div>
           {overPlanLimit ? (
             <p className="mt-2 text-xs text-red-100">
-              A seleÃ§Ã£o atual ultrapassa o limite do plano. Ajuste antes de salvar.
+              A seleção atual ultrapassa o limite do plano. Ajuste antes de salvar.
             </p>
           ) : null}
           {hasStaleSelections ? (
@@ -3460,7 +3461,7 @@ function Groups({
                     ? 'sessão autenticada com sucesso.'
                     : whatsAppReconnecting
                       ? 'Reconectando com a sessão salva. Se demorar, use Reconectar WhatsApp.'
-                      : 'Nenhum QR Code dispon?vel no momento.'}
+                      : 'Nenhum QR Code disponível no momento.'}
                 </div>
               )}
             </div>
@@ -3807,7 +3808,7 @@ function AffiliateAutomationPanel({
       setAffiliateAccountEditing(false);
       setNotice('Dados de afiliado salvos.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar os dados de afiliado.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível salvar os dados de afiliado.');
     } finally {
       setBusy('');
     }
@@ -3852,9 +3853,9 @@ function AffiliateAutomationPanel({
         message: testMessage
       });
       setTestResult(result);
-      setNotice('Teste de convers?o concluido.');
+      setNotice('Teste de conversão concluido.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'não foi possivel concluir o teste de convers?o.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível concluir o teste de conversão.');
     } finally {
       setBusy('');
     }
@@ -3896,7 +3897,7 @@ function AffiliateAutomationPanel({
       setAffiliateRulesEditing(false);
       setNotice('Regras de afiliados salvas.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar as regras de afiliados.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível salvar as regras de afiliados.');
     } finally {
       setBusy('');
     }
@@ -3914,7 +3915,7 @@ function AffiliateAutomationPanel({
       await refresh();
       setNotice('Termo de uso aceito.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'não foi possivel aceitar o termo.');
+      setNotice(error instanceof Error ? error.message : 'não foi possível aceitar o termo.');
     } finally {
       setBusy('');
     }
@@ -3995,10 +3996,10 @@ function AffiliateAutomationPanel({
           <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
             <p className="text-sm font-semibold text-amber-50">Aceite obrigatorio</p>
             <p className="mt-2 text-xs leading-5 text-amber-100/80">
-              Declaro que tenho autoriza??o para reutilizar, adaptar e republicar as mensagens monitoradas por esta automação. Tamb?m sou respons?vel pelos links de afiliado configurados e pelo cumprimento das pol?ticas dos programas.
+              Declaro que tenho autorização para reutilizar, adaptar e republicar as mensagens monitoradas por esta automação. Também sou responsável pelos links de afiliado configurados e pelo cumprimento das políticas dos programas.
             </p>
             <button type="button" disabled={readOnlyAccount || busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
-              {busy === 'affiliate-terms' ? 'Liberando m?dulo...' : 'Aceitar termo e liberar m?dulo'}
+              {busy === 'affiliate-terms' ? 'Liberando módulo...' : 'Aceitar termo e liberar módulo'}
             </button>
           </div>
         ) : null}
@@ -4048,7 +4049,7 @@ function AffiliateAutomationPanel({
                 <div>
                   <p className="text-sm font-semibold">Regras de tratamento</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Defina o que fazer com links que não sao Amazon/Shopee e personalize o rodap? das mensagens convertidas.
+                    Defina o que fazer com links que não sao Amazon/Shopee e personalize o rodapé das mensagens convertidas.
                   </p>
                 </div>
                 {!activeAutomation ? (
@@ -4106,7 +4107,7 @@ function AffiliateAutomationPanel({
                     <span>
                       <span className="block font-semibold text-[var(--foreground)]">Modo de escrita ativo</span>
                       <span className="mt-1 block text-xs leading-5">
-                        O sistema preserva a mensagem original e substitui somente os links convertidos, removendo o rodap? antigo antes de aplicar o seu rodap? final.
+                        O sistema preserva a mensagem original e substitui somente os links convertidos, removendo o rodapé antigo antes de aplicar o seu rodapé final.
                       </span>
                     </span>
                   </div>
@@ -4115,7 +4116,7 @@ function AffiliateAutomationPanel({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Processamento atual</p>
                     <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">Preservar texto original e substituir apenas os links</p>
                     <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                      Essa e a ?nica regra de escrita mantida no painel para garantir previsibilidade na sa?da e evitar conflito entre modos diferentes.
+                      Essa e a única regra de escrita mantida no painel para garantir previsibilidade na saída e evitar conflito entre modos diferentes.
                     </p>
                   </div>
                 </div>
@@ -4126,10 +4127,10 @@ function AffiliateAutomationPanel({
                     name="customFooter"
                     defaultValue={activeAutomation?.customFooter || ''}
                     disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                    placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voc?s l?`}
+                    placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por vocês lá`}
                     className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
                   />
-                  <span className="text-xs leading-5 text-[var(--muted)]">você pode quebrar linhas livremente nesse rodap?.</span>
+                  <span className="text-xs leading-5 text-[var(--muted)]">você pode quebrar linhas livremente nesse rodapé.</span>
                 </label>
               </div>
 
@@ -4141,7 +4142,7 @@ function AffiliateAutomationPanel({
                     defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)}
                     disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                   />
-                  Remover rodap? original da mensagem captada
+                  Remover rodapé original da mensagem captada
                 </label>
                 <button
                   type="button"
@@ -4347,7 +4348,7 @@ function AffiliateAutomationPanel({
                   Converter Shopee com link curto oficial
                 </label>
                 <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                  SUBIDs sao opcionais e servem apenas para rastrear de onde veio a venda. O link funciona sem eles, mas recomendamos usar para relat?rios.
+                  SUBIDs sao opcionais e servem apenas para rastrear de onde veio a venda. O link funciona sem eles, mas recomendamos usar para relatórios.
                 </p>
               </div>
 
@@ -4358,7 +4359,7 @@ function AffiliateAutomationPanel({
               </label>
 
               <label className="grid gap-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padr?o</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padrão</span>
                 <input name="defaultSubId" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="Ex: auto" />
                 <span className="text-xs leading-5 text-[var(--muted)]">Usado no SUBID para identificar origem das conversoes. Exemplo: auto, maio2026, grupo-vip.</span>
               </label>
@@ -4372,7 +4373,7 @@ function AffiliateAutomationPanel({
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
                 <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret já configurado' : 'Secret/API Secret'} />
                 <span className="text-xs leading-5 text-[var(--muted)]">
-                  Usado apenas na comunica??o segura com a Shopee. Se já estiver configurado, deixe em branco para manter o secret atual.
+                  Usado apenas na comunicação segura com a Shopee. Se já estiver configurado, deixe em branco para manter o secret atual.
                 </span>
               </label>
             </div>
@@ -4514,7 +4515,7 @@ function AccountPanel({
               <div>
                 <p className="text-sm font-semibold">Dados do perfil</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Essas informaÃ§Ãµes aparecem no seu painel e ajudam a identificar a conta conectada.
+                  Essas informações aparecem no seu painel e ajudam a identificar a conta conectada.
                 </p>
               </div>
 
@@ -4563,7 +4564,7 @@ function AccountPanel({
                   setProfileEditing(false);
                   setNotice('Perfil atualizado com sucesso.');
                 } catch (error) {
-                  setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar o perfil.');
+                  setNotice(error instanceof Error ? error.message : 'não foi possível atualizar o perfil.');
                 } finally {
                   setBusy('');
                 }
@@ -4615,7 +4616,7 @@ function AccountPanel({
                     await refresh();
                     setNotice('Senha atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar a senha.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possível atualizar a senha.');
                   } finally {
                     setBusy('');
                   }
@@ -4681,7 +4682,7 @@ function AccountPanel({
             }}
             size="lg"
           />
-          <p className="mt-4 text-lg font-semibold">{user?.name || 'Usu?rio'}</p>
+          <p className="mt-4 text-lg font-semibold">{user?.name || 'Usuário'}</p>
           <p className="mt-1 text-sm text-[var(--muted)]">{user?.email}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {providers.map((provider) => (
@@ -4694,7 +4695,7 @@ function AccountPanel({
 
         {usesGoogleAvatar ? (
           <div className="mt-4 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-50">
-            Como esta conta usa Google, a foto de perfil vem diretamente do Google do usu?rio.
+            Como esta conta usa Google, a foto de perfil vem diretamente do Google do usuário.
           </div>
         ) : (
           <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
@@ -4719,7 +4720,7 @@ function AccountPanel({
 
                   try {
                     if (file.size > 1024 * 1024) {
-                      throw new Error('A imagem deve ter no mÃ¡ximo 1 MB.');
+                      throw new Error('A imagem deve ter no máximo 1 MB.');
                     }
 
                     const avatarDataUrl = await readFileAsDataUrl(file);
@@ -4730,7 +4731,7 @@ function AccountPanel({
                     await refresh();
                     setNotice('Foto do perfil atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar a foto do perfil.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possível atualizar a foto do perfil.');
                   } finally {
                     event.currentTarget.value = '';
                     setBusy('');
@@ -4776,7 +4777,7 @@ function AdminPanel({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar usu?rio"
+            placeholder="Buscar usuário"
             className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
           />
         </div>
@@ -4963,7 +4964,7 @@ function AdminPanel({
                     await refresh();
                     setNotice('Conta excluida com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'não foi possivel excluir a conta.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possível excluir a conta.');
                   }
                 }}
               >
@@ -5242,7 +5243,7 @@ async function readFileAsDataUrl(file: File) {
       const result = typeof reader.result === 'string' ? reader.result : '';
 
       if (!result) {
-        reject(new Error('não foi possivel ler a imagem selecionada.'));
+        reject(new Error('não foi possível ler a imagem selecionada.'));
         return;
       }
 
@@ -5250,7 +5251,7 @@ async function readFileAsDataUrl(file: File) {
     };
 
     reader.onerror = () => {
-      reject(new Error('não foi possivel ler a imagem selecionada.'));
+      reject(new Error('não foi possível ler a imagem selecionada.'));
     };
 
     reader.readAsDataURL(file);

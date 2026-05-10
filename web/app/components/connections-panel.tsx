@@ -80,7 +80,7 @@ export function ConnectionsPanel({
   const telegramCodeSent = hasTelegramSession || authPhase === 'code_required' || authPhase === 'password_required';
   const telegramInternalChecklist = [
     { label: 'Salvar credenciais', done: hasSavedCredentials, ready: credentialsEditing && Boolean(telegramApiId && telegramApiHash && telegramPhone) },
-    { label: 'Enviar c?digo', done: telegramCodeSent, ready: canUseAuthStep },
+    { label: 'Enviar código', done: telegramCodeSent, ready: canUseAuthStep },
     { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession }
   ];
   const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
@@ -92,10 +92,10 @@ export function ConnectionsPanel({
         ? 'Codigo pendente'
         : hasSavedCredentials
           ? 'Credenciais salvas'
-          : 'N?o configurado';
+          : 'Não configurado';
   const telegramHeroSessionLabel = hasTelegramConnection
     ? telegramUserLabel || state.telegram.user?.phone || 'Sessao conectada'
-    : 'Sess?o de usu?rio';
+    : 'Sessão de usuário';
 
   return (
     <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
@@ -111,7 +111,7 @@ export function ConnectionsPanel({
                 <div>
                   <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do Telegram</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, valide o c?digo de acesso e mantenha a sessao do Telegram pronta para alimentar os fluxos da operacao.
+                    Conecte sua conta, valide o código de acesso e mantenha a sessão do Telegram pronta para alimentar os fluxos da operação.
                   </p>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export function ConnectionsPanel({
             >
               <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexao</p>
-                <p className="mt-1 text-sm font-semibold">Sess?o de usu?rio</p>
+                <p className="mt-1 text-sm font-semibold">Sessão de usuário</p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
@@ -232,14 +232,14 @@ export function ConnectionsPanel({
                       await refresh();
                       setNotice('Codigo enviado para o Telegram.');
                     } catch (error) {
-                      setNotice(error instanceof Error ? error.message : 'N?o foi poss?vel enviar o c?digo do Telegram.');
+                      setNotice(error instanceof Error ? error.message : 'Não foi possível enviar o código do Telegram.');
                     } finally {
                       setBusy('');
                     }
                   }}
                   className={primaryButtonClassName}
                 >
-                  Enviar c?digo
+                  Enviar código
                 </button>
 
                 <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
@@ -247,7 +247,7 @@ export function ConnectionsPanel({
                     label="Codigo recebido"
                     value={effectiveTelegramCode}
                     onChange={setTelegramCode}
-                    placeholder="Digite o c?digo do Telegram"
+                    placeholder="Digite o código do Telegram"
                     disabled={readOnlyAccount || !canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
                   />
                   <Field
@@ -278,7 +278,7 @@ export function ConnectionsPanel({
                           : 'Login do Telegram concluido.'
                       );
                     } catch (error) {
-                      setNotice(error instanceof Error ? error.message : 'N?o foi poss?vel concluir o login do Telegram.');
+                      setNotice(error instanceof Error ? error.message : 'Não foi possível concluir o login do Telegram.');
                     } finally {
                       setBusy('');
                     }
@@ -315,9 +315,9 @@ export function ConnectionsPanel({
                   : authPhase === 'password_required'
                     ? 'O Telegram pediu a senha em duas etapas para concluir a conexao.'
                     : authPhase === 'code_required'
-                      ? 'Digite o c?digo enviado para concluir a conexao.'
+                      ? 'Digite o código enviado para concluir a conexão.'
                       : authPhase === 'auth_required'
-                        ? 'Envie um c?digo para iniciar a conexao da sua conta.'
+                        ? 'Envie um código para iniciar a conexão da sua conta.'
                         : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
               </p>
             </>
@@ -350,8 +350,8 @@ export function ConnectionSummary({ state }: { state: ConnectionsPanelState }) {
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
       <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexoes</p>
       <div className="mt-4 grid gap-3">
-        <ConnectionRow icon={Bot} label="Telegram" status={state.telegramStatus} detail={state.telegram.user?.name || state.config.telegramChannel || 'Aguardando configura??o'} />
-        <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sess?o ainda n?o conectada'} />
+        <ConnectionRow icon={Bot} label="Telegram" status={state.telegramStatus} detail={state.telegram.user?.name || state.config.telegramChannel || 'Aguardando configuração'} />
+        <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sessão ainda não conectada'} />
       </div>
 
       {state.issue?.message ? (
@@ -416,7 +416,7 @@ export function InternalSetupChecklist({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{title}</p>
           <p className={cn('mt-1 text-sm font-semibold', complete ? 'text-emerald-100' : 'text-[var(--foreground)]')}>
-            {complete ? completeLabel : 'Complete as etapas para liberar a configura??o.'}
+            {complete ? completeLabel : 'Complete as etapas para liberar a configuração.'}
           </p>
         </div>
         <span
