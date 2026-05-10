@@ -74,7 +74,7 @@ function isWhatsAppOperationalStatus(value) {
 }
 
 function createRemovedTelegramBotClient() {
-  throw new Error('O modo de bot do Telegram foi removido. Use a sessao de usuario do Telegram.');
+  throw new Error('O modo de bot do Telegram foi removido. Use a sessão de usuário do Telegram.');
 }
 
 export class UserBridgeRuntime {
@@ -390,12 +390,12 @@ export class UserBridgeRuntime {
 
     await deleteAffiliateAutomationsForUser(this.userId);
 
-    this.log('Conexoes do Telegram removidas e configuracao da ponte reiniciada.', {
+    this.log('Conexões do Telegram removidas e configuração da ponte reiniciada.', {
       type: 'connections_reset'
     });
 
     await this.resetWhatsAppSession();
-    this.log('Reset completo concluido. O usuario pode conectar tudo novamente do zero.', {
+    this.log('Reset completo concluído. O usuário pode conectar tudo novamente do zero.', {
       type: 'connections_reset_complete'
     });
   }
@@ -413,7 +413,7 @@ export class UserBridgeRuntime {
     this.qrDataUrl = null;
 
     try {
-      this.log('Reconectando a sessao do WhatsApp...', {
+      this.log('Reconectando a sessão do WhatsApp...', {
         type: 'whatsapp_reconnect_started'
       });
       await this.startWhatsApp();
@@ -537,7 +537,7 @@ export class UserBridgeRuntime {
       }
 
       this.recentDeliveryReceipts = new Map();
-      this.log(`Nao foi possivel carregar dedupe de entregas: ${error.message}`, {
+      this.log(`Não foi possível carregar dedupe de entregas: ${error.message}`, {
         level: 'error',
         type: 'delivery_dedupe_load_error',
         increments: { errors: 1 }
@@ -634,7 +634,7 @@ export class UserBridgeRuntime {
       this.clearWhatsAppAutoReconnect();
       this.attachWhatsAppBrowserLifecycle();
       this.whatsAppPhone = serializeWid(this.whatsAppClient.info?.wid);
-      this.log(`WhatsApp pronto (${this.whatsAppPhone ?? 'sessao ativa'}).`, {
+      this.log(`WhatsApp pronto (${this.whatsAppPhone ?? 'sessão ativa'}).`, {
         type: 'whatsapp_ready'
       });
       void this.flushPendingTelegramMessages().catch((error) => {
@@ -661,7 +661,7 @@ export class UserBridgeRuntime {
       this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.clearWhatsAppAutoReconnect();
-      this.log(`Falha na autenticacao do WhatsApp: ${message}`, {
+      this.log(`Falha na autenticação do WhatsApp: ${message}`, {
         level: 'error',
         type: 'whatsapp_auth_failure',
         increments: { errors: 1 }
@@ -717,7 +717,7 @@ export class UserBridgeRuntime {
     }
 
     if (!isPathInside(this.paths.authSessionDir, this.paths.authRootDir)) {
-      throw new Error('Diretorio de sessao fora do escopo permitido.');
+      throw new Error('Diretório de sessão fora do escopo permitido.');
     }
 
     this.whatsAppResetInProgress = true;
@@ -738,14 +738,14 @@ export class UserBridgeRuntime {
       if (await pathExists(this.paths.authSessionDir)) {
         const backupPath = buildSessionBackupPath(this.paths.authSessionDir);
         await fs.rename(this.paths.authSessionDir, backupPath);
-        this.log('Sessao anterior do WhatsApp movida para backup. Um novo QR Code sera gerado.', {
+        this.log('Sessão anterior do WhatsApp movida para backup. Um novo QR Code será gerado.', {
           type: 'whatsapp_session_reset',
           metadata: {
             backupPath
           }
         });
       } else {
-        this.log('Preparando uma nova sessao do WhatsApp. Um novo QR Code sera gerado.', {
+        this.log('Preparando uma nova sessão do WhatsApp. Um novo QR Code será gerado.', {
           type: 'whatsapp_session_reset'
         });
       }
@@ -767,9 +767,9 @@ export class UserBridgeRuntime {
     client.removeAllListeners();
     await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch((error) => {
       this.log(
-        `Timeout ao encerrar a sessao travada do WhatsApp (${Math.round(
+        `Timeout ao encerrar a sessão travada do WhatsApp (${Math.round(
           whatsAppDestroyTimeoutMs / 1000
-        )}s). Forcando nova tentativa de conexao.`,
+        )}s). Forcando nova tentativa de conexão.`,
         {
           level: 'error',
           type: 'whatsapp_destroy_timeout',
@@ -807,7 +807,7 @@ export class UserBridgeRuntime {
           canResetSession: true,
           type: 'whatsapp_session_corrupted',
           message:
-            'A sessao salva do WhatsApp ficou corrompida no navegador. Clique em "Resetar sessao do WhatsApp" para gerar um novo QR Code.',
+            'A sessão salva do WhatsApp ficou corrompida no navegador. Clique em "Resetar sessão do WhatsApp" para gerar um novo QR Code.',
           metadata: {
             originalError: String(error?.message ?? error ?? ''),
             debugVersion: snapshot.debugVersion ?? '',
@@ -1053,11 +1053,11 @@ export class UserBridgeRuntime {
 
     try {
       await this.reconnectWhatsApp();
-      this.log('Reconexao automatica do WhatsApp iniciada ao retomar sessao do painel.', {
+      this.log('Reconexao automatica do WhatsApp iniciada ao retomar sessão do painel.', {
         type: 'whatsapp_auto_reconnect'
       });
     } catch (error) {
-      this.log(`Falha na reconexao automatica do WhatsApp ao retomar sessao: ${error.message}`, {
+      this.log(`Falha na reconexao automatica do WhatsApp ao retomar sessão: ${error.message}`, {
         level: 'error',
         type: 'whatsapp_auto_reconnect_error',
         increments: { errors: 1 }
@@ -1069,7 +1069,7 @@ export class UserBridgeRuntime {
     return String(phone ?? '').trim().replace(/\s+/g, '');
   }
 
-  buildTelegramAuthErrorMessage(error, fallback = 'Nao foi possivel concluir a autenticacao do Telegram.') {
+  buildTelegramAuthErrorMessage(error, fallback = 'Não foi possível concluir a autenticação do Telegram.') {
     const rawMessage = String(error?.errorMessage ?? error?.message ?? error ?? '').trim();
     const normalizedMessage = rawMessage.toUpperCase();
 
@@ -1087,15 +1087,15 @@ export class UserBridgeRuntime {
     }
 
     if (normalizedMessage.includes('PHONE_NUMBER_INVALID')) {
-      return 'Telefone invalido. Use o formato internacional com codigo do pais (ex: +5511999999999).';
+      return 'Telefone inválido. Use o formato internacional com código do pais (ex: +5511999999999).';
     }
 
     if (normalizedMessage.includes('PHONE_NUMBER_FLOOD') || normalizedMessage.includes('PHONE_PASSWORD_FLOOD')) {
-      return 'Muitas tentativas de autenticacao no Telegram. Aguarde alguns minutos e tente novamente.';
+      return 'Muitas tentativas de autenticação no Telegram. Aguarde alguns minutos e tente novamente.';
     }
 
     if (normalizedMessage.includes('PHONE_CODE_FLOOD')) {
-      return 'Muitas solicitacoes de codigo. Aguarde um pouco antes de solicitar um novo codigo.';
+      return 'Muitas solicitacoes de código. Aguarde um pouco antes de solicitar um novo código.';
     }
 
     if (normalizedMessage.includes('API_ID_INVALID') || normalizedMessage.includes('API_ID_PUBLISHED_FLOOD')) {
@@ -1103,7 +1103,7 @@ export class UserBridgeRuntime {
     }
 
     if (normalizedMessage.includes('AUTH_RESTART')) {
-      return 'Telegram pediu para reiniciar a autenticacao. Solicite um novo codigo e tente novamente.';
+      return 'Telegram pediu para reiniciar a autenticação. Solicite um novo código e tente novamente.';
     }
 
     return rawMessage;
@@ -1147,8 +1147,8 @@ export class UserBridgeRuntime {
       await client.disconnect().catch(() => {});
       this.telegramAuthFlow = null;
       this.telegramStatus = 'auth_required';
-      const reason = this.buildTelegramAuthErrorMessage(error, 'Nao foi possivel enviar o codigo do Telegram.');
-      this.log(`Falha ao enviar codigo do Telegram: ${reason}`, {
+      const reason = this.buildTelegramAuthErrorMessage(error, 'Não foi possível enviar o código do Telegram.');
+      this.log(`Falha ao enviar código do Telegram: ${reason}`, {
         level: 'error',
         type: 'telegram_code_send_error',
         increments: { errors: 1 }
@@ -1195,7 +1195,7 @@ export class UserBridgeRuntime {
         return;
       }
 
-      throw new Error(this.buildTelegramAuthErrorMessage(error, 'Nao foi possivel concluir o login do Telegram.'));
+      throw new Error(this.buildTelegramAuthErrorMessage(error, 'Não foi possível concluir o login do Telegram.'));
     }
 
     this.config = await saveConfigForUser(this.userId, {
@@ -1351,7 +1351,7 @@ export class UserBridgeRuntime {
       });
 
       if (!result.shouldSend) {
-        this.log(`Automacao de afiliados "${automation.name}" processou a mensagem sem envio (${result.status}).`, {
+        this.log(`Automação de afiliados "${automation.name}" processou a mensagem sem envio (${result.status}).`, {
           type: 'affiliate_ignored',
           metadata: {
             automationId: automation.id,
@@ -1370,7 +1370,7 @@ export class UserBridgeRuntime {
           status: 'error',
           errorMessage: 'Nenhum grupo de WhatsApp destino configurado.'
         });
-        this.log(`Automacao de afiliados "${automation.name}" sem destino WhatsApp configurado.`, {
+        this.log(`Automação de afiliados "${automation.name}" sem destino WhatsApp configurado.`, {
           level: 'error',
           type: 'affiliate_error',
           increments: { errors: 1 }
@@ -1381,9 +1381,9 @@ export class UserBridgeRuntime {
       if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
         await updateAffiliateMessageLog(result.messageLogId, {
           status: 'error',
-          errorMessage: `WhatsApp indisponivel: ${this.whatsAppStatus}`
+          errorMessage: `WhatsApp indisponível: ${this.whatsAppStatus}`
         });
-        this.log('Mensagem de afiliados processada, mas o WhatsApp ainda nao esta pronto.', {
+        this.log('Mensagem de afiliados processada, mas o WhatsApp ainda não está pronto.', {
           level: 'error',
           type: 'affiliate_error',
           increments: { errors: 1 }
@@ -1409,7 +1409,7 @@ export class UserBridgeRuntime {
 
       if (telegramForwardResult.enabled) {
         if (!this.telegramClient || this.telegramStatus !== 'listening') {
-          telegramForwardResult.error = `Telegram indisponivel: ${this.telegramStatus || 'offline'}`;
+          telegramForwardResult.error = `Telegram indisponível: ${this.telegramStatus || 'offline'}`;
         } else {
           try {
             await this.sendAffiliateMessageToTelegramDestination(
@@ -1417,7 +1417,7 @@ export class UserBridgeRuntime {
               automation.telegramDestinationGroupId
             );
             telegramForwardResult.sent = true;
-            this.log(`Automacao de afiliados "${automation.name}" tambem enviada para o Telegram.`, {
+            this.log(`Automação de afiliados "${automation.name}" tambem enviada para o Telegram.`, {
               type: 'affiliate_telegram_sent',
               metadata: {
                 automationId: automation.id,
@@ -1442,7 +1442,7 @@ export class UserBridgeRuntime {
         sentAt: delivery.sent.length || telegramForwardResult.sent ? new Date().toISOString() : null
       });
 
-      this.log(`Automacao de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
+      this.log(`Automação de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
         type: errorMessages.length ? 'affiliate_partial_error' : 'affiliate_sent',
         increments: {
           forwardBatches: 1,
@@ -1490,7 +1490,7 @@ export class UserBridgeRuntime {
           };
         }
       } catch (error) {
-        this.log(`Nao foi possivel reaproveitar a midia original no fluxo de afiliados: ${error.message}`, {
+        this.log(`Não foi possível reaproveitar a mídia original no fluxo de afiliados: ${error.message}`, {
           level: 'error',
           type: 'affiliate_media_fallback',
           increments: { errors: 1 }
@@ -1673,11 +1673,11 @@ export class UserBridgeRuntime {
 
   async sendAffiliateMessageToTelegramDestination(messageText, destinationId) {
     if (!this.telegramClient) {
-      throw new Error('Cliente do Telegram indisponivel.');
+      throw new Error('Cliente do Telegram indisponível.');
     }
 
     if (!destinationId) {
-      throw new Error('Destino Telegram nao configurado.');
+      throw new Error('Destino Telegram não configurado.');
     }
 
     if (messageText?.type === 'media' && messageText?.base64) {
@@ -1711,7 +1711,7 @@ export class UserBridgeRuntime {
         reason: 'bridge_disabled',
         fromQueue: Boolean(options.fromQueue)
       });
-      this.log('Mensagem recebida, mas o sistema esta desligado. Encaminhamento ignorado.', {
+      this.log('Mensagem recebida, mas o sistema está desligado. Encaminhamento ignorado.', {
         type: 'forward_skipped'
       });
       return;
@@ -1734,7 +1734,7 @@ export class UserBridgeRuntime {
           reason: this.whatsAppStatus,
           fromQueue: Boolean(options.fromQueue)
         });
-        this.log('Post recebido, mas o WhatsApp ainda nao esta pronto.', {
+        this.log('Post recebido, mas o WhatsApp ainda não está pronto.', {
           type: 'forward_skipped'
         });
       }
@@ -1849,7 +1849,7 @@ export class UserBridgeRuntime {
 
     if (queuedCount > 0) {
       this.log(
-        `WhatsApp indisponivel no momento. ${queuedCount} mensagem(ns) ficou(aram) na fila temporaria (${this.pendingTelegramMessages.length} aguardando).`,
+        `WhatsApp indisponível no momento. ${queuedCount} mensagem(ns) ficou(aram) na fila temporária (${this.pendingTelegramMessages.length} aguardando).`,
         {
           type: 'forward_queued',
           metadata: {
@@ -2140,7 +2140,7 @@ export class UserBridgeRuntime {
     const response = await fetch(fileUrl);
 
     if (!response.ok) {
-      throw new Error(`Nao foi possivel baixar a midia do Telegram (${response.status}).`);
+      throw new Error(`Não foi possível baixar a mídia do Telegram (${response.status}).`);
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -2220,7 +2220,7 @@ export class UserBridgeRuntime {
       return;
     }
     if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
-      throw new Error('O WhatsApp ainda esta finalizando a conexao. Aguarde o status "Pronto" e tente atualizar os grupos novamente.');
+      throw new Error('O WhatsApp ainda está finalizando a conexão. Aguarde o status "Pronto" e tente atualizar os grupos novamente.');
     }
 
     if (!this.isWhatsAppBrowserAlive()) {
@@ -2620,7 +2620,7 @@ export class UserBridgeRuntime {
       canReconnect: true,
       type: 'whatsapp_browser_closed',
       message:
-        'A janela do WhatsApp foi fechada ou reiniciou. O sistema vai tentar reabrir sozinho; se nao voltar, use "Reconectar WhatsApp".',
+        'A janela do WhatsApp foi fechada ou reiniciou. O sistema vai tentar reabrir sozinho; se não voltar, use "Reconectar WhatsApp".',
       metadata: {
         context,
         error: error ? String(error.message ?? error) : ''
@@ -2628,7 +2628,7 @@ export class UserBridgeRuntime {
     };
 
     this.log(
-      `A sessao do navegador do WhatsApp nao esta mais disponivel (${context}). O sistema vai tentar reabrir a janela automaticamente.`,
+      `A sessão do navegador do WhatsApp não está mais disponível (${context}). O sistema vai tentar reabrir a janela automaticamente.`,
       {
         level: 'error',
         type: 'whatsapp_browser_closed',

@@ -66,10 +66,10 @@ export async function rewriteAffiliateMessageWithGroq(params = {}) {
       {
         role: 'system',
         content: [
-          'Voce reescreve ofertas em portugues do Brasil sem inventar nenhuma informacao.',
+          'Você reescreve ofertas em portugues do Brasil sem inventar nenhuma informacao.',
           'Use apenas os dados estruturados fornecidos.',
-          'Nao inclua rodapes promocionais da origem, grupos, canais, Telegram, WhatsApp, Linktree ou chamadas de convite.',
-          'Nao altere URLs.',
+          'Não inclua rodapes promocionais da origem, grupos, canais, Telegram, WhatsApp, Linktree ou chamadas de convite.',
+          'Não altere URLs.',
           'Responda somente com JSON valido, sem markdown e sem texto extra.'
         ].join(' ')
       },
@@ -205,12 +205,12 @@ function buildGroqPrompt({ details, style }) {
     style,
     rules: [
       'responda somente com json valido',
-      'nao escreva texto comercial extra',
-      'nao invente titulo, preco, parcelamento, cupom ou urls',
+      'não escreva texto comercial extra',
+      'não invente titulo, preco, parcelamento, cupom ou urls',
       'ignore rodapes, grupos, canais, propaganda, telegram, whatsapp, instagram, linktree e convites',
-      'se nao houver um campo, devolva string vazia',
-      'o cupom deve conter apenas o codigo util, sem rotulos nem texto sobrando',
-      'nao inclua urls em campos de titulo, preco, parcelamento ou cupom'
+      'se não houver um campo, devolva string vazia',
+      'o cupom deve conter apenas o código util, sem rotulos nem texto sobrando',
+      'não inclua urls em campos de titulo, preco, parcelamento ou cupom'
     ],
     offer: {
       title: details.title,
@@ -342,7 +342,7 @@ function defaultHeadline(style) {
   }
 
   if (style === 'sales') {
-    return 'Oferta selecionada para voce';
+    return 'Oferta selecionada para você';
   }
 
   return 'Oferta selecionada';

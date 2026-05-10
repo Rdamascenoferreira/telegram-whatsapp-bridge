@@ -66,7 +66,7 @@ export function beautifyAffiliateMessage(message, options = {}) {
   }
 
   if (details.style === 'urgent') {
-    blocks.push('\u{23F3} Aproveite enquanto a oferta estiver disponivel.');
+    blocks.push('\u{23F3} Aproveite enquanto a oferta estiver disponível.');
   } else if (details.style === 'sales') {
     blocks.push('\u{2705} Garanta antes que o preco mude.');
   }
@@ -339,7 +339,7 @@ function getHeadline(style) {
   }
 
   if (style === 'sales') {
-    return '\u{1F525} Oferta garimpada para voce';
+    return '\u{1F525} Oferta garimpada para você';
   }
 
   return '\u{2728} Oferta selecionada';

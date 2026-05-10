@@ -85,6 +85,6 @@ export function ensurePlanFeature({ plan, key, message }) {
   const limits = getPlanLimits(plan);
 
   if (!limits[key]) {
-    throw new Error(message || `Este recurso nao esta liberado no plano ${limits.label}.`);
+    throw new Error(message || `Este recurso não está liberado no plano ${limits.label}.`);
   }
 }

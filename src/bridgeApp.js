@@ -431,7 +431,7 @@ export class BridgeApp {
         response.status(404).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Usuario nao encontrado.'
+          error: 'Usuário não encontrado.'
         });
         return;
       }
@@ -450,7 +450,7 @@ export class BridgeApp {
         response.status(404).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Usuario nao encontrado.'
+          error: 'Usuário não encontrado.'
         });
         return;
       }
@@ -460,7 +460,7 @@ export class BridgeApp {
         response.status(400).json({
           authenticated: true,
           googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Voce nao pode excluir a propria conta pelo painel admin.'
+          error: 'Você não pode excluir a propria conta pelo painel admin.'
         });
         return;
       }
@@ -619,7 +619,7 @@ export class BridgeApp {
         billingStatuses: userBillingStatusOptions
       },
       users: [],
-      error: error?.message || 'Nao foi possivel carregar a area administrativa.'
+      error: error?.message || 'Não foi possível carregar a area administrativa.'
     };
   }
 
@@ -672,7 +672,7 @@ export class BridgeApp {
       },
       issue: {
         scope: 'runtime',
-        message: error?.message || 'Nao foi possivel carregar o runtime deste usuario.'
+        message: error?.message || 'Não foi possível carregar o runtime deste usuário.'
       },
       activity: [],
       offers: [],
@@ -688,7 +688,7 @@ function ensureAffiliateAccountPlan(plan, payload = {}) {
     ensurePlanFeature({
       plan,
       key: 'amazonAffiliate',
-      message: 'Conversao Amazon esta disponivel a partir do plano Plus.'
+      message: 'Conversão Amazon está disponível a partir do plano Plus.'
     });
   }
 
@@ -696,7 +696,7 @@ function ensureAffiliateAccountPlan(plan, payload = {}) {
     ensurePlanFeature({
       plan,
       key: 'shopeeAffiliate',
-      message: 'Conversao Shopee esta disponivel a partir do plano Pro.'
+      message: 'Conversão Shopee está disponível a partir do plano Pro.'
     });
   }
 }
@@ -712,11 +712,11 @@ function ensureAffiliateAccountPayload(payload = {}, existingAccount = null) {
     const amazonTag = String(payload.amazonTag ?? '').trim();
 
     if (!amazonTag) {
-      throw new Error('Informe sua tag de afiliado da Amazon antes de ativar a conversao Amazon.');
+      throw new Error('Informe sua tag de afiliado da Amazon antes de ativar a conversão Amazon.');
     }
 
     if (/\s/.test(amazonTag) || amazonTag.length > 80) {
-      throw new Error('A tag de afiliado da Amazon nao pode ter espacos e deve ter ate 80 caracteres.');
+      throw new Error('A tag de afiliado da Amazon não pode ter espaços e deve ter até 80 caracteres.');
     }
   }
 
@@ -726,15 +726,15 @@ function ensureAffiliateAccountPayload(payload = {}, existingAccount = null) {
     const existingSecretConfigured = Boolean(existingAccount?.shopeeSecretConfigured);
 
     if (!shopeeAppId) {
-      throw new Error('Informe o App ID da Shopee antes de ativar a conversao Shopee.');
+      throw new Error('Informe o App ID da Shopee antes de ativar a conversão Shopee.');
     }
 
     if (/\s/.test(shopeeAppId) || shopeeAppId.length > 80) {
-      throw new Error('O App ID da Shopee nao pode ter espacos e deve ter ate 80 caracteres.');
+      throw new Error('O App ID da Shopee não pode ter espaços e deve ter até 80 caracteres.');
     }
 
     if (!shopeeSecret && !existingSecretConfigured) {
-      throw new Error('Informe o Secret/API Secret da Shopee antes de ativar a conversao Shopee.');
+      throw new Error('Informe o Secret/API Secret da Shopee antes de ativar a conversão Shopee.');
     }
   }
 }
@@ -756,7 +756,7 @@ function ensureAffiliateAutomationPlan(plan, payload = {}, automations = []) {
     plan,
     key: 'whatsappDestinations',
     count: destinations.length,
-    label: 'Os destinos WhatsApp desta automacao'
+    label: 'Os destinos WhatsApp desta automação'
   });
 }
 
@@ -832,7 +832,7 @@ export function computeAffiliateAutomationFieldErrors({
     });
 
     if (duplicateSourceAutomation) {
-      fieldErrors.telegramSourceGroupId = `Esta origem ja esta em uso no fluxo "${duplicateSourceAutomation.name || 'Automatizador de Ofertas'}".`;
+      fieldErrors.telegramSourceGroupId = `Esta origem já está em uso no fluxo "${duplicateSourceAutomation.name || 'Automatizador de Ofertas'}".`;
     }
   }
 
@@ -849,8 +849,8 @@ async function ensureTelegramSourceIsNotUsedByAffiliate(userId, telegramChannel)
   const automations = await getActiveAffiliateAutomationsBySource(userId, normalizedTelegramChannel);
 
   if (automations.length) {
-    const automationName = automations[0]?.name || 'Automacao de Afiliados';
-    throw new Error(`Este grupo ja esta sendo usado em "${automationName}". Escolha outra origem para o Telegram normal ou edite a automacao de afiliados.`);
+    const automationName = automations[0]?.name || 'Automação de Afiliados';
+    throw new Error(`Este grupo já está sendo usado em "${automationName}". Escolha outra origem para o Telegram normal ou edite a automação de afiliados.`);
   }
 }
 
@@ -863,7 +863,7 @@ function ensureAffiliateSourceIsNotUsedByTelegram(telegramChannel, affiliateSour
       return;
     }
 
-    throw new Error('Este grupo ja esta configurado no fluxo Telegram normal. Escolha outra origem para Afiliados ou remova a origem na aba Telegram.');
+    throw new Error('Este grupo já está configurado no fluxo Telegram normal. Escolha outra origem para Afiliados ou remova a origem na aba Telegram.');
   }
 }
 

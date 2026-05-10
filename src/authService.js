@@ -363,7 +363,7 @@ export class AuthService {
         response.status(403).json({
           authenticated: true,
           googleEnabled: this.googleEnabled,
-          error: 'Sua conta esta em modo teste. Voce pode visualizar os paineis, mas edicoes precisam ser liberadas pelo administrador.'
+          error: 'Sua conta está em modo teste. Você pode visualizar os painéis, mas edições precisam ser liberadas pelo administrador.'
         });
         return;
       }
@@ -517,7 +517,7 @@ export class AuthService {
         response.status(403).json({
           authenticated: Boolean(request.user),
           googleEnabled: this.googleEnabled,
-          error: 'Cabecalho de origem ausente. Recarregue o painel e tente novamente.'
+          error: 'Cabeçalho de origem ausente. Recarregue o painel e tente novamente.'
         });
         return;
       }
@@ -530,7 +530,7 @@ export class AuthService {
       response.status(403).json({
         authenticated: Boolean(request.user),
         googleEnabled: this.googleEnabled,
-        error: 'Origem da requisicao nao autorizada.'
+        error: 'Origem da requisição não autorizada.'
       });
     };
   }
@@ -603,10 +603,10 @@ function resolveSessionSecret(value) {
   }
 
   if (isProduction) {
-    throw new Error('Defina SESSION_SECRET com um valor forte antes de iniciar em producao.');
+    throw new Error('Defina SESSION_SECRET com um valor forte antes de iniciar em produção.');
   }
 
-  console.warn('SESSION_SECRET nao definido. Usando segredo temporario apenas para desenvolvimento local.');
+  console.warn('SESSION_SECRET não definido. Usando segredo temporario apenas para desenvolvimento local.');
   return crypto.randomBytes(32).toString('hex');
 }
 
@@ -642,15 +642,15 @@ function createSessionStore(options = {}) {
 
   if (storeType === 'memory') {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('SESSION_STORE=memory nao e permitido em producao. Use SESSION_STORE=file ou um store persistente.');
+      throw new Error('SESSION_STORE=memory não e permitido em produção. Use SESSION_STORE=file ou um store persistente.');
     }
 
-    console.warn('SESSION_STORE=memory esta ativo apenas para desenvolvimento local.');
+    console.warn('SESSION_STORE=memory está ativo apenas para desenvolvimento local.');
     return new session.MemoryStore();
   }
 
   if (storeType && storeType !== 'file') {
-    throw new Error(`SESSION_STORE invalido: ${storeType}. Use "file" ou "memory".`);
+    throw new Error(`SESSION_STORE inválido: ${storeType}. Use "file" ou "memory".`);
   }
 
   const sessionDir = path.resolve(

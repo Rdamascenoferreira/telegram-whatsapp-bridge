@@ -41,7 +41,7 @@ export function FlowSaveActionsCard({
     <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
       <p className="text-sm font-semibold">Acoes do fluxo</p>
       <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-        Edite a origem, recarregue a lista de chats do Telegram e salve a operacao escolhida.
+        Edite a origem, recarregue a lista de chats do Telegram e salve a operação escolhida.
       </p>
       {shouldShowFlowReview ? (
         <div className="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-400/10 px-3 py-3 text-xs leading-5 text-cyan-100">

@@ -44,7 +44,7 @@ async function loadUsers() {
     try {
       parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
     } catch {
-      throw new Error(`Base de usuarios invalida em ${usersPath}.`);
+      throw new Error(`Base de usuários inválida em ${usersPath}.`);
     }
     const inputUsers = Array.isArray(parsed.users) ? parsed.users : [];
     const users = inputUsers.map((user, index, list) => normalizeStoredUser(user, index, list));
@@ -87,7 +87,7 @@ function resolvePrimaryAdminEmail() {
     return normalized;
   }
 
-  console.warn('ADMIN_EMAIL nao definido. Nao havera conta admin automatica neste ambiente.');
+  console.warn('ADMIN_EMAIL não definido. Não haverá conta admin automatica neste ambiente.');
   return '';
 }
 
@@ -115,7 +115,7 @@ function normalizeStoredUser(user, _index, _users) {
 
   return {
     id: String(user?.id ?? crypto.randomUUID()),
-    name: String(user?.name ?? '').trim() || normalizedEmail || 'Usuario sem nome',
+    name: String(user?.name ?? '').trim() || normalizedEmail || 'Usuário sem nome',
     email: normalizedEmail,
     passwordHash: String(user?.passwordHash ?? ''),
     googleId: String(user?.googleId ?? '').trim(),
@@ -284,7 +284,7 @@ export async function updateUserAdminSettings(userId, updates = {}) {
     const user = await updateCloudUserAdminSettings(userId, updates);
 
     if (!user) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     user.role = resolveUserRole(user.role, user.email);
@@ -295,7 +295,7 @@ export async function updateUserAdminSettings(userId, updates = {}) {
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   user.role = resolveUserRole(user.role, user.email);
@@ -317,17 +317,17 @@ export async function deleteUserAccount(userId) {
   const normalizedUserId = String(userId ?? '').trim();
 
   if (!normalizedUserId) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   const user = await findUserById(normalizedUserId);
 
   if (!user) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   if (isPrimaryAdminEmail(user.email)) {
-    throw new Error('A conta principal de administrador nao pode ser excluida.');
+    throw new Error('A conta principal de administrador não pode ser excluida.');
   }
 
   if (isCloudAuthEnabled()) {
@@ -439,7 +439,7 @@ export async function verifyPasswordUser({ email, password }) {
     }
 
     if (user.accountStatus === 'suspended') {
-      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
     }
 
     const isValid = await bcrypt.compare(candidatePassword, user.passwordHash);
@@ -459,7 +459,7 @@ export async function verifyPasswordUser({ email, password }) {
   }
 
   if (user.accountStatus === 'suspended') {
-    throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+    throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
   }
 
   const isValid = await bcrypt.compare(candidatePassword, user.passwordHash);
@@ -481,11 +481,11 @@ export async function upsertGoogleUser(profile) {
     email;
 
   if (!googleId) {
-    throw new Error('Nao foi possivel identificar a conta Google.');
+    throw new Error('Não foi possível identificar a conta Google.');
   }
 
   if (!email) {
-    throw new Error('Sua conta Google nao retornou um e-mail valido.');
+    throw new Error('Sua conta Google não retornou um e-mail valido.');
   }
 
   if (isCloudAuthEnabled()) {
@@ -494,7 +494,7 @@ export async function upsertGoogleUser(profile) {
 
     if (existingByGoogle) {
       if (existingByGoogle.accountStatus === 'suspended') {
-        throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+        throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
       }
 
       return await upsertCloudGoogleUser({
@@ -517,7 +517,7 @@ export async function upsertGoogleUser(profile) {
 
     if (existingByEmail) {
       if (existingByEmail.accountStatus === 'suspended') {
-        throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+        throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
       }
 
       return await upsertCloudGoogleUser({
@@ -559,7 +559,7 @@ export async function upsertGoogleUser(profile) {
 
   if (existingByGoogle) {
     if (existingByGoogle.accountStatus === 'suspended') {
-      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
     }
 
     existingByGoogle.name = name || existingByGoogle.name;
@@ -578,7 +578,7 @@ export async function upsertGoogleUser(profile) {
 
   if (existingByEmail) {
     if (existingByEmail.accountStatus === 'suspended') {
-      throw new Error('Sua conta esta suspensa no momento. Fale com o administrador.');
+      throw new Error('Sua conta está suspensa no momento. Fale com o administrador.');
     }
 
     existingByEmail.googleId = googleId;
@@ -651,7 +651,7 @@ export async function updateUserProfile(userId, updates = {}) {
     });
 
     if (!user) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     return user;
@@ -661,7 +661,7 @@ export async function updateUserProfile(userId, updates = {}) {
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   user.name = nextName;
@@ -680,17 +680,17 @@ export async function updateUserPassword(userId, updates = {}) {
     const user = await findCloudUserById(userId);
 
     if (!user) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     if (!user.passwordHash) {
-      throw new Error('Essa conta usa login externo e nao permite trocar senha por aqui.');
+      throw new Error('Essa conta usa login externo e não permite trocar senha por aqui.');
     }
 
     const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
     if (!isValid) {
-      throw new Error('A senha atual esta incorreta.');
+      throw new Error('A senha atual está incorreta.');
     }
 
     if (nextPassword.length < 8) {
@@ -698,13 +698,13 @@ export async function updateUserPassword(userId, updates = {}) {
     }
 
     if (nextPassword !== confirmPassword) {
-      throw new Error('A confirmacao da nova senha nao confere.');
+      throw new Error('A confirmacao da nova senha não confere.');
     }
 
     const updatedUser = await updateCloudUserPassword(userId, await bcrypt.hash(nextPassword, 10));
 
     if (!updatedUser) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     return updatedUser;
@@ -714,17 +714,17 @@ export async function updateUserPassword(userId, updates = {}) {
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   if (!user.passwordHash) {
-    throw new Error('Essa conta usa login externo e nao permite trocar senha por aqui.');
+    throw new Error('Essa conta usa login externo e não permite trocar senha por aqui.');
   }
 
   const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
   if (!isValid) {
-    throw new Error('A senha atual esta incorreta.');
+    throw new Error('A senha atual está incorreta.');
   }
 
   if (nextPassword.length < 8) {
@@ -732,7 +732,7 @@ export async function updateUserPassword(userId, updates = {}) {
   }
 
   if (nextPassword !== confirmPassword) {
-    throw new Error('A confirmacao da nova senha nao confere.');
+    throw new Error('A confirmacao da nova senha não confere.');
   }
 
   user.passwordHash = await bcrypt.hash(nextPassword, 10);
@@ -753,7 +753,7 @@ export async function updateUserAvatar(userId, input = {}) {
   const buffer = Buffer.from(base64Payload, 'base64');
 
   if (!buffer.length) {
-    throw new Error('Nao foi possivel processar a imagem enviada.');
+    throw new Error('Não foi possível processar a imagem enviada.');
   }
 
   if (buffer.byteLength > 1024 * 1024) {
@@ -765,7 +765,7 @@ export async function updateUserAvatar(userId, input = {}) {
     const user = await findCloudUserById(userId);
 
     if (!user) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     if (user.googleId) {
@@ -779,7 +779,7 @@ export async function updateUserAvatar(userId, input = {}) {
     });
 
     if (!updatedUser) {
-      throw new Error('Usuario nao encontrado.');
+      throw new Error('Usuário não encontrado.');
     }
 
     return updatedUser;
@@ -789,7 +789,7 @@ export async function updateUserAvatar(userId, input = {}) {
   const user = users.find((entry) => entry.id === userId);
 
   if (!user) {
-    throw new Error('Usuario nao encontrado.');
+    throw new Error('Usuário não encontrado.');
   }
 
   if (user.googleId) {

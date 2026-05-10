@@ -87,7 +87,7 @@ export async function loadConfigForUser(userId) {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new Error(`Configuracao invalida em ${paths.configPath}.`);
+      throw new Error(`Configuração inválida em ${paths.configPath}.`);
     }
 
     return {
@@ -228,7 +228,7 @@ async function readJson(targetPath) {
     try {
       return JSON.parse(raw.replace(/^\uFEFF/, ''));
     } catch {
-      throw new Error(`Arquivo JSON invalido em ${targetPath}.`);
+      throw new Error(`Arquivo JSON inválido em ${targetPath}.`);
     }
   } catch (error) {
     if (error.code === 'ENOENT') {

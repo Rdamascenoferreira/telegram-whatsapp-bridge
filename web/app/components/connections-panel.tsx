@@ -85,16 +85,16 @@ export function ConnectionsPanel({
   ];
   const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
   const telegramHeroStatusLabel = hasTelegramSession
-    ? 'Sessao ativa'
+    ? 'Sessão ativa'
     : authPhase === 'password_required'
       ? 'Senha pendente'
       : authPhase === 'code_required'
-        ? 'Codigo pendente'
+        ? 'Código pendente'
         : hasSavedCredentials
           ? 'Credenciais salvas'
           : 'Não configurado';
   const telegramHeroSessionLabel = hasTelegramConnection
-    ? telegramUserLabel || state.telegram.user?.phone || 'Sessao conectada'
+    ? telegramUserLabel || state.telegram.user?.phone || 'Sessão conectada'
     : 'Sessão de usuário';
 
   return (
@@ -154,7 +154,7 @@ export function ConnectionsPanel({
               onSubmit={async (event) => {
                 event.preventDefault();
                 if (readOnlyAccount) {
-                  setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                  setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
                   return;
                 }
                 setBusy('settings');
@@ -173,7 +173,7 @@ export function ConnectionsPanel({
               }}
             >
               <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexao</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexão</p>
                 <p className="mt-1 text-sm font-semibold">Sessão de usuário</p>
               </div>
 
@@ -230,7 +230,7 @@ export function ConnectionsPanel({
                       });
                       await postJson('/api/telegram/send-code');
                       await refresh();
-                      setNotice('Codigo enviado para o Telegram.');
+                      setNotice('Código enviado para o Telegram.');
                     } catch (error) {
                       setNotice(error instanceof Error ? error.message : 'Não foi possível enviar o código do Telegram.');
                     } finally {
@@ -244,7 +244,7 @@ export function ConnectionsPanel({
 
                 <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                   <Field
-                    label="Codigo recebido"
+                    label="Código recebido"
                     value={effectiveTelegramCode}
                     onChange={setTelegramCode}
                     placeholder="Digite o código do Telegram"
@@ -275,7 +275,7 @@ export function ConnectionsPanel({
                       setNotice(
                         authPhase === 'password_required'
                           ? 'Senha enviada. Conta do Telegram conectada.'
-                          : 'Login do Telegram concluido.'
+                          : 'Login do Telegram concluído.'
                       );
                     } catch (error) {
                       setNotice(error instanceof Error ? error.message : 'Não foi possível concluir o login do Telegram.');
@@ -313,12 +313,12 @@ export function ConnectionsPanel({
                 {telegramUserLabel
                   ? `Conta conectada: ${telegramUserLabel}.`
                   : authPhase === 'password_required'
-                    ? 'O Telegram pediu a senha em duas etapas para concluir a conexao.'
+                    ? 'O Telegram pediu a senha em duas etapas para concluir a conexão.'
                     : authPhase === 'code_required'
                       ? 'Digite o código enviado para concluir a conexão.'
                       : authPhase === 'auth_required'
                         ? 'Envie um código para iniciar a conexão da sua conta.'
-                        : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
+                        : 'Sua sessão do Telegram ficara salva para reconectar depois sem bot.'}
               </p>
             </>
           </section>
@@ -326,14 +326,14 @@ export function ConnectionsPanel({
           <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
             <div className="flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Proximo passo</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Próximo passo</p>
                 <h3 className="mt-1 text-lg font-semibold">Defina os fluxos na aba dedicada</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   Depois de concluir o login, use a aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span> para escolher se esta conta vai operar a ponte simples ou o automatizador de ofertas.
                 </p>
               </div>
               <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-                {hasTelegramConnection ? 'Sessao pronta' : 'Aguardando login'}
+                {hasTelegramConnection ? 'Sessão pronta' : 'Aguardando login'}
               </span>
             </div>
           </section>
@@ -348,7 +348,7 @@ export function ConnectionsPanel({
 export function ConnectionSummary({ state }: { state: ConnectionsPanelState }) {
   return (
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexoes</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexões</p>
       <div className="mt-4 grid gap-3">
         <ConnectionRow icon={Bot} label="Telegram" status={state.telegramStatus} detail={state.telegram.user?.name || state.config.telegramChannel || 'Aguardando configuração'} />
         <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sessão ainda não conectada'} />
@@ -424,7 +424,7 @@ export function InternalSetupChecklist({
           </p>
           {!complete && nextStep ? (
             <p className="mt-1 text-xs text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
-              Pr?ximo passo: <span className="font-semibold text-[var(--foreground)]">{nextStep.label}</span>
+              Próximo passo: <span className="font-semibold text-[var(--foreground)]">{nextStep.label}</span>
             </p>
           ) : null}
           {!complete && blockedStep?.blockedReason ? (
@@ -503,7 +503,7 @@ export function InternalSetupChecklist({
                         : 'bg-white/10 text-[var(--muted)]'
                 )}
               >
-                {step.done ? 'Conclu?do' : step.ready ? 'Em andamento' : blocked ? 'Bloqueada' : 'Pendente'}
+                {step.done ? 'Concluído' : step.ready ? 'Em andamento' : blocked ? 'Bloqueada' : 'Pendente'}
               </span>
             </div>
             {blocked && step.blockedReason ? (

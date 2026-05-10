@@ -222,7 +222,7 @@ export async function deleteCloudUser(userId) {
 
 export async function updateCloudUserAvatar(userId, { buffer, fileExt, mimeType }) {
   if (!r2Client) {
-    throw new Error('O armazenamento de avatar no R2 ainda nao foi configurado.');
+    throw new Error('O armazenamento de avatar no R2 ainda não foi configurado.');
   }
 
   const safeExt = String(fileExt ?? '').trim().toLowerCase();
@@ -438,7 +438,7 @@ async function upsertProfileRow(userId, payload) {
 
 async function supabaseRequest(endpoint, options = {}) {
   if (!cloudEnabled) {
-    throw new Error('Supabase nao configurado.');
+    throw new Error('Supabase não configurado.');
   }
 
   if (Date.now() < supabaseBreakerState.openUntil) {
@@ -504,7 +504,7 @@ async function supabaseRequest(endpoint, options = {}) {
   try {
     return JSON.parse(payload);
   } catch {
-    throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
+    throw new Error(`Resposta inválida do Supabase em ${endpoint}.`);
   }
 }
 
@@ -530,7 +530,7 @@ function mapCloudUser(row) {
 
   return {
     id: String(row?.id ?? ''),
-    name: String(row?.name ?? '').trim() || normalizeEmail(row?.email) || 'Usuario sem nome',
+    name: String(row?.name ?? '').trim() || normalizeEmail(row?.email) || 'Usuário sem nome',
     email: normalizeEmail(row?.email),
     passwordHash,
     googleId,

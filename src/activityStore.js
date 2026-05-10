@@ -70,7 +70,7 @@ async function recoverInvalidActivityFile(userId, activityPath) {
         at: recoveredAt,
         level: 'error',
         type: 'activity_store_recovered',
-        message: 'Historico local de atividade estava corrompido e foi reiniciado com seguranca.',
+        message: 'Histórico local de atividade estava corrompido e foi reiniciado com seguranca.',
         metadata: {
           backupPath
         }
@@ -88,7 +88,7 @@ async function recoverInvalidActivityFile(userId, activityPath) {
   }
 
   await saveActivityForUser(userId, recoveredActivity);
-  console.warn(`[activity:${userId}] Activity store invalido recuperado. Backup: ${backupPath}`);
+  console.warn(`[activity:${userId}] Activity store inválido recuperado. Backup: ${backupPath}`);
 
   return recoveredActivity;
 }

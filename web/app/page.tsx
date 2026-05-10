@@ -774,7 +774,7 @@ function AuthScreen({
                     Uma estrutura pronta para rodar todo dia.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    O Portal do Afiliado conecta sua conta do Telegram, mantem a sessão do WhatsApp, organiza grupos de destino, registra Histórico, oferece teste manual e separa a Operação comum da automação de afiliados. O resultado e mais controle, menos retrabalho e uma rotina comercial muito mais previsivel.
+                    O Portal do Afiliado conecta sua conta do Telegram, mantém a sessão do WhatsApp, organiza grupos de destino, registra Histórico, oferece teste manual e separa a Operação comum da automação de afiliados. O resultado é mais controle, menos retrabalho e uma rotina comercial muito mais previsível.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
@@ -890,7 +890,7 @@ function AuthScreen({
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
-                  title="Sessoes sempre visiveis"
+                  title="Sessões sempre visiveis"
                   label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir rápido quando precisar."
                   accentClassName="text-[#77E6A0]"
                 />
@@ -909,7 +909,7 @@ function AuthScreen({
               <div>
                 <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
                 <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
-                  Acesse o painel para configurar suas conexões, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um so lugar.
+                  Acesse o painel para configurar suas conexões, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um só lugar.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
@@ -1279,8 +1279,8 @@ function Overview({
     criticalAlerts.push({
       id: 'telegram-session',
       title: 'Telegram desconectado',
-      detail: 'A captura de mensagens esta pausada até concluir o login.',
-      cta: 'Revisar conexao',
+      detail: 'A captura de mensagens está pausada até concluir o login.',
+      cta: 'Revisar conexão',
       goTo: 'connections'
     });
   }
@@ -1288,7 +1288,7 @@ function Overview({
   if (state.whatsAppStatus !== 'ready') {
     criticalAlerts.push({
       id: 'whatsapp-session',
-      title: 'WhatsApp não esta pronto',
+      title: 'WhatsApp não está pronto',
       detail: 'As entregas podem falhar enquanto a sessão não estiver autenticada.',
       cta: 'Abrir config. WhatsApp',
       goTo: 'groups'
@@ -1509,7 +1509,7 @@ function Overview({
         <PlanUsageCard
           title="Plano e limites"
           planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
-          description="Acompanhe o que esta liberado no seu plano e quanto da estrutura atual já esta em uso."
+          description="Acompanhe o que está liberado no seu plano e quanto da estrutura atual já está em uso."
           items={[
             {
               label: 'Destinos WhatsApp',
@@ -1826,7 +1826,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
           <PlanUsageCard
             title="Uso do plano atual"
             planLabel={limits?.label || humanize(currentPlan)}
-            description="Estes numeros ajudam o cliente a entender o que já esta configurado e o que ainda cabe no plano."
+            description="Estes números ajudam o cliente a entender o que já está configurado e o que ainda cabe no plano."
             items={[
               {
                 label: 'Destinos WhatsApp',
@@ -2548,7 +2548,7 @@ function FlowsPanel({
                   Fluxo atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta esta com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
+                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta está com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
                 </p>
                 {flowFieldErrors.destinations ? (
                   <p className="mt-2 text-xs font-semibold text-amber-100">{flowFieldErrors.destinations}</p>
@@ -2782,7 +2782,7 @@ function WhatsAppDestinationSelector({
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
                   ? 'Estamos analisando seus grupos e separando apenas os destinos validos para envio.'
-                  : 'O WhatsApp ainda esta devolvendo a lista inicial. Na primeira sincronização isso pode levar alguns minutos.'}
+                  : 'O WhatsApp ainda está devolvendo a lista inicial. Na primeira sincronização isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -3180,7 +3180,7 @@ function Groups({
                     <Smartphone size={18} />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conexao</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conexão</p>
                     <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'não conectada'}</p>
                   </div>
                 </div>
@@ -3233,7 +3233,7 @@ function Groups({
             <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
               <div className="flex items-start justify-between gap-4 max-lg:flex-col">
                 <div>
-                  <p className="text-sm font-semibold">Conexao do WhatsApp</p>
+                  <p className="text-sm font-semibold">Conexão do WhatsApp</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                     Use a reconexao para tentar recuperar a sessão sem apagar dados do cliente.
                   </p>
@@ -3273,7 +3273,7 @@ function Groups({
                     </div>
                     <div>
                       <p className="text-sm font-semibold">Reconectar</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">Solicita uma nova tentativa de conexao.</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">Solicita uma nova tentativa de conexão.</p>
                     </div>
                   </div>
                 </button>
@@ -3327,7 +3327,7 @@ function Groups({
                       </p>
                       <p className="mt-1 text-xs text-[var(--muted)]">
                         {destructiveConfirmStep === 'wa-reset'
-                          ? 'Clique novamente para confirmar. Isso invalida a sessão atual.'
+                          ? 'Clique novamente para confirmar. Isso inválida a sessão atual.'
                           : 'Gera uma nova sessão para autenticar outra conta.'}
                       </p>
                     </div>
@@ -3346,7 +3346,7 @@ function Groups({
                     setBusy('reset-all');
                     await postJson('/api/connections/reset-all');
                     await refresh();
-                    setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexao.');
+                    setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conexão.');
                     setBusy('');
                     setDestructiveConfirmStep(null);
                   }}
@@ -3408,7 +3408,7 @@ function Groups({
                 <span>
                   <span className="block font-semibold text-white">Desconectar WhatsApp ao sair</span>
                   <span className="mt-1 block text-xs leading-5">
-                    Quando ativado, ao clicar em Sair o sistema derruba a sessão do WhatsApp e exige novo QR no proximo login.
+                    Quando ativado, ao clicar em Sair o sistema derruba a sessão do WhatsApp e exige novo QR no próximo login.
                   </span>
                 </span>
               </label>
@@ -3444,7 +3444,7 @@ function Groups({
                   {hasQrCode
                     ? 'Escaneie com o seu WhatsApp para concluir a Autenticação.'
                     : whatsAppConnected
-                      ? 'Sua sessão já esta conectada. O QR Code não e mais necessario.'
+                      ? 'Sua sessão já está conectada. O QR Code não é mais necessário.'
                       : 'Quando uma nova Autenticação for exigida, o QR Code será exibido aqui automaticamente.'}
                 </p>
               </div>
@@ -3856,7 +3856,7 @@ function AffiliateAutomationPanel({
         message: testMessage
       });
       setTestResult(result);
-      setNotice('Teste de conversão concluido.');
+      setNotice('Teste de conversão concluído.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'não foi possível concluir o teste de conversão.');
     } finally {
@@ -3991,7 +3991,7 @@ function AffiliateAutomationPanel({
 
         {!affiliateModuleAllowed ? (
           <p className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
-            Seu plano {planLimits?.label || 'atual'} esta em modo ponte simples. automação de Afiliados entra a partir do plano Plus.
+            Seu plano {planLimits?.label || 'atual'} está em modo ponte simples. automação de Afiliados entra a partir do plano Plus.
           </p>
         ) : null}
 
@@ -4591,7 +4591,7 @@ function AccountPanel({
                 <p className="text-sm font-semibold">Seguranca da conta</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {canChangePassword
-                    ? 'Use uma senha forte e atualize o acesso sempre que necessario.'
+                    ? 'Use uma senha forte e atualize o acesso sempre que necessário.'
                     : 'Esta conta usa Autenticação externa e a senha e gerenciada fora do Portal do Afiliado.'}
                 </p>
               </div>
@@ -4673,7 +4673,7 @@ function AccountPanel({
         <h2 className="mt-1 text-xl font-semibold">Identidade da conta</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           {usesGoogleAvatar
-            ? 'Sua foto esta sincronizada com o Google e e atualizada automaticamente.'
+            ? 'Sua foto está sincronizada com o Google e é atualizada automaticamente.'
             : 'Envie uma foto clara para identificar esta conta dentro do painel.'}
         </p>
 

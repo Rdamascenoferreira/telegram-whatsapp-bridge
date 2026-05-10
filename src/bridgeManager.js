@@ -85,7 +85,7 @@ export class BridgeManager {
     const normalizedUserId = String(userId ?? '').trim();
 
     if (!normalizedUserId) {
-      throw new Error('Usuario invalido para reiniciar a sessao.');
+      throw new Error('Usuário inválido para reiniciar a sessão.');
     }
 
     await this.destroyRuntimeForUserId(normalizedUserId);

@@ -161,7 +161,7 @@ export async function upsertAffiliateAutomation(userId, payload = {}) {
   const mergedRulesPayload = mergeAffiliateAutomationRulesPayload(currentAutomation, payload);
   const body = {
     user_id: userId,
-    name: cleanText(payload.name) || 'Automacao de afiliados',
+    name: cleanText(payload.name) || 'Automação de afiliados',
     telegram_source_group_id: cleanText(payload.telegramSourceGroupId),
     telegram_source_group_name: cleanText(payload.telegramSourceGroupName),
     unknown_link_behavior: normalizeUnknownBehavior(payload.unknownLinkBehavior),
@@ -208,7 +208,7 @@ export async function setAffiliateAutomationActive(userId, automationId, isActiv
   });
 
   if (!rows.length) {
-    throw new Error('Automacao nao encontrada.');
+    throw new Error('Automação não encontrada.');
   }
 }
 
@@ -246,7 +246,7 @@ export async function updateAffiliateAutomationRules(userId, automationId, paylo
   });
 
   if (!rows.length) {
-    throw new Error('Automacao nao encontrada.');
+    throw new Error('Automação não encontrada.');
   }
 }
 
@@ -377,7 +377,7 @@ async function replaceAffiliateDestinations(automationId, destinations) {
 
 async function supabaseRequest(endpoint, options = {}) {
   if (!cloudEnabled) {
-    throw new Error('Supabase nao configurado.');
+    throw new Error('Supabase não configurado.');
   }
 
   if (Date.now() < supabaseBreakerState.openUntil) {
@@ -441,7 +441,7 @@ async function supabaseRequest(endpoint, options = {}) {
   try {
     return JSON.parse(payload);
   } catch {
-    throw new Error(`Resposta invalida do Supabase em ${endpoint}.`);
+    throw new Error(`Resposta inválida do Supabase em ${endpoint}.`);
   }
 }
 

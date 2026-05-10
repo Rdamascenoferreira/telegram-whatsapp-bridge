@@ -66,7 +66,7 @@ function CompactSetupChecklist({
                 ? 'bg-sky-400/12 text-sky-100'
                 : 'text-[var(--muted)]'
           )}
-          title={step.done ? `${step.label}: concluido` : step.ready ? `${step.label}: pronto` : `${step.label}: pendente`}
+          title={step.done ? `${step.label}: concluído` : step.ready ? `${step.label}: pronto` : `${step.label}: pendente`}
         >
           <span
             className={cn(
