@@ -12,7 +12,6 @@ import {
   Eye,
   Gauge,
   LockKeyhole,
-  LogOut,
   Mail,
   MessageSquare,
   Power,
@@ -31,7 +30,24 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AvatarBadge, Field, LoadingScreen, ReadOnlyModeBanner } from './components/common-ui';
+import { ConnectionSummary, ConnectionsPanel, InternalSetupChecklist } from './components/connections-panel';
+import { FlowSaveActionsCard } from './components/flow-save-actions-card';
+import { Topbar } from './components/topbar';
+import { usePolledState } from './hooks/usePolledState';
+import { useSessionStorageBoolean } from './hooks/useSessionStorageBoolean';
+import { ApiRequestError, postJson, requestJson } from '../lib/http';
+import {
+  formatDate,
+  formatNumber,
+  formatOfferStatus,
+  humanize,
+  isWhatsAppConnectedStatus,
+  lastLabel,
+  normalizeRouteSourceId,
+  normalizeText
+} from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
 const panelVersion = 'Versao 1.15';
@@ -424,43 +440,21 @@ function normalizeAppState(nextState: AppState): AppState {
 }
 
 export default function Home() {
-  const [state, setState] = useState<AppState | null>(null);
-  const [bootError, setBootError] = useState('');
   const [view, setView] = useState<ViewKey>('overview');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
-  const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
-    return window.sessionStorage.getItem('affiliate-automation-editing') === 'true';
+  const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useSessionStorageBoolean('affiliate-automation-editing');
+  const { state, setState, bootError, setBootError, reload } = usePolledState<AppState>({
+    fetcher: async () => await requestJson<AppState>('/api/state'),
+    normalize: normalizeAppState,
+    defaultErrorMessage: 'Nao foi possivel carregar o painel agora. Tente novamente.',
+    pausePolling: view === 'flows' && affiliateAutomationEditing,
+    pollIntervalMs: 5000
   });
-
-  async function loadState() {
-    const nextState = await requestJson<AppState>('/api/state');
-    setBootError('');
-    setState(normalizeAppState(nextState));
-  }
-
-  useEffect(() => {
-    void loadState().catch((error) => {
-      setBootError(
-        error instanceof Error
-          ? error.message
-          : 'Nao foi possivel carregar o painel agora. Tente novamente.'
-      );
-    });
-    const timer = window.setInterval(() => {
-      if (view === 'flows' && affiliateAutomationEditing) {
-        return;
-      }
-
-      void loadState().catch(() => undefined);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [view, affiliateAutomationEditing]);
+  const loadState = useCallback(async () => {
+    await reload({ suppressBootError: true });
+  }, [reload]);
 
   useEffect(() => {
     if (!notice) {
@@ -474,33 +468,13 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    window.sessionStorage.setItem('affiliate-automation-editing', affiliateAutomationEditing ? 'true' : 'false');
-  }, [affiliateAutomationEditing]);
-
-  useEffect(() => {
-    if (!state?.auth.authenticated) {
-      setView('overview');
-    }
-  }, [state?.auth.authenticated]);
-
   if (!state) {
     return (
       <LoadingScreen
         error={bootError}
         onRetry={() => {
           setBootError('');
-          void loadState().catch((error) => {
-            setBootError(
-              error instanceof Error
-                ? error.message
-                : 'Nao foi possivel carregar o painel agora. Tente novamente.'
-            );
-          });
+          void reload().catch(() => undefined);
         }}
       />
     );
@@ -529,6 +503,25 @@ export default function Home() {
 
   const isAdmin = state.auth.user?.role === 'admin';
   const readOnlyAccount = isReadOnlyAccount(state);
+  const flowsPanelKey = affiliateAutomationEditing
+    ? 'editing'
+    : `${state.config.telegramChannel || ''}:${state.affiliate?.automations?.[0]?.id || 'no-automation'}:${state.affiliate?.automations?.[0]?.telegramSourceGroupId || ''}:${(state.config.selectedGroupIds || []).join(',')}`;
+  const connectionsPanelKey = `${state.config.telegramApiId || ''}:${state.config.telegramApiHash || ''}:${state.config.telegramPhone || ''}:${String(Boolean(state.config.hasTelegramSession))}:${state.telegram.authPhase || ''}:${state.telegramStatus || ''}`;
+  const groupsPanelKey = `${(state.config.selectedGroupIds || []).join(',')}:${String(Boolean(state.config.disconnectWhatsAppOnLogout))}`;
+  const affiliatePanelKey = `${state.affiliate?.account?.id || 'no-account'}:${state.affiliate?.automations?.[0]?.id || 'no-automation'}`;
+  const accountPanelKey = `${state.auth.user?.id || 'anonymous'}:${state.auth.user?.name || ''}:${state.auth.user?.avatarUrl || ''}`;
+  const topbarHasTelegramSource = hasOperationalTelegramSource(state);
+  const topbarHasWhatsAppDestination = hasOperationalWhatsAppDestination(state);
+  const topbarWhatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
+  const topbarCanEnableAutomation = canEnableAutomationState(state);
+  const topbarEffectiveBridgeEnabled = state.config.bridgeEnabled && topbarCanEnableAutomation;
+  const topbarSteps = [
+    { label: 'Telegram', done: state.telegramStatus === 'listening' },
+    { label: 'WhatsApp', done: topbarWhatsAppConnected },
+    { label: 'Origem', done: topbarHasTelegramSource },
+    { label: 'Destino', done: topbarHasWhatsAppDestination },
+    { label: 'Ativo', done: topbarEffectiveBridgeEnabled, ready: !topbarEffectiveBridgeEnabled && topbarCanEnableAutomation }
+  ];
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -571,7 +564,9 @@ export default function Home() {
 
         <section className="min-w-0 px-6 py-5 max-sm:px-4">
           <Topbar
-            state={state}
+            telegramStatus={state.telegramStatus}
+            whatsAppStatus={state.whatsAppStatus}
+            steps={topbarSteps}
             onLogout={async () => {
               setView('overview');
               try {
@@ -594,10 +589,21 @@ export default function Home() {
             <Overview state={state} setNotice={setNotice} setBusy={setBusy} busy={busy} refresh={loadState} />
           ) : null}
           {view === 'connections' ? (
-            <Connections state={state} setNotice={setNotice} setBusy={setBusy} busy={busy} refresh={loadState} />
+            <ConnectionsPanel
+              key={connectionsPanelKey}
+              state={state}
+              setNotice={setNotice}
+              setBusy={setBusy}
+              busy={busy}
+              refresh={loadState}
+              readOnlyAccount={readOnlyAccount}
+              primaryButtonClassName={primaryButton}
+              secondaryButtonClassName={secondaryButton}
+            />
           ) : null}
           {view === 'groups' ? (
             <Groups
+              key={groupsPanelKey}
               state={state}
               setNotice={setNotice}
               setBusy={setBusy}
@@ -607,6 +613,7 @@ export default function Home() {
           ) : null}
           {view === 'flows' ? (
             <FlowsPanel
+              key={flowsPanelKey}
               state={state}
               setNotice={setNotice}
               setBusy={setBusy}
@@ -620,6 +627,7 @@ export default function Home() {
           ) : null}
           {view === 'affiliate' ? (
             <AffiliateAutomationPanel
+              key={affiliatePanelKey}
               state={state}
               setNotice={setNotice}
               setBusy={setBusy}
@@ -629,88 +637,11 @@ export default function Home() {
           ) : null}
           {view === 'planUsage' ? <PlanUsagePanel state={state} setView={setView} /> : null}
           {view === 'activity' ? <ActivityLog state={state} /> : null}
-          {view === 'account' ? <AccountPanel state={state} refresh={loadState} setNotice={setNotice} /> : null}
+          {view === 'account' ? <AccountPanel key={accountPanelKey} state={state} refresh={loadState} setNotice={setNotice} /> : null}
           {view === 'admin' && isAdmin ? <AdminPanel state={state} refresh={loadState} setNotice={setNotice} /> : null}
         </section>
       </div>
     </main>
-  );
-}
-
-function LoadingScreen({
-  error,
-  onRetry
-}: {
-  error?: string;
-  onRetry?: () => void;
-}) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
-      <div className="min-w-[280px] rounded-lg border border-[var(--border)] bg-[var(--panel)] px-5 py-4 text-sm text-[var(--muted)]">
-        <div>Carregando painel...</div>
-        {error ? (
-          <div className="mt-3 space-y-3">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              {error}
-            </div>
-            <button
-              type="button"
-              onClick={onRetry}
-              className="rounded-md border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              Tentar novamente
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </main>
-  );
-}
-
-function ReadOnlyModeBanner() {
-  return (
-    <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-50">
-      <span className="font-semibold">Conta em teste:</span> este acesso esta em modo somente leitura. Voce pode navegar pelos paineis, mas edicoes e configuracoes precisam ser liberadas pelo administrador.
-    </div>
-  );
-}
-
-function AvatarBadge({
-  user,
-  size = 'lg'
-}: {
-  user: Partial<Pick<AuthUser, 'name' | 'email' | 'avatarUrl'>> | null;
-  size?: 'sm' | 'md' | 'lg';
-}) {
-  const sizeClass =
-    size === 'sm'
-      ? 'h-10 w-10 rounded-xl'
-      : size === 'md'
-        ? 'h-10 w-10 rounded-2xl'
-        : 'h-20 w-20 rounded-[24px]';
-  const iconClass = size === 'lg' ? 'h-10 w-10' : 'h-5 w-5';
-  const initials = String(user?.name || user?.email || 'PA')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || '')
-    .join('');
-
-  return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center overflow-hidden border border-emerald-400/20 bg-black/25 text-sm font-semibold text-emerald-50 shadow-[0_0_24px_rgba(43,214,140,0.15)]',
-        sizeClass
-      )}
-    >
-      {user?.avatarUrl ? (
-        <img src={user.avatarUrl} alt={user.name || 'Avatar'} className="h-full w-full object-cover" />
-      ) : (
-        <span className="flex items-center justify-center">
-          {initials || <User className={iconClass} />}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -1242,52 +1173,6 @@ function AuthTrustItem({
   );
 }
 
-function Topbar({
-  state,
-  onLogout
-}: {
-  state: AppState;
-  onLogout: () => Promise<void>;
-}) {
-  const hasTelegramSource = hasOperationalTelegramSource(state);
-  const hasWhatsAppDestination = hasOperationalWhatsAppDestination(state);
-  const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
-  const canEnableAutomation = canEnableAutomationState(state);
-  const effectiveBridgeEnabled = state.config.bridgeEnabled && canEnableAutomation;
-
-  return (
-    <header className="mb-5 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
-      <div className="min-w-0">
-        <p className="text-sm text-[var(--muted)]">Central operacional</p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="text-2xl font-semibold">Portal do Afiliado</h1>
-          <CompactSetupChecklist
-            steps={[
-              { label: 'Telegram', done: state.telegramStatus === 'listening' },
-              { label: 'WhatsApp', done: whatsAppConnected },
-              { label: 'Origem', done: hasTelegramSource },
-              { label: 'Destino', done: hasWhatsAppDestination },
-              { label: 'Ativo', done: effectiveBridgeEnabled, ready: !effectiveBridgeEnabled && canEnableAutomation }
-            ]}
-          />
-        </div>
-      </div>
-      <div className="flex items-center gap-2 max-sm:flex-wrap">
-        <StatusBadge label="Telegram" value={state.telegramStatus} />
-        <StatusBadge label="WhatsApp" value={state.whatsAppStatus} />
-        <button
-          type="button"
-          onClick={() => void onLogout()}
-          className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold hover:bg-white/5"
-        >
-          <LogOut size={16} />
-          Sair
-        </button>
-      </div>
-    </header>
-  );
-}
-
 function Overview({
   state,
   setNotice,
@@ -1474,7 +1359,7 @@ function Overview({
 
       <section className="grid grid-cols-[1fr_360px] gap-5 max-xl:grid-cols-1">
         <OffersPanel state={state} compact refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
-        <ConnectionSummary state={state} refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
+        <ConnectionSummary state={state} />
       </section>
 
       <ActivityLog state={state} compact />
@@ -1797,351 +1682,6 @@ function OffersPanel({
   );
 }
 
-function Connections({
-  state,
-  setNotice,
-  setBusy,
-  busy,
-  refresh
-}: {
-  state: AppState;
-  setNotice: (message: string) => void;
-  setBusy: (value: string) => void;
-  busy: string;
-  refresh: () => Promise<void>;
-}) {
-  const readOnlyAccount = isReadOnlyAccount(state);
-  const [telegramChannel, setTelegramChannel] = useState(state.config.telegramChannel || '');
-  const [telegramApiId, setTelegramApiId] = useState(state.config.telegramApiId || '');
-  const [telegramApiHash, setTelegramApiHash] = useState(state.config.telegramApiHash || '');
-  const [telegramPhone, setTelegramPhone] = useState(state.config.telegramPhone || '');
-  const [telegramCode, setTelegramCode] = useState('');
-  const [telegramPassword, setTelegramPassword] = useState('');
-  const hasSavedCredentials = Boolean(state.config.telegramApiId && state.config.telegramApiHash && state.config.telegramPhone);
-  const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
-  const [credentialsEditing, setCredentialsEditing] = useState(!hasSavedCredentials);
-  const credentialsEditingRef = useRef(credentialsEditing);
-  const previousTelegramSessionRef = useRef(hasTelegramSession);
-
-  useEffect(() => {
-    credentialsEditingRef.current = credentialsEditing;
-  }, [credentialsEditing]);
-
-  function restoreSavedCredentials() {
-    setTelegramApiId(state.config.telegramApiId || '');
-    setTelegramApiHash(state.config.telegramApiHash || '');
-    setTelegramPhone(state.config.telegramPhone || '');
-  }
-
-  useEffect(() => {
-    const telegramSessionJustConnected = !previousTelegramSessionRef.current && hasTelegramSession;
-    previousTelegramSessionRef.current = hasTelegramSession;
-
-    if (!credentialsEditingRef.current) {
-      setTelegramApiId(state.config.telegramApiId || '');
-      setTelegramApiHash(state.config.telegramApiHash || '');
-      setTelegramPhone(state.config.telegramPhone || '');
-    }
-
-    if (telegramSessionJustConnected) {
-      setCredentialsEditing(false);
-    } else if (!hasSavedCredentials) {
-      setCredentialsEditing(true);
-    }
-  }, [
-    state.config.telegramApiId,
-    state.config.telegramApiHash,
-    state.config.telegramPhone,
-    hasSavedCredentials,
-    hasTelegramSession
-  ]);
-
-  useEffect(() => {
-    if (state.telegram.authPhase !== 'password_required') {
-      setTelegramPassword('');
-    }
-
-    if (state.telegram.authPhase === 'idle' || state.telegram.authPhase === 'auth_required') {
-      setTelegramCode('');
-    }
-  }, [state.telegram.authPhase]);
-
-  const authPhase = state.telegram.authPhase || 'idle';
-  const telegramStatusLabel = humanize(state.telegramStatus || 'not_configured');
-  const telegramUserLabel = state.telegram.user?.name
-    ? state.telegram.user.name + (state.telegram.user.username ? ` (${state.telegram.user.username})` : '')
-    : '';
-  const hasTelegramConnection = state.telegramStatus === 'listening' || Boolean(state.telegram.user?.name);
-  const canUseAuthStep = hasSavedCredentials && !credentialsEditing && !hasTelegramSession;
-  const credentialsLocked = hasTelegramSession || (!credentialsEditing && hasSavedCredentials);
-  const telegramCodeSent = hasTelegramSession || authPhase === 'code_required' || authPhase === 'password_required';
-  const telegramInternalChecklist = [
-    { label: 'Salvar credenciais', done: hasSavedCredentials, ready: credentialsEditing && Boolean(telegramApiId && telegramApiHash && telegramPhone) },
-    { label: 'Enviar codigo', done: telegramCodeSent, ready: canUseAuthStep },
-    { label: 'Concluir login no Telegram', done: hasTelegramSession, ready: telegramCodeSent && !hasTelegramSession }
-  ];
-  const telegramChecklistComplete = telegramInternalChecklist.every((step) => step.done);
-  const telegramHeroStatusLabel = hasTelegramSession
-    ? 'Sessao ativa'
-    : authPhase === 'password_required'
-      ? 'Senha pendente'
-      : authPhase === 'code_required'
-        ? 'Codigo pendente'
-        : hasSavedCredentials
-          ? 'Credenciais salvas'
-          : 'Nao configurado';
-  const telegramHeroSessionLabel = hasTelegramConnection
-    ? telegramUserLabel || state.telegram.user?.phone || 'Sessao conectada'
-    : 'Sessao de usuario';
-
-  return (
-    <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
-      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
-          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-            <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Telegram</p>
-              <div className="mt-3 flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-                  <MessageSquare size={22} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do Telegram</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, valide o codigo de acesso e mantenha a sessao do Telegram pronta para alimentar os fluxos da operacao.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100">
-                {telegramHeroStatusLabel}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {telegramHeroSessionLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-5 px-6 py-6 max-sm:px-4">
-          <InternalSetupChecklist
-            title="Checklist do Config. Telegram"
-            steps={telegramInternalChecklist}
-            complete={telegramChecklistComplete}
-            completeLabel="Telegram 100% configurado"
-          />
-
-          <section className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
-          <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 1</p>
-              <h3 className="mt-1 text-lg font-semibold">Entrar na conta do Telegram</h3>
-              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Primeiro conecte sua conta. Depois a aba Fluxos libera a escolha da origem que vai alimentar a ponte simples ou o automatizador de ofertas.
-              </p>
-            </div>
-            <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-              {telegramStatusLabel}
-            </span>
-          </div>
-
-          <form
-            className="grid gap-4"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (readOnlyAccount) {
-                setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
-                return;
-              }
-              setBusy('settings');
-              await postJson('/api/settings', {
-                telegramMode: 'user',
-                telegramChannel: state.config.telegramChannel,
-                telegramApiId,
-                telegramApiHash,
-                telegramPhone,
-                telegramBotToken: ''
-              });
-              await refresh();
-              setNotice('Credenciais do Telegram salvas.');
-              setCredentialsEditing(false);
-              setBusy('');
-            }}
-          >
-            <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexao</p>
-              <p className="mt-1 text-sm font-semibold">Sessao de usuario</p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={readOnlyAccount || credentialsLocked} />
-              <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={readOnlyAccount || credentialsLocked} />
-              <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={readOnlyAccount || credentialsLocked} />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {credentialsEditing || !hasSavedCredentials ? (
-                <button
-                  type="submit"
-                  disabled={readOnlyAccount || busy === 'settings' || hasTelegramSession}
-                  className={primaryButton}
-                >
-                  Salvar credenciais
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'settings' || hasTelegramSession}
-                  className={primaryButton}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    restoreSavedCredentials();
-                    setTelegramCode('');
-                    setTelegramPassword('');
-                    setCredentialsEditing(true);
-                  }}
-                >
-                  Editar credenciais
-                </button>
-              )}
-              </div>
-            </form>
-
-            <>
-              <div className="mt-5 grid gap-4 lg:grid-cols-[180px_1fr]">
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
-                  onClick={async () => {
-                    setBusy('telegram-send-code');
-                    try {
-                      await postJson('/api/settings', {
-                        telegramMode: 'user',
-                        telegramChannel: state.config.telegramChannel,
-                        telegramApiId,
-                        telegramApiHash,
-                        telegramPhone,
-                        telegramBotToken: ''
-                      });
-                      await postJson('/api/telegram/send-code');
-                      await refresh();
-                      setNotice('Codigo enviado para o Telegram.');
-                    } catch (error) {
-                      setNotice(error instanceof Error ? error.message : 'Nao foi possivel enviar o codigo do Telegram.');
-                    } finally {
-                      setBusy('');
-                    }
-                  }}
-                  className={primaryButton}
-                >
-                  Enviar codigo
-                </button>
-
-                <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
-                  <Field
-                    label="Codigo recebido"
-                    value={telegramCode}
-                    onChange={setTelegramCode}
-                    placeholder="Digite o codigo do Telegram"
-                    disabled={readOnlyAccount || !canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
-                  />
-                  <Field
-                    label="Senha em duas etapas"
-                    value={telegramPassword}
-                    onChange={setTelegramPassword}
-                    placeholder="Preencha apenas se o Telegram pedir"
-                    disabled={readOnlyAccount || !canUseAuthStep || authPhase !== 'password_required'}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
-                  onClick={async () => {
-                    setBusy('telegram-complete-auth');
-                    try {
-                      await postJson('/api/telegram/complete-auth', {
-                        code: telegramCode,
-                        password: telegramPassword
-                      });
-                      await refresh();
-                      setNotice(
-                        authPhase === 'password_required'
-                          ? 'Senha enviada. Conta do Telegram conectada.'
-                          : 'Login do Telegram concluido.'
-                      );
-                    } catch (error) {
-                      setNotice(error instanceof Error ? error.message : 'Nao foi possivel concluir o login do Telegram.');
-                    } finally {
-                      setBusy('');
-                    }
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
-                >
-                  {authPhase === 'password_required' ? 'Enviar senha em duas etapas' : 'Concluir login no Telegram'}
-                </button>
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'telegram-disconnect' || !hasSavedCredentials}
-                  onClick={async () => {
-                    setBusy('telegram-disconnect');
-                    await postJson('/api/telegram/disconnect');
-                    setTelegramApiId('');
-                    setTelegramApiHash('');
-                    setTelegramPhone('');
-                    setTelegramChannel('');
-                    setTelegramCode('');
-                    setTelegramPassword('');
-                    await refresh();
-                    setNotice('Telegram desconectado e configuracoes removidas.');
-                    setBusy('');
-                  }}
-                  className={secondaryButton}
-                >
-                  Desconectar Telegram
-                </button>
-              </div>
-
-              <p className="mt-4 text-sm text-[var(--muted)]">
-                {telegramUserLabel
-                  ? `Conta conectada: ${telegramUserLabel}.`
-                  : authPhase === 'password_required'
-                    ? 'O Telegram pediu a senha em duas etapas para concluir a conexao.'
-                    : authPhase === 'code_required'
-                      ? 'Digite o codigo enviado para concluir a conexao.'
-                      : authPhase === 'auth_required'
-                        ? 'Envie um codigo para iniciar a conexao da sua conta.'
-                    : 'Sua sessao do Telegram ficara salva para reconectar depois sem bot.'}
-              </p>
-            </>
-        </section>
-
-        <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
-          <div className="flex items-start justify-between gap-3 max-md:flex-col">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Proximo passo</p>
-              <h3 className="mt-1 text-lg font-semibold">Defina os fluxos na aba dedicada</h3>
-              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Depois de concluir o login, use a aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span> para escolher se esta conta vai operar a ponte simples ou o automatizador de ofertas.
-              </p>
-            </div>
-            <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-              {hasTelegramConnection ? 'Sessao pronta' : 'Aguardando login'}
-            </span>
-          </div>
-        </section>
-        </div>
-      </section>
-
-      <ConnectionSummary state={state} refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
-    </div>
-  );
-}
-
 function FlowsPanel({
   state,
   setNotice,
@@ -2265,47 +1805,12 @@ function FlowsPanel({
   });
 
   useEffect(() => {
-    if (!isAutomationEditing) {
-      setTelegramChannel(state.config.telegramChannel || '');
-      setAffiliateTelegramChannel(savedAffiliateSource);
-      setAffiliateTelegramForwardEnabled(
-        Boolean(activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId)
-      );
-      setAffiliateTelegramDestinationId(activeAutomation?.telegramDestinationGroupId || '');
-      setTelegramFlow(savedTelegramFlow);
-      setFlowFieldErrors({});
-      setReviewBeforeSave(false);
-    }
-  }, [
-    activeAutomation?.telegramDestinationGroupId,
-    activeAutomation?.telegramForwardEnabled,
-    isAutomationEditing,
-    savedAffiliateSource,
-    savedTelegramFlow,
-    state.config.telegramChannel
-  ]);
-
-  useEffect(() => {
     if (!hasSavedSource && !readOnlyAccount) {
       setAutomationEditing(true);
     }
   }, [hasSavedSource, readOnlyAccount, setAutomationEditing]);
 
-  useEffect(() => {
-    if (!isAutomationEditing) {
-      return;
-    }
-
-    setReviewBeforeSave(false);
-  }, [
-    isAutomationEditing,
-    telegramFlow,
-    telegramChannel,
-    affiliateTelegramChannel,
-    affiliateTelegramForwardEnabled,
-    affiliateTelegramDestinationId,
-    selectedWhatsAppDestinationCount
-  ]);
+  const shouldShowFlowReview = reviewBeforeSave && isAutomationEditing && hasPendingFlowChanges;
 
   async function saveFlow() {
     const nextFieldErrors: FlowFieldErrors = {};
@@ -2350,7 +1855,7 @@ function FlowsPanel({
       return;
     }
 
-    if (!reviewBeforeSave) {
+    if (!shouldShowFlowReview) {
       setReviewBeforeSave(true);
       setNotice('Revise o resumo e confirme para salvar o fluxo.');
       return;
@@ -2687,79 +2192,40 @@ function FlowsPanel({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
-                <p className="text-sm font-semibold">Acoes do fluxo</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Edite a origem, recarregue a lista de chats do Telegram e salve a operacao escolhida.
-                </p>
-                {reviewBeforeSave ? (
-                  <div className="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-400/10 px-3 py-3 text-xs leading-5 text-cyan-100">
-                    <p className="font-semibold">Resumo para revisao</p>
-                    <p className="mt-1">Fluxo: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}</p>
-                    <p>Origem: {getTelegramChatName(state, selectedRouteSource)}</p>
-                    <p>Destinos WhatsApp: {selectedWhatsAppDestinationCount}</p>
-                    <p>
-                      Encaminhar para Telegram:{' '}
-                      {telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
-                        ? getTelegramChatName(state, affiliateTelegramDestinationId)
-                        : 'Nao'}
-                    </p>
-                    <p className="mt-2 font-semibold">Alteracoes detectadas:</p>
-                    {pendingFlowChanges.map((change, index) => (
-                      <p key={`flow-change-${index}`}>- {change}</p>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="mt-4 grid gap-2">
-                  <button
-                    type="button"
-                    disabled={
-                      readOnlyAccount ||
-                      busy === 'save-source' ||
-                      (isAutomationEditing && !selectedRouteSource.trim()) ||
-                      (isAutomationEditing && !hasPendingFlowChanges && !reviewBeforeSave)
-                    }
-                    onClick={() => {
-                      if (!isAutomationEditing) {
-                        setAutomationEditing(true);
-                        return;
-                      }
-                      flowFormRef.current?.requestSubmit();
-                    }}
-                    className={primaryButton}
-                  >
-                    {isAutomationEditing || !hasSavedSource
-                      ? reviewBeforeSave
-                        ? 'Confirmar e salvar'
-                        : 'Revisar antes de salvar'
-                      : 'Editar fluxo'}
-                  </button>
-                  {reviewBeforeSave ? (
-                    <button
-                      type="button"
-                      className={secondaryButton}
-                      onClick={() => setReviewBeforeSave(false)}
-                    >
-                      Voltar e editar
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={readOnlyAccount || busy === 'telegram-chats'}
-                    onClick={async () => {
-                      setBusy('telegram-chats');
-                      await postJson('/api/telegram/refresh-chats');
-                      await refresh();
-                      setNotice('Lista de grupos e canais do Telegram atualizada.');
-                      setBusy('');
-                    }}
-                    className={secondaryButton}
-                  >
-                    <RefreshCcw size={16} />
-                    Atualizar origens
-                  </button>
-                </div>
-              </div>
+              <FlowSaveActionsCard
+                readOnlyAccount={readOnlyAccount}
+                busy={busy}
+                isAutomationEditing={isAutomationEditing || !hasSavedSource}
+                selectedRouteSource={selectedRouteSource}
+                hasPendingFlowChanges={hasPendingFlowChanges}
+                shouldShowFlowReview={shouldShowFlowReview}
+                telegramFlow={telegramFlow}
+                selectedSourceName={getTelegramChatName(state, selectedRouteSource)}
+                selectedWhatsAppDestinationCount={selectedWhatsAppDestinationCount}
+                telegramForwardLabel={
+                  telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
+                    ? getTelegramChatName(state, affiliateTelegramDestinationId)
+                    : 'Nao'
+                }
+                pendingFlowChanges={pendingFlowChanges}
+                onEditOrSubmit={() => {
+                  if (!isAutomationEditing && hasSavedSource) {
+                    setAutomationEditing(true);
+                    return;
+                  }
+                  flowFormRef.current?.requestSubmit();
+                }}
+                onCancelReview={() => setReviewBeforeSave(false)}
+                onRefreshOrigins={async () => {
+                  setBusy('telegram-chats');
+                  await postJson('/api/telegram/refresh-chats');
+                  await refresh();
+                  setNotice('Lista de grupos e canais do Telegram atualizada.');
+                  setBusy('');
+                }}
+                primaryButtonClassName={primaryButton}
+                secondaryButtonClassName={secondaryButton}
+              />
             </div>
           </form>
 
@@ -2867,26 +2333,6 @@ function WhatsAppDestinationSelector({
     () => filteredGroups.map((group) => group.id),
     [filteredGroups]
   );
-
-  useEffect(() => {
-    const nextSelected = new Set(state.config.selectedGroupIds);
-
-    setSelected((currentSelected) => {
-      if (hasPendingSelectionChanges && !areSameSet(currentSelected, nextSelected)) {
-        return currentSelected;
-      }
-
-      if (areSameSet(currentSelected, nextSelected)) {
-        return currentSelected;
-      }
-
-      return nextSelected;
-    });
-
-    if (hasPendingSelectionChanges && areSameSet(selected, nextSelected)) {
-      setHasPendingSelectionChanges(false);
-    }
-  }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
 
   useEffect(() => {
     if (!state.metrics.groupsRefreshing) {
@@ -3303,30 +2749,6 @@ function Groups({
     return state.groups
       .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
   }, [selected, state.groups]);
-
-  useEffect(() => {
-    const nextSelected = new Set(state.config.selectedGroupIds);
-
-    setSelected((currentSelected) => {
-      if (hasPendingSelectionChanges && !areSameSet(currentSelected, nextSelected)) {
-        return currentSelected;
-      }
-
-      if (areSameSet(currentSelected, nextSelected)) {
-        return currentSelected;
-      }
-
-      return nextSelected;
-    });
-
-    if (hasPendingSelectionChanges && areSameSet(selected, nextSelected)) {
-      setHasPendingSelectionChanges(false);
-    }
-  }, [hasPendingSelectionChanges, selected, state.config.selectedGroupIds]);
-
-  useEffect(() => {
-    setDisconnectOnLogout(Boolean(state.config.disconnectWhatsAppOnLogout));
-  }, [state.config.disconnectWhatsAppOnLogout]);
 
   return (
     <div className="grid gap-5">
@@ -3856,35 +3278,6 @@ function Groups({
   );
 }
 
-function ConnectionSummary({
-  state,
-  refresh,
-  setNotice,
-  setBusy,
-  busy
-}: {
-  state: AppState;
-  refresh: () => Promise<void>;
-  setNotice: (message: string) => void;
-  setBusy: (value: string) => void;
-  busy: string;
-}) {
-  return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexoes</p>
-      <div className="mt-4 grid gap-3">
-        <ConnectionRow icon={Bot} label="Telegram" status={state.telegramStatus} detail={state.telegram.user?.name || state.config.telegramChannel || 'Aguardando configuracao'} />
-        <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sessao ainda nao conectada'} />
-      </div>
-
-      {state.issue?.message ? (
-        <p className="mt-4 rounded-md border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100">
-          {state.issue.message}
-        </p>
-      ) : null}
-    </section>
-  );
-}
 
 function StatusPill({ status }: { status: string }) {
   const label = formatOfferStatus(status);
@@ -3964,137 +3357,6 @@ function SystemPowerSwitch({
   );
 }
 
-function CompactSetupChecklist({
-  steps
-}: {
-  steps: Array<{
-    label: string;
-    done: boolean;
-    ready?: boolean;
-  }>;
-}) {
-  const doneCount = steps.filter((step) => step.done).length;
-
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-[var(--border)] bg-black/10 px-2 py-1.5">
-      {steps.map((step, index) => (
-        <span
-          key={step.label}
-          className={cn(
-            'inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-semibold transition',
-            step.done
-              ? 'bg-emerald-400/12 text-emerald-100'
-              : step.ready
-                ? 'bg-sky-400/12 text-sky-100'
-                : 'text-[var(--muted)]'
-          )}
-          title={step.done ? `${step.label}: concluido` : step.ready ? `${step.label}: pronto` : `${step.label}: pendente`}
-        >
-          <span
-            className={cn(
-              'flex h-4 w-4 items-center justify-center rounded-full border text-[10px]',
-              step.done
-                ? 'border-emerald-400/30 bg-emerald-400/15 text-emerald-100'
-                : step.ready
-                  ? 'border-sky-400/30 bg-sky-400/15 text-sky-100'
-                  : 'border-white/15 bg-white/5 text-[var(--muted)]'
-            )}
-          >
-            {step.done ? <CheckCircle2 size={11} /> : index + 1}
-          </span>
-          <span className="max-sm:hidden">{step.label}</span>
-        </span>
-      ))}
-      <span className="ml-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-100">
-        {doneCount}/5
-      </span>
-    </div>
-  );
-}
-
-function InternalSetupChecklist({
-  title,
-  steps,
-  complete,
-  completeLabel
-}: {
-  title: string;
-  steps: Array<{
-    label: string;
-    done: boolean;
-    ready?: boolean;
-  }>;
-  complete: boolean;
-  completeLabel: string;
-}) {
-  const doneCount = steps.filter((step) => step.done).length;
-
-  return (
-    <section
-      className={cn(
-        'rounded-2xl border p-4 transition',
-        complete
-          ? 'border-emerald-300/40 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.18),transparent_34%),rgba(16,185,129,0.08)] shadow-[0_0_0_1px_rgba(34,197,94,0.08),0_18px_45px_rgba(16,185,129,0.12)]'
-          : 'border-[var(--border)] bg-black/10'
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{title}</p>
-          <p className={cn('mt-1 text-sm font-semibold', complete ? 'text-emerald-100' : 'text-[var(--foreground)]')}>
-            {complete ? completeLabel : 'Complete as etapas para liberar a configuracao.'}
-          </p>
-        </div>
-        <span
-          className={cn(
-            'rounded-full px-3 py-1.5 text-sm font-bold',
-            complete
-              ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/30 animate-pulse'
-              : 'bg-white/5 text-[var(--muted)] ring-1 ring-white/10'
-          )}
-        >
-          {doneCount}/{steps.length}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        {steps.map((step, index) => (
-          <div
-            key={step.label}
-            className={cn(
-              'rounded-xl border px-3 py-3 transition',
-              step.done
-                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-50'
-                : step.ready
-                  ? 'border-sky-400/25 bg-sky-400/10 text-sky-50'
-                  : 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold',
-                  step.done
-                    ? 'border-emerald-300/40 bg-emerald-400/20 text-emerald-100'
-                    : step.ready
-                      ? 'border-sky-300/40 bg-sky-400/20 text-sky-100'
-                      : 'border-white/15 bg-white/5 text-[var(--muted)]'
-                )}
-              >
-                {step.done ? <CheckCircle2 size={14} /> : index + 1}
-              </span>
-              <p className="text-sm font-semibold">{step.label}</p>
-            </div>
-            <p className="mt-2 text-xs leading-5 opacity-80">
-              {step.done ? 'Concluido' : step.ready ? 'Pronto para executar' : 'Pendente'}
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function AffiliateAutomationPanel({
   state,
   setNotice,
@@ -4128,14 +3390,6 @@ function AffiliateAutomationPanel({
     rewriteMode?: string;
     rewriteError?: string;
   } | null>(null);
-
-  useEffect(() => {
-    setAffiliateRulesEditing(false);
-  }, [activeAutomation?.id]);
-
-  useEffect(() => {
-    setAffiliateAccountEditing(false);
-  }, [affiliate.account?.id]);
 
   async function submitAccount(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -4856,14 +4110,8 @@ function AccountPanel({
   const [nextPassword, setNextPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState('');
-  const [previewAvatar, setPreviewAvatar] = useState('');
+  const [previewAvatar, setPreviewAvatar] = useState(user?.avatarUrl || '');
   const [profileEditing, setProfileEditing] = useState(false);
-
-  useEffect(() => {
-    setName(user?.name || '');
-    setPreviewAvatar(user?.avatarUrl || '');
-    setProfileEditing(false);
-  }, [user?.name, user?.avatarUrl]);
 
   const providers = user?.providers || [];
   const usesGoogleAvatar = providers.includes('google');
@@ -5391,79 +4639,6 @@ function AdminRuntimeStatusPill({ label, value }: { label: string; value: string
   );
 }
 
-function Field({
-  label,
-  name,
-  type = 'text',
-  placeholder,
-  autoComplete,
-  disabled,
-  value,
-  onChange,
-  icon: Icon,
-  rightSlot
-}: {
-  label: string;
-  name?: string;
-  type?: string;
-  placeholder?: string;
-  autoComplete?: string;
-  disabled?: boolean;
-  value?: string;
-  onChange?: (value: string) => void;
-  icon?: typeof Mail;
-  rightSlot?: ReactNode;
-}) {
-  return (
-    <label className="grid gap-2.5 text-sm font-semibold text-[#F8FAFC]">
-      {label}
-      <span className="relative block">
-        {Icon ? (
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7D8D86]">
-            <Icon size={20} />
-          </span>
-        ) : null}
-        <input
-          name={name}
-          type={type}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          disabled={disabled}
-          value={value}
-          onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-          className={cn(inputClass, Icon ? 'pl-12' : '', rightSlot ? 'pr-12' : '')}
-        />
-        {rightSlot ? (
-          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">{rightSlot}</span>
-        ) : null}
-      </span>
-    </label>
-  );
-}
-
-function StatusBadge({ label, value }: { label: string; value: string }) {
-  const good = ['ready', 'listening', 'authenticated'].includes(value);
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-semibold',
-        good ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-[var(--border)] bg-black/10 text-[var(--muted)]'
-      )}
-    >
-      <span className={cn('h-2 w-2 rounded-full', good ? 'bg-[var(--accent)]' : 'bg-[var(--warning)]')} />
-      {label}: {value}
-    </span>
-  );
-}
-
-function isWhatsAppConnectedStatus(value: string) {
-  return ['ready'].includes(String(value ?? '').trim().toLowerCase());
-}
-
-function normalizeRouteSourceId(value?: string | null) {
-  return String(value ?? '').trim();
-}
-
 function getFlowHealthStatus({
   selected,
   saved,
@@ -5670,31 +4845,6 @@ function PlanUsageCard({
   );
 }
 
-function ConnectionRow({
-  icon: Icon,
-  label,
-  status,
-  detail
-}: {
-  icon: typeof Bot;
-  label: string;
-  status: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-md border border-[var(--border)] bg-black/10 p-3">
-      <div className="flex items-center gap-3">
-        <Icon size={18} className="text-[var(--accent)]" />
-        <div className="min-w-0">
-          <p className="font-semibold">{label}</p>
-          <p className="truncate text-sm text-[var(--muted)]">{detail}</p>
-        </div>
-        <span className="ml-auto text-xs font-semibold text-[var(--muted)]">{status}</span>
-      </div>
-    </div>
-  );
-}
-
 const inputClass =
   'h-[58px] w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 text-base text-[#F8FAFC] outline-none transition placeholder:text-[#6D7C75] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.05)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
 
@@ -5725,123 +4875,4 @@ async function readFileAsDataUrl(file: File) {
 
     reader.readAsDataURL(file);
   });
-}
-
-class ApiRequestError extends Error {
-  code?: string;
-  fieldErrors?: Record<string, string>;
-
-  constructor(message: string, options?: { code?: string; fieldErrors?: Record<string, string> }) {
-    super(message);
-    this.name = 'ApiRequestError';
-    this.code = options?.code;
-    this.fieldErrors = options?.fieldErrors;
-  }
-}
-
-async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 15000);
-
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
-      credentials: 'include',
-      ...options,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('A requisicao demorou demais para responder. Tente novamente.');
-    }
-
-    throw error;
-  } finally {
-    window.clearTimeout(timeout);
-  }
-
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new ApiRequestError(payload?.error || 'Nao foi possivel concluir a acao.', {
-      code: payload?.code,
-      fieldErrors: payload?.fieldErrors
-    });
-  }
-
-  return payload as T;
-}
-
-async function postJson<T = unknown>(url: string, body?: unknown): Promise<T> {
-  return requestJson<T>(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-}
-
-function formatNumber(value: number) {
-  return Number(value || 0).toLocaleString('pt-BR');
-}
-
-function formatDate(value?: string) {
-  if (!value) {
-    return 'Sem registro';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Sem registro';
-  }
-
-  return date.toLocaleString('pt-BR');
-}
-
-function lastLabel(value?: string) {
-  return value ? `Ultimo: ${formatDate(value)}` : 'Sem registro';
-}
-
-function formatOfferStatus(value: string) {
-  switch (String(value || '').toLowerCase()) {
-    case 'sent':
-      return 'Entregue';
-    case 'queued':
-      return 'Na fila';
-    case 'failed':
-      return 'Falhou';
-    case 'ignored':
-      return 'Ignorada';
-    case 'captured':
-      return 'Captada';
-    default:
-      return humanize(value || 'captured');
-  }
-}
-
-function areSameSet(left: Set<string>, right: Set<string>) {
-  if (left.size !== right.size) {
-    return false;
-  }
-
-  for (const value of left) {
-    if (!right.has(value)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function humanize(value: string) {
-  return String(value || '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function normalizeText(value: string) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
 }

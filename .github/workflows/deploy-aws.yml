@@ -7,7 +7,38 @@ on:
   workflow_dispatch:
 
 jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Backend tests
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm test
+
+      - name: Frontend lint and build
+        run: |
+          set -euo pipefail
+          cd web
+          npm ci --no-audit --no-fund
+          npm run lint
+          CI=1 npm run build
+
   deploy:
+    needs: ci
     runs-on: ubuntu-latest
 
     steps:
@@ -88,12 +119,9 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
+          SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=yes"
           ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "echo 'SSH authentication OK'"
@@ -104,36 +132,25 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
+          SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=yes"
           ARCHIVE_PATH="/tmp/telegram-whatsapp-bridge-release.tgz"
           ARCHIVE_SIZE="$(wc -c < "$ARCHIVE_PATH")"
           ARCHIVE_SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
 
           ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "rm -f /tmp/telegram-whatsapp-bridge-release.tgz"
 
           cat "$ARCHIVE_PATH" | ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "cat > /tmp/telegram-whatsapp-bridge-release.tgz"
 
           ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "REMOTE_SIZE=\$(wc -c < /tmp/telegram-whatsapp-bridge-release.tgz); REMOTE_SHA=\$(sha256sum /tmp/telegram-whatsapp-bridge-release.tgz | awk '{print \$1}'); test \"\$REMOTE_SIZE\" = \"$ARCHIVE_SIZE\"; test \"\$REMOTE_SHA\" = \"$ARCHIVE_SHA\""
@@ -147,14 +164,11 @@ jobs:
           AWS_DEPLOY_PM2_FRONTEND_APP_NAME: ${{ secrets.AWS_DEPLOY_PM2_FRONTEND_APP_NAME }}
         run: |
           set -euo pipefail
+          SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=yes"
           PM2_NAME="${AWS_DEPLOY_PM2_APP_NAME:-telegram-whatsapp-bridge}"
           PM2_FRONTEND_NAME="${AWS_DEPLOY_PM2_FRONTEND_APP_NAME:-portal-afiliado-web}"
           ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "APP_DIR='$AWS_DEPLOY_PATH' RELEASE_ARCHIVE='/tmp/telegram-whatsapp-bridge-release.tgz' PM2_APP_NAME='$PM2_NAME' PM2_FRONTEND_APP_NAME='$PM2_FRONTEND_NAME' bash -s" \
@@ -166,12 +180,9 @@ jobs:
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
         run: |
           set -euo pipefail
+          SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=yes"
           ssh \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=6 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
+            $SSH_OPTS \
             -p 22 \
             "$AWS_DEPLOY_USER@$AWS_DEPLOY_HOST" \
             "set -euo pipefail; \

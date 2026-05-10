@@ -184,6 +184,8 @@ Depois disso, cada `push` na `main` atualiza o servidor automaticamente.
 - A migracao da ponte antiga fica registrada em `data/migrations/legacy-workspace-owner.json`
 - As sessoes do WhatsApp ficam separadas em `.wwebjs_auth/session-user-<userId>`
 
+Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configurados, usuarios e perfis passam a ser lidos e gravados no Supabase. O schema esperado fica em `scripts/supabase-auth-schema.sql`.
+
 ## Observacoes importantes
 
 - Esta ponte usa `whatsapp-web.js`, que opera em cima do WhatsApp Web. Segundo a documentacao do projeto, isso reduz risco, mas nao garante que a conta nunca sera bloqueada.

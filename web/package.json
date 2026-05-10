@@ -7,7 +7,7 @@
     "dev": "node ./node_modules/next/dist/bin/next dev",
     "build": "node ./node_modules/next/dist/bin/next build",
     "start": "node ./node_modules/next/dist/bin/next start",
-    "lint": "node ./node_modules/next/dist/bin/next lint"
+    "lint": "node ./node_modules/eslint/bin/eslint.js . --max-warnings=0"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.2.4",

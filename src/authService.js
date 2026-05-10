@@ -513,7 +513,16 @@ export class AuthService {
 
       const source = request.headers.origin || request.headers.referer;
 
-      if (!source || this.isAllowedRequestSource(source, getRequestHosts(request))) {
+      if (!source) {
+        response.status(403).json({
+          authenticated: Boolean(request.user),
+          googleEnabled: this.googleEnabled,
+          error: 'Cabecalho de origem ausente. Recarregue o painel e tente novamente.'
+        });
+        return;
+      }
+
+      if (this.isAllowedRequestSource(source, getRequestHosts(request))) {
         next();
         return;
       }

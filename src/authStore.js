@@ -25,7 +25,7 @@ import { userPlanOptions as availableUserPlanOptions } from './planLimits.js';
 const dataDir = path.resolve(process.cwd(), 'data');
 const usersPath = path.join(dataDir, 'users.json');
 const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
-const primaryAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL || 'rdamascenoferreira@gmail.com');
+const primaryAdminEmail = resolvePrimaryAdminEmail();
 
 export const userRoleOptions = ['admin', 'member'];
 export const userPlanOptions = availableUserPlanOptions;
@@ -73,7 +73,26 @@ function normalizeEmail(email) {
 }
 
 export function isPrimaryAdminEmail(email) {
+  if (!primaryAdminEmail) {
+    return false;
+  }
+
   return normalizeEmail(email) === primaryAdminEmail;
+}
+
+function resolvePrimaryAdminEmail() {
+  const normalized = normalizeEmail(process.env.ADMIN_EMAIL);
+
+  if (normalized) {
+    return normalized;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Defina ADMIN_EMAIL com o e-mail principal de administrador antes de iniciar em producao.');
+  }
+
+  console.warn('ADMIN_EMAIL nao definido. Nao havera conta admin automatica neste ambiente.');
+  return '';
 }
 
 function buildProviders(user) {
