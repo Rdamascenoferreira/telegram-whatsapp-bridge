@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   Activity,
@@ -50,7 +50,7 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versao 1.17';
+const panelVersion = 'Versão 1.17';
 
 type AuthUser = {
   id: string;
@@ -345,7 +345,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'flows', label: 'Fluxos', icon: ArrowRight },
   { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
   { key: 'planUsage', label: 'Plano e Uso', icon: TrendingUp },
-  { key: 'activity', label: 'Historico', icon: Activity },
+  { key: 'activity', label: 'Histórico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
 ];
@@ -448,7 +448,7 @@ export default function Home() {
   const { state, setState, bootError, setBootError, reload } = usePolledState<AppState>({
     fetcher: async () => await requestJson<AppState>('/api/state'),
     normalize: normalizeAppState,
-    defaultErrorMessage: 'Nao foi possivel carregar o painel agora. Tente novamente.',
+    defaultErrorMessage: 'não foi possivel carregar o painel agora. Tente novamente.',
     pausePolling: view === 'flows' && affiliateAutomationEditing,
     pollIntervalMs: 5000
   });
@@ -491,7 +491,7 @@ export default function Home() {
               setNotice(
                 error instanceof Error
                   ? `Login realizado, mas o painel completo demorou para carregar: ${error.message}`
-                  : 'Login realizado, mas nao foi possivel carregar o painel completo.'
+                  : 'Login realizado, mas não foi possivel carregar o painel completo.'
               );
             });
           }}
@@ -683,7 +683,7 @@ function AuthScreen({
       void onAuthenticated(auth);
       setNotice('Login realizado com sucesso.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel continuar.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel continuar.');
     } finally {
       setBusy(false);
     }
@@ -701,7 +701,7 @@ function AuthScreen({
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
                 <Zap size={14} className="text-[#25D366]" />
-                  Operacao automatizada com <span className="text-[#25D366]">Telegram</span> + <span className="text-[#229ED9]">WhatsApp</span> + afiliados
+                  Operação automatizada com <span className="text-[#25D366]">Telegram</span> + <span className="text-[#229ED9]">WhatsApp</span> + afiliados
               </span>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
@@ -725,14 +725,14 @@ function AuthScreen({
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Centralize origem, destinos, sessoes, historico e testes em um painel pensado para operacao real. Quando quiser, ative o modulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para conversao.
+                    Centralize origem, destinos, sessoes, Histórico e testes em um painel pensado para Operação real. Quando quiser, ative o modulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para conversao.
                   </p>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <AuthMetricPill label="Origem Telegram" value="Conta propria" accentClassName="text-[#25D366]" />
                     <AuthMetricPill label="Entrega" value="WhatsApp controlado" accentClassName="text-[#229ED9]" />
                     <AuthMetricPill label="Afiliados" value="Amazon + Shopee" accentClassName="text-[#7EE59F]" />
-                    <AuthMetricPill label="Operacao" value="Historico e testes" accentClassName="text-[#9FD7FF]" />
+                    <AuthMetricPill label="Operação" value="Histórico e testes" accentClassName="text-[#9FD7FF]" />
                   </div>
                 </div>
               </div>
@@ -752,12 +752,12 @@ function AuthScreen({
                 <AuthFlowStep
                   icon={Send}
                   title="1. Conecte a origem"
-                  text="Faça login no Telegram com sua propria conta e escolha o grupo ou canal que sera monitorado."
+                  text="FaÃ§a login no Telegram com sua propria conta e escolha o grupo ou canal que será monitorado."
                 />
                 <AuthFlowStep
                   icon={Smartphone}
                   title="2. Defina os destinos"
-                  text="Conecte o WhatsApp, escolha os grupos de entrega e salve o fluxo da operacao em poucos passos."
+                  text="Conecte o WhatsApp, escolha os grupos de entrega e salve o fluxo da Operação em poucos passos."
                 />
                 <AuthFlowStep
                   icon={CreditCard}
@@ -768,12 +768,12 @@ function AuthScreen({
 
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Central de operacao</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Central de Operação</p>
                   <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
                     Uma estrutura pronta para rodar todo dia.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    O Portal do Afiliado conecta sua conta do Telegram, mantem a sessao do WhatsApp, organiza grupos de destino, registra historico, oferece teste manual e separa a operacao comum da automacao de afiliados. O resultado e mais controle, menos retrabalho e uma rotina comercial muito mais previsivel.
+                    O Portal do Afiliado conecta sua conta do Telegram, mantem a sessão do WhatsApp, organiza grupos de destino, registra Histórico, oferece teste manual e separa a Operação comum da automação de afiliados. O resultado e mais controle, menos retrabalho e uma rotina comercial muito mais previsivel.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
@@ -804,7 +804,7 @@ function AuthScreen({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Painel operacional</p>
-                        <p className="mt-1 text-sm text-[#DCE9E2]">Operacao acompanhada em tempo real</p>
+                        <p className="mt-1 text-sm text-[#DCE9E2]">Operação acompanhada em tempo real</p>
                       </div>
                       <div className="rounded-full border border-[rgba(37,211,102,0.2)] bg-[rgba(37,211,102,0.08)] px-2.5 py-1 text-[11px] font-semibold text-[#9CF0BF]">
                         Em monitoramento
@@ -830,7 +830,7 @@ function AuthScreen({
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px] text-[#7E9088]">
                         <span>Entrega monitorada</span>
-                        <span>Visao operacional</span>
+                        <span>Visão operacional</span>
                       </div>
                     </div>
 
@@ -843,7 +843,7 @@ function AuthScreen({
                       <AuthMiniSignal
                         icon={Smartphone}
                         title="WhatsApp"
-                        detail="Sessao valida"
+                        detail="sessão valida"
                         accentClassName="text-[#25D366]"
                         panelClassName="border-[rgba(37,211,102,0.14)] bg-[rgba(37,211,102,0.06)]"
                       />
@@ -864,39 +864,39 @@ function AuthScreen({
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
                   title="Origem controlada"
-                  text="Escolha exatamente qual grupo ou canal sera monitorado. A operacao parte de uma origem definida, com menos erro e mais consistencia."
+                  text="Escolha exatamente qual grupo ou canal será monitorado. A Operação parte de uma origem definida, com menos erro e mais consistencia."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
                   title="Teste antes do envio real"
-                  text="Simule mensagens, revise a saida final e ative a automacao so quando o fluxo estiver validado. Mais seguranca e menos tentativa no escuro."
+                  text="Simule mensagens, revise a saida final e ative a automação so quando o fluxo estiver validado. Mais seguranca e menos tentativa no escuro."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
                   title="Afiliados integrados"
-                  text="Converta links Amazon, organize a operacao da Shopee e mantenha o modulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
+                  text="Converta links Amazon, organize a Operação da Shopee e mantenha o modulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
                 />
               </div>
 
               <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] lg:grid-cols-3">
                 <AuthTrustItem
                   icon={TrendingUp}
-                  title="Historico auditavel"
+                  title="Histórico auditavel"
                   label="veja o que entrou, o que foi processado, para onde saiu e quando cada entrega aconteceu."
                   accentClassName="text-[#25D366]"
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
                   title="Sessoes sempre visiveis"
-                  label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir rapido quando precisar."
+                  label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir rápido quando precisar."
                   accentClassName="text-[#77E6A0]"
                 />
                 <AuthTrustItem
                   icon={Users}
                   title="Estrutura de SaaS real"
-                  label="conta, grupos, fluxos, afiliados, historico e administracao no mesmo ambiente."
+                  label="conta, grupos, fluxos, afiliados, Histórico e administracao no mesmo ambiente."
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
@@ -908,7 +908,7 @@ function AuthScreen({
               <div>
                 <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
                 <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
-                  Acesse o painel para configurar suas conexoes, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um so lugar.
+                  Acesse o painel para configurar suas conexões, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um so lugar.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
@@ -947,7 +947,7 @@ function AuthScreen({
               {mode === 'register' ? (
                 <Field label="Nome" name="name" placeholder="Seu nome" autoComplete="name" icon={Users} />
               ) : null}
-              <Field label="E-mail" name="email" placeholder="voce@empresa.com" autoComplete="email" icon={Mail} />
+              <Field label="E-mail" name="email" placeholder="você@empresa.com" autoComplete="email" icon={Mail} />
               <Field
                 label="Senha"
                 name="password"
@@ -961,7 +961,7 @@ function AuthScreen({
               <div className="-mt-1 flex items-center justify-end">
                 <button
                   type="button"
-                  onClick={() => setNotice('Recuperacao de senha estara disponivel em breve.')}
+                  onClick={() => setNotice('Recuperação de senha estará disponivel em breve.')}
                   className="text-sm font-semibold text-[#32D07C] transition hover:text-[#5EE19C] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.16)]"
                 >
                   Esqueci minha senha
@@ -984,11 +984,11 @@ function AuthScreen({
                   <Gauge size={18} className="text-[#7ED4FF]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#E8F6EF]">O que voce encontra depois do login</p>
+                  <p className="text-sm font-semibold text-[#E8F6EF]">O que você encontra depois do login</p>
                   <ul className="mt-2 grid gap-2 text-sm leading-6 text-[#AAB8B0]">
-                    <li>Configuracao separada para Telegram, WhatsApp, Fluxos e Afiliados.</li>
-                    <li>Historico operacional com mensagens, entregas e eventos recentes.</li>
-                    <li>Teste manual para validar a saida antes de ligar a automacao.</li>
+                    <li>configuração separada para Telegram, WhatsApp, Fluxos e Afiliados.</li>
+                    <li>Histórico operacional com mensagens, entregas e eventos recentes.</li>
+                    <li>Teste manual para validar a saida antes de ligar a automação.</li>
                   </ul>
                 </div>
               </div>
@@ -1010,7 +1010,7 @@ function AuthScreen({
               </a>
             ) : (
               <p className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[#AAB8B0]">
-                Login com Google estara disponivel em breve.
+                Login com Google estará disponivel em breve.
               </p>
             )}
 
@@ -1020,9 +1020,9 @@ function AuthScreen({
                   <ShieldCheck size={18} className="text-[#46E285]" />
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-[#E8F6EF]">Painel feito para operacao diaria</p>
+                  <p className="text-base font-semibold text-[#E8F6EF]">Painel feito para Operação diaria</p>
                   <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">
-                    Login, sessoes, grupos, fluxos, historico e afiliados centralizados em uma experiencia unica para quem precisa publicar, acompanhar e ajustar rapido.
+                    Login, sessoes, grupos, fluxos, Histórico e afiliados centralizados em uma experiencia unica para quem precisa publicar, acompanhar e ajustar rápido.
                   </p>
                 </div>
               </div>
@@ -1198,7 +1198,7 @@ function Overview({
   const groupProgressText =
     state.metrics.groupsRefreshing && progress?.total
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
-      : `${state.metrics.availableAdminGroupCount || 0} grupos disponiveis`;
+      : `${state.metrics.availableAdminGroupCount || 0} grupos disponíveis`;
   const deliveryStats = state.metrics.deliveryStats || {};
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'errors' | 'delivery' | 'auth'>('all');
   const totalForwarded = state.metrics.totalForwardedMessages || 0;
@@ -1266,7 +1266,7 @@ function Overview({
         typeText.includes('telegram') ||
         typeText.includes('whatsapp') ||
         messageText.includes('login') ||
-        messageText.includes('sessao') ||
+        messageText.includes('sessão') ||
         messageText.includes('telegram') ||
         messageText.includes('whatsapp')
       );
@@ -1278,7 +1278,7 @@ function Overview({
     criticalAlerts.push({
       id: 'telegram-session',
       title: 'Telegram desconectado',
-      detail: 'A captura de mensagens esta pausada ate concluir o login.',
+      detail: 'A captura de mensagens esta pausada até concluir o login.',
       cta: 'Revisar conexao',
       goTo: 'connections'
     });
@@ -1287,8 +1287,8 @@ function Overview({
   if (state.whatsAppStatus !== 'ready') {
     criticalAlerts.push({
       id: 'whatsapp-session',
-      title: 'WhatsApp nao esta pronto',
-      detail: 'As entregas podem falhar enquanto a sessao nao estiver autenticada.',
+      title: 'WhatsApp não esta pronto',
+      detail: 'As entregas podem falhar enquanto a sessão não estiver autenticada.',
       cta: 'Abrir config. WhatsApp',
       goTo: 'groups'
     });
@@ -1298,7 +1298,7 @@ function Overview({
     criticalAlerts.push({
       id: 'flow-config',
       title: 'Fluxo incompleto',
-      detail: 'Falta origem Telegram ou destino WhatsApp para a operacao completa.',
+      detail: 'Falta origem Telegram ou destino WhatsApp para a Operação completa.',
       cta: 'Configurar fluxo',
       goTo: 'flows'
     });
@@ -1317,22 +1317,22 @@ function Overview({
                 Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold">Operacao da ponte</h2>
+            <h2 className="mt-4 text-2xl font-semibold">Operação da ponte</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Acompanhe a saude das conexoes, controle a automacao e valide se as mensagens estao fluindo.
+              Acompanhe a saúde das conexões, controle a automação e valide se as mensagens estão fluindo.
             </p>
           </div>
           <div className="grid min-w-[280px] gap-3 rounded-xl border border-[var(--border)] bg-black/20 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold">Automacao ativa</p>
+                <p className="text-sm font-semibold">automação ativa</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">
                   {effectiveBridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
                     : state.config.bridgeEnabled
-                      ? 'A automacao foi pausada porque nem todas as conexoes estao prontas.'
+                      ? 'A automação foi pausada porque nem todas as conexões estão prontas.'
                     : canEnableAutomation
-                      ? 'As mensagens recebidas ficam sem encaminhamento ate voce ligar de novo.'
+                      ? 'As mensagens recebidas ficam sem encaminhamento até você ligar de novo.'
                       : automationLockReason}
                 </p>
               </div>
@@ -1341,7 +1341,7 @@ function Overview({
                 disabled={readOnlyAccount || busy === 'power' || !canEnableAutomation}
                 onChange={async (nextValue) => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
                     return;
                   }
 
@@ -1361,11 +1361,11 @@ function Overview({
 
             {readOnlyAccount ? (
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                Conta em teste: a automacao fica somente para visualizacao ate o administrador liberar.
+                Conta em teste: a automação fica somente para visualizacao até o administrador liberar.
               </p>
               ) : !canEnableAutomation ? (
                 <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                  O interruptor sera liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
+                  O interruptor será liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
                 </p>
               ) : null}
 
@@ -1375,7 +1375,7 @@ function Overview({
                 disabled={readOnlyAccount || busy === 'reset-all'}
                 onClick={async () => {
                   const confirmed = window.confirm(
-                    'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automacao. Deseja continuar?'
+                    'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automação. Deseja continuar?'
                   );
 
                   if (!confirmed) {
@@ -1385,7 +1385,7 @@ function Overview({
                   setBusy('reset-all');
                   await postJson('/api/connections/reset-all');
                   await refresh();
-                  setNotice('Conexoes resetadas. Agora voce pode configurar tudo de novo.');
+                  setNotice('conexões resetadas. Agora você pode configurar tudo de novo.');
                   setBusy('');
                 }}
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
@@ -1413,7 +1413,7 @@ function Overview({
         />
         <Metric
           icon={Activity}
-          label="Pendencias Telegram"
+          label="Pendências Telegram"
           value={pendingTelegramCount}
           detail={pendingTelegramCount > 0 ? 'Mensagens aguardando encaminhamento' : 'Sem backlog no Telegram'}
         />
@@ -1421,27 +1421,27 @@ function Overview({
           icon={AlertCircle}
           label="Alertas ativos"
           value={criticalAlerts.length}
-          detail={criticalAlerts.length > 0 ? 'Requer acao da operacao' : 'Sem alertas criticos no momento'}
+          detail={criticalAlerts.length > 0 ? 'Requer ação da Operação' : 'Sem alertas críticos no momento'}
         />
       </section>
 
       <section className="grid gap-3 xl:grid-cols-3 max-xl:grid-cols-1">
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
           <p className="mt-2 text-sm font-semibold">Qualidade de entrega</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Sucesso {successRate}% vs erros {errorRate}% com base no volume atual.
           </p>
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
-          <p className="mt-2 text-sm font-semibold">Pressao de retries</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
+          <p className="mt-2 text-sm font-semibold">Pressão de retries</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Falhas transientes representam {retriesShare}% do fluxo monitorado.
           </p>
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rapido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Comparativo rápido</p>
           <p className="mt-2 text-sm font-semibold">Score operacional</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Score atual {automationScore}/100 considerando erros e severidade.
@@ -1452,7 +1452,7 @@ function Overview({
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
         <div className="flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Atencao agora</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Atenção agora</p>
             <p className="mt-1 text-sm text-[var(--muted)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
           </div>
           <button
@@ -1495,7 +1495,7 @@ function Overview({
             ))
           ) : (
             <p className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
-              Operacao estavel: conexoes, fluxo e destinos estao prontos.
+              Operação estável: conexões, fluxo e destinos estão prontos.
             </p>
           )}
         </div>
@@ -1505,7 +1505,7 @@ function Overview({
         <PlanUsageCard
           title="Plano e limites"
           planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
-          description="Acompanhe o que esta liberado no seu plano e quanto da estrutura atual ja esta em uso."
+          description="Acompanhe o que esta liberado no seu plano e quanto da estrutura atual já esta em uso."
           items={[
             {
               label: 'Destinos WhatsApp',
@@ -1526,13 +1526,13 @@ function Overview({
               detail:
                 (state.affiliate?.automations?.length || 0) > 0
                   ? `${state.affiliate?.automations?.length || 0} regra(s) criada(s)`
-                  : 'Nenhuma automacao criada ainda'
+                  : 'Nenhuma automação criada ainda'
             }
           ]}
           featureBadges={[
             { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
             { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
-            { label: 'Historico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
+            { label: 'Histórico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
             { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
           ]}
         />
@@ -1560,7 +1560,7 @@ function Overview({
             icon={AlertCircle}
             label="Falhas fatais"
             value={deliveryStats.fatalFailures || 0}
-            detail="Erros definitivos que exigem atencao operacional"
+            detail="Erros definitivos que exigem Atenção operacional"
           />
         </section>
       </section>
@@ -1569,8 +1569,8 @@ function Overview({
         <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Saude dos fluxos</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Visao rapida da Ponte e do Automatizador de Ofertas.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">saúde dos fluxos</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Visão rapida da Ponte e do Automatizador de Ofertas.</p>
             </div>
             <button
               type="button"
@@ -1598,7 +1598,7 @@ function Overview({
                   {bridgeHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em operacao.'}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em Operação.'}</p>
             </div>
 
             <div className="rounded-lg border border-white/10 bg-black/10 p-3">
@@ -1617,7 +1617,7 @@ function Overview({
                   {affiliateHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em operacao.'}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em Operação.'}</p>
             </div>
           </div>
         </article>
@@ -1626,13 +1626,13 @@ function Overview({
           <div className="flex items-start justify-between gap-3 max-md:flex-col">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Timeline operacional</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Ultimos eventos com filtro rapido para investigacao.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Últimos eventos com filtro rápido para investigação.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'all' ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Todos</button>
               <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'errors' ? 'border-red-400/20 bg-red-400/10 text-red-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Erros</button>
               <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'delivery' ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Entrega</button>
-              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Autenticacao</button>
+              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Autenticação</button>
             </div>
           </div>
 
@@ -1669,14 +1669,14 @@ function Overview({
         <div className="flex items-start justify-between gap-3 max-md:flex-col">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Drill-down de falhas</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">Separacao por tipo para acelerar correcao operacional.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Separação por tipo para acelerar correção operacional.</p>
           </div>
           <button
             type="button"
             onClick={() => setView('activity')}
             className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
           >
-            Abrir historico completo
+            Abrir Histórico completo
           </button>
         </div>
 
@@ -1689,7 +1689,7 @@ function Overview({
               </span>
             </div>
             <p className="mt-1 text-xs leading-5 text-amber-100/90">
-              Geralmente ligadas a instabilidade de sessao/rede. Recomendado: revisar conexoes e repetir sincronizacao.
+              Geralmente ligadas a instabilidade de sessão/rede. Recomendado: revisar conexões e repetir sincronização.
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -1697,7 +1697,7 @@ function Overview({
                 onClick={() => setView('connections')}
                 className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
               >
-                Revisar conexoes
+                Revisar conexões
               </button>
               <button
                 type="button"
@@ -1717,7 +1717,7 @@ function Overview({
               </span>
             </div>
             <p className="mt-1 text-xs leading-5 text-red-100/90">
-              Erros que pedem acao imediata. Recomendado: checar historico detalhado e regras de envio/credenciais.
+              Erros que pedem ação imediata. Recomendado: checar Histórico detalhado e regras de envio/credenciais.
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -1774,21 +1774,21 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
       key: 'plus',
       name: 'Plus',
       tone: 'border-emerald-400/20 bg-emerald-400/[0.06]',
-      description: 'Primeira camada comercial para operacao real.',
+      description: 'Primeira camada comercial para Operação real.',
       highlights: ['1 origem Telegram', '10 destinos WhatsApp', 'Amazon afiliado', '500 mensagens/dia']
     },
     {
       key: 'pro',
       name: 'Pro',
       tone: 'border-cyan-400/20 bg-cyan-400/[0.06]',
-      description: 'Para escalar ofertas com afiliados e historico.',
+      description: 'Para escalar ofertas com afiliados e Histórico.',
       highlights: ['3 origens Telegram', '30 destinos WhatsApp', 'Amazon + Shopee', '2.000 mensagens/dia']
     },
     {
       key: 'business',
       name: 'Business',
       tone: 'border-emerald-300/25 bg-[linear-gradient(135deg,rgba(37,211,102,0.08),rgba(34,158,217,0.08))]',
-      description: 'Operacao robusta com mais bases e volume.',
+      description: 'Operação robusta com mais bases e volume.',
       highlights: ['10 origens Telegram', '100 destinos WhatsApp', '10 automacoes afiliadas', '10.000 mensagens/dia']
     }
   ];
@@ -1805,9 +1805,9 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
                   <TrendingUp size={22} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Limites claros para uma operacao sem surpresa</h2>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Limites claros para uma Operação sem surpresa</h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                    Veja o plano atual, o consumo operacional e quais recursos ja estao liberados para a sua conta.
+                    Veja o plano atual, o consumo operacional e quais recursos já estão liberados para a sua conta.
                   </p>
                 </div>
               </div>
@@ -1822,7 +1822,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
           <PlanUsageCard
             title="Uso do plano atual"
             planLabel={limits?.label || humanize(currentPlan)}
-            description="Estes numeros ajudam o cliente a entender o que ja esta configurado e o que ainda cabe no plano."
+            description="Estes numeros ajudam o cliente a entender o que já esta configurado e o que ainda cabe no plano."
             items={[
               {
                 label: 'Destinos WhatsApp',
@@ -1840,7 +1840,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
                 label: 'Automacoes afiliadas',
                 used: state.affiliate?.automations?.length || 0,
                 limit: limits?.affiliateAutomations || 0,
-                detail: `${activeAffiliateAutomations.length} automacao(oes) ativa(s) no momento.`
+                detail: `${activeAffiliateAutomations.length} automação(oes) ativa(s) no momento.`
               },
               {
                 label: 'Uso operacional',
@@ -1852,7 +1852,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
             featureBadges={[
               { label: 'Amazon afiliado', enabled: Boolean(limits?.amazonAffiliate) },
               { label: 'Shopee afiliado', enabled: Boolean(limits?.shopeeAffiliate) },
-              { label: 'Historico', enabled: Boolean((limits?.historyDays || 0) > 1), value: `${limits?.historyDays || 0} dias` },
+              { label: 'Histórico', enabled: Boolean((limits?.historyDays || 0) > 1), value: `${limits?.historyDays || 0} dias` },
               { label: 'Mensagens/dia', enabled: true, value: formatNumber(limits?.dailyMessages || 0) }
             ]}
           />
@@ -1919,7 +1919,7 @@ function PlanUsagePanel({ state, setView }: { state: AppState; setView: (view: V
               className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <p className="font-semibold">Revisar WhatsApp</p>
-              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Veja destinos usados e grupos disponiveis.</p>
+              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Veja destinos usados e grupos disponíveis.</p>
             </button>
             <button
               type="button"
@@ -1963,7 +1963,7 @@ function OffersPanel({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entregas</p>
           <h2 className="mt-1 text-xl font-semibold">Ofertas captadas</h2>
           <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-            Isso limpa apenas a visualizacao do painel. Suas cotas, metricas reais e historico tecnico continuam intactos.
+            Isso limpa apenas a visualizacao do painel. Suas cotas, metricas reais e Histórico tecnico continuam intactos.
           </p>
           {dashboardViewClearedAt ? (
             <p className="mt-1 text-[11px] text-[var(--muted)]">Ultima limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
@@ -1979,7 +1979,7 @@ function OffersPanel({
               disabled={readOnlyAccount || busy === 'clear-dashboard'}
               onClick={async () => {
                 if (readOnlyAccount) {
-                  setNotice?.('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                  setNotice?.('Conta em teste: edições estão bloqueadas até liberação do administrador.');
                   return;
                 }
 
@@ -1997,7 +1997,7 @@ function OffersPanel({
                   await refresh?.();
                   setNotice?.('Painel visual limpo com sucesso.');
                 } catch (error) {
-                  setNotice?.(error instanceof Error ? error.message : 'Nao foi possivel limpar o painel.');
+                  setNotice?.(error instanceof Error ? error.message : 'não foi possivel limpar o painel.');
                 } finally {
                   setBusy?.('');
                 }
@@ -2158,7 +2158,7 @@ function FlowsPanel({
       : '';
     if (affiliateTelegramForwardEnabled !== savedAffiliateForwardEnabled || nextForwardDestinationId !== savedAffiliateForwardDestinationId) {
       pendingFlowChanges.push(
-        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'Nao'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'Nao'}`
+        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'não'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'não'}`
       );
     }
   }
@@ -2196,7 +2196,7 @@ function FlowsPanel({
     const nextFieldErrors: FlowFieldErrors = {};
 
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
       return;
     }
 
@@ -2213,7 +2213,7 @@ function FlowsPanel({
     }
 
     if (telegramFlow === 'affiliate' && !affiliateModuleAllowed) {
-      nextFieldErrors.flow = `O plano ${planLimits?.label || 'atual'} ainda nao inclui Automatizador de Ofertas.`;
+      nextFieldErrors.flow = `O plano ${planLimits?.label || 'atual'} ainda não inclui Automatizador de Ofertas.`;
     }
 
     if (telegramFlow === 'affiliate' && !state.affiliate?.termsAccepted) {
@@ -2292,7 +2292,7 @@ function FlowsPanel({
           setReviewBeforeSave(false);
         }
       }
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar o fluxo.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar o fluxo.');
     } finally {
       setBusy('');
     }
@@ -2310,7 +2310,7 @@ function FlowsPanel({
                   <ArrowRight size={22} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da operacao</h2>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da Operação</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
                     Escolha como a conta vai trabalhar: ponte simples para republicar exatamente o que chega do Telegram ou automatizador de ofertas para tratar links de afiliado antes do envio.
                   </p>
@@ -2322,7 +2322,7 @@ function FlowsPanel({
                 {selectedWhatsAppDestinationCount} destino(s) ativo(s)
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuracao'}
+                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuração'}
               </span>
             </div>
           </div>
@@ -2344,7 +2344,7 @@ function FlowsPanel({
             ) : null}
             <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de operacao</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de Operação</p>
                 <h3 className="mt-1 text-lg font-semibold">Um fluxo ativo por vez</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   A mesma conta pode usar a ponte simples ou o automatizador de ofertas, mas apenas um deles fica ativo por vez para evitar envio duplicado.
@@ -2377,7 +2377,7 @@ function FlowsPanel({
                     {bridgeFlowStatus.reason ? ` - ${bridgeFlowStatus.reason}` : ''}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos ja salvos no WhatsApp.
+                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos já salvos no WhatsApp.
                   </p>
                 </button>
 
@@ -2510,7 +2510,7 @@ function FlowsPanel({
                         !affiliateTelegramForwardEnabled
                       }
                     >
-                      <option value="">Nao encaminhar para Telegram</option>
+                      <option value="">não encaminhar para Telegram</option>
                       {telegramAdminDestinationChats.map((chat) => (
                         <option key={`forward-${chat.id}`} value={chat.id}>
                           {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
@@ -2585,7 +2585,7 @@ function FlowsPanel({
                 telegramForwardLabel={
                   telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
                     ? getTelegramChatName(state, affiliateTelegramDestinationId)
-                    : 'Nao'
+                    : 'não'
                 }
                 pendingFlowChanges={pendingFlowChanges}
                 onEditOrSubmit={() => {
@@ -2733,7 +2733,7 @@ function WhatsAppDestinationSelector({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos WhatsApp</p>
           <h2 className="mt-1 text-xl font-semibold">Grupos que recebem os fluxos</h2>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A autenticacao do WhatsApp continua em Config. WhatsApp.
+            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A Autenticação do WhatsApp continua em Config. WhatsApp.
           </p>
         </div>
         <button
@@ -2741,14 +2741,14 @@ function WhatsAppDestinationSelector({
           disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
-            setNotice('Sincronizacao dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
+            setNotice('sincronização dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
             void postJson('/api/refresh-groups')
               .then(async () => {
                 await refresh();
                 setNotice('Lista de grupos do WhatsApp atualizada.');
               })
               .catch(() => {
-                setNotice('Nao foi possivel atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
+                setNotice('não foi possivel atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
               })
               .finally(() => setBusy(''));
             window.setTimeout(() => {
@@ -2778,7 +2778,7 @@ function WhatsAppDestinationSelector({
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
                   ? 'Estamos analisando seus grupos e separando apenas os destinos validos para envio.'
-                  : 'O WhatsApp ainda esta devolvendo a lista inicial. Na primeira sincronizacao isso pode levar alguns minutos.'}
+                  : 'O WhatsApp ainda esta devolvendo a lista inicial. Na primeira sincronização isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -2809,14 +2809,14 @@ function WhatsAppDestinationSelector({
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
-            <span>Voce pode continuar no painel enquanto a sincronizacao roda em segundo plano.</span>
+            <span>você pode continuar no painel enquanto a sincronização roda em segundo plano.</span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} conversas analisadas` : 'Aguardando o WhatsApp informar o total'}</span>
           </div>
 
           <div className="hidden">
             <span>
-              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}
-              {state.metrics.hasCachedGroups && cachedAtLabel ? ` · exibindo lista salva de ${cachedAtLabel}` : ''}
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronização'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` Â· exibindo lista salva de ${cachedAtLabel}` : ''}
             </span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
           </div>
@@ -2825,7 +2825,7 @@ function WhatsAppDestinationSelector({
 
       {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
         <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
-          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. Voce pode usar essa lista imediatamente enquanto uma nova sincronizacao nao for necessaria.
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. você pode usar essa lista imediatamente enquanto uma nova sincronização não for necessaria.
         </div>
       ) : null}
 
@@ -2887,7 +2887,7 @@ function WhatsAppDestinationSelector({
                 : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
             )}
           >
-            Anúncios
+            AnÃºncios
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -2903,7 +2903,7 @@ function WhatsAppDestinationSelector({
                 }
 
                 if (next.size >= whatsappDestinationLimit) {
-                  setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                  setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                   break;
                 }
 
@@ -2915,7 +2915,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
           >
-            Selecionar visíveis
+            Selecionar visÃ­veis
           </button>
           <button
             type="button"
@@ -2930,7 +2930,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] disabled:opacity-60"
           >
-            Limpar visíveis
+            Limpar visÃ­veis
           </button>
         </div>
       </div>
@@ -2959,7 +2959,7 @@ function WhatsAppDestinationSelector({
                 type="button"
                 onClick={() => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
                     return;
                   }
                   const next = new Set(selected);
@@ -2995,7 +2995,7 @@ function WhatsAppDestinationSelector({
                     const next = new Set(selected);
                     if (event.target.checked) {
                       if (next.size >= whatsappDestinationLimit) {
-                        setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                         return;
                       }
                       next.add(group.id);
@@ -3043,12 +3043,12 @@ function WhatsAppDestinationSelector({
           </div>
           {overPlanLimit ? (
             <p className="mt-2 text-xs text-red-100">
-              A seleção atual ultrapassa o limite do plano. Ajuste antes de salvar.
+              A seleÃ§Ã£o atual ultrapassa o limite do plano. Ajuste antes de salvar.
             </p>
           ) : null}
           {hasStaleSelections ? (
             <p className="mt-2 text-xs text-amber-100">
-              {staleSelectedIds.length} destino(s) selecionado(s) nao aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
+              {staleSelectedIds.length} destino(s) selecionado(s) não aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
             </p>
           ) : null}
         </div>
@@ -3112,14 +3112,14 @@ function Groups({
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const hasQrCode = Boolean(state.qrDataUrl);
   const whatsAppReconnecting = ['connecting', 'authenticated', 'reconnecting'].includes(String(state.whatsAppStatus || '').toLowerCase());
-  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sessao';
+  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sessão';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => (state.config.selectedGroupIds || []).includes(group.id)),
     [state.config.selectedGroupIds, state.groups]
   );
   const hasSavedDestinations = selectedGroups.length > 0;
   const whatsappInternalChecklist = [
-    { label: 'Iniciar sessao', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
+    { label: 'Iniciar sessão', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
     { label: 'Escanear QR Code', done: whatsAppConnected, ready: hasQrCode && !whatsAppConnected },
     { label: 'Atualizar grupos', done: Boolean(state.metrics.hasCachedGroups), ready: whatsAppConnected },
     { label: 'Salvar destinos em Fluxos', done: hasSavedDestinations, ready: Boolean(state.metrics.hasCachedGroups) && !hasSavedDestinations }
@@ -3144,7 +3144,7 @@ function Groups({
                 <div>
                   <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do WhatsApp</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, acompanhe o QR Code e mantenha a sessao pronta. A escolha dos grupos de destino agora fica concentrada na aba Fluxos.
+                    Conecte sua conta, acompanhe o QR Code e mantenha a sessão pronta. A escolha dos grupos de destino agora fica concentrada na aba Fluxos.
                   </p>
                 </div>
               </div>
@@ -3154,7 +3154,7 @@ function Groups({
                 {whatsAppStatusLabel}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {state.whatsAppPhone || 'Sem sessao conectada'}
+                {state.whatsAppPhone || 'Sem sessão conectada'}
               </span>
             </div>
           </div>
@@ -3177,11 +3177,11 @@ function Groups({
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conexao</p>
-                    <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'Nao conectada'}</p>
+                    <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'não conectada'}</p>
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  {whatsAppConnected ? 'Sessao autenticada e pronta para uso no painel.' : 'Use o QR Code ao lado para concluir a autenticacao da conta.'}
+                  {whatsAppConnected ? 'sessão autenticada e pronta para uso no painel.' : 'Use o QR Code ao lado para concluir a Autenticação da conta.'}
                 </p>
               </div>
 
@@ -3215,7 +3215,7 @@ function Groups({
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  {state.metrics.groupsRefreshing ? 'Sincronizacao em andamento.' : 'Grupos detectados com acesso administrativo.'}
+                  {state.metrics.groupsRefreshing ? 'sincronização em andamento.' : 'Grupos detectados com acesso administrativo.'}
                 </p>
               </div>
             </div>
@@ -3231,12 +3231,12 @@ function Groups({
                 <div>
                   <p className="text-sm font-semibold">Conexao do WhatsApp</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Use a reconexao para tentar recuperar a sessao sem apagar dados do cliente.
+                    Use a reconexao para tentar recuperar a sessão sem apagar dados do cliente.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
-                    Operacao segura
+                    Operação segura
                   </span>
                   {isAdmin ? (
                     <button
@@ -3302,7 +3302,7 @@ function Groups({
                     setBusy('wa-reset');
                     await postJson('/api/whatsapp/reset-session');
                     await refresh();
-                    setNotice('Nova sessao do WhatsApp preparada.');
+                    setNotice('Nova sessão do WhatsApp preparada.');
                     setBusy('');
                     setDestructiveConfirmStep(null);
                   }}
@@ -3323,8 +3323,8 @@ function Groups({
                       </p>
                       <p className="mt-1 text-xs text-[var(--muted)]">
                         {destructiveConfirmStep === 'wa-reset'
-                          ? 'Clique novamente para confirmar. Isso invalida a sessao atual.'
-                          : 'Gera uma nova sessao para autenticar outra conta.'}
+                          ? 'Clique novamente para confirmar. Isso invalida a sessão atual.'
+                          : 'Gera uma nova sessão para autenticar outra conta.'}
                       </p>
                     </div>
                   </div>
@@ -3363,8 +3363,8 @@ function Groups({
                       </p>
                       <p className="mt-1 text-xs text-red-100/75">
                         {destructiveConfirmStep === 'reset-all'
-                          ? 'Clique novamente para confirmar. Esta acao remove todas as conexoes ativas.'
-                          : 'Limpa conexoes e volta o painel ao estado inicial.'}
+                          ? 'Clique novamente para confirmar. Esta ação remove todas as conexões ativas.'
+                          : 'Limpa conexões e volta o painel ao estado inicial.'}
                       </p>
                     </div>
                   </div>
@@ -3373,7 +3373,7 @@ function Groups({
                   {destructiveConfirmStep ? (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 max-md:flex-col max-md:items-start">
                       <span>
-                        Confirmacao em 2 passos ativa para acao destrutiva.
+                        Confirmacao em 2 passos ativa para ação destrutiva.
                       </span>
                       <button
                         type="button"
@@ -3391,7 +3391,7 @@ function Groups({
             <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
               <p className="text-sm font-semibold">Comportamento ao sair</p>
               <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                Recomendado manter a sessao conectada para reconexao mais rapida ao voltar.
+                Recomendado manter a sessão conectada para reconexao mais rapida ao voltar.
               </p>
               <label className="mt-3 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
                 <input
@@ -3404,7 +3404,7 @@ function Groups({
                 <span>
                   <span className="block font-semibold text-white">Desconectar WhatsApp ao sair</span>
                   <span className="mt-1 block text-xs leading-5">
-                    Quando ativado, ao clicar em Sair o sistema derruba a sessao do WhatsApp e exige novo QR no proximo login.
+                    Quando ativado, ao clicar em Sair o sistema derruba a sessão do WhatsApp e exige novo QR no proximo login.
                   </span>
                 </span>
               </label>
@@ -3438,10 +3438,10 @@ function Groups({
                 <p className="text-base font-semibold">QR Code do WhatsApp</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {hasQrCode
-                    ? 'Escaneie com o seu WhatsApp para concluir a autenticacao.'
+                    ? 'Escaneie com o seu WhatsApp para concluir a Autenticação.'
                     : whatsAppConnected
-                      ? 'Sua sessao ja esta conectada. O QR Code nao e mais necessario.'
-                      : 'Quando uma nova autenticacao for exigida, o QR Code sera exibido aqui automaticamente.'}
+                      ? 'Sua sessão já esta conectada. O QR Code não e mais necessario.'
+                      : 'Quando uma nova Autenticação for exigida, o QR Code será exibido aqui automaticamente.'}
                 </p>
               </div>
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
@@ -3457,9 +3457,9 @@ function Groups({
               ) : (
                 <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
                   {whatsAppConnected
-                    ? 'Sessao autenticada com sucesso.'
+                    ? 'sessão autenticada com sucesso.'
                     : whatsAppReconnecting
-                      ? 'Reconectando com a sessao salva. Se demorar, use Reconectar WhatsApp.'
+                      ? 'Reconectando com a sessão salva. Se demorar, use Reconectar WhatsApp.'
                       : 'Nenhum QR Code disponivel no momento.'}
                 </div>
               )}
@@ -3504,8 +3504,8 @@ function Groups({
               <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
-                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados ate agora.`
-                  : 'Preparando a leitura dos grupos. Na primeira sincronizacao isso pode levar alguns minutos.'}
+                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados até agora.`
+                  : 'Preparando a leitura dos grupos. Na primeira sincronização isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -3522,8 +3522,8 @@ function Groups({
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
             <span>
-              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizacao'}
-              {state.metrics.hasCachedGroups && cachedAtLabel ? ` · exibindo lista salva de ${cachedAtLabel}` : ''}
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronização'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` Â· exibindo lista salva de ${cachedAtLabel}` : ''}
             </span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
           </div>
@@ -3532,7 +3532,7 @@ function Groups({
 
       {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
         <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
-          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. Voce pode usar essa lista imediatamente enquanto uma nova sincronizacao nao for necessaria.
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. você pode usar essa lista imediatamente enquanto uma nova sincronização não for necessaria.
         </div>
       ) : null}
 
@@ -3570,7 +3570,7 @@ function Groups({
                 type="button"
                 onClick={() => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+                    setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
                     return;
                   }
                   const next = new Set(selected);
@@ -3606,7 +3606,7 @@ function Groups({
                     const next = new Set(selected);
                     if (event.target.checked) {
                       if (next.size >= whatsappDestinationLimit) {
-                        setNotice(`Seu plano permite ate ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                         return;
                       }
                       next.add(group.id);
@@ -3778,11 +3778,11 @@ function AffiliateAutomationPanel({
       return;
     }
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda não inclui automação de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -3807,7 +3807,7 @@ function AffiliateAutomationPanel({
       setAffiliateAccountEditing(false);
       setNotice('Dados de afiliado salvos.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar os dados de afiliado.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar os dados de afiliado.');
     } finally {
       setBusy('');
     }
@@ -3815,11 +3815,11 @@ function AffiliateAutomationPanel({
 
   async function runManualTest() {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda não inclui automação de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -3854,7 +3854,7 @@ function AffiliateAutomationPanel({
       setTestResult(result);
       setNotice('Teste de conversao concluido.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel concluir o teste de conversao.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel concluir o teste de conversao.');
     } finally {
       setBusy('');
     }
@@ -3862,11 +3862,11 @@ function AffiliateAutomationPanel({
 
   async function saveAffiliateRules(formElement: HTMLFormElement) {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda nao inclui Automacao de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda não inclui automação de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -3896,7 +3896,7 @@ function AffiliateAutomationPanel({
       setAffiliateRulesEditing(false);
       setNotice('Regras de afiliados salvas.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar as regras de afiliados.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel salvar as regras de afiliados.');
     } finally {
       setBusy('');
     }
@@ -3904,7 +3904,7 @@ function AffiliateAutomationPanel({
 
   async function acceptTerms() {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edicoes estao bloqueadas ate liberacao do administrador.');
+      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
       return;
     }
 
@@ -3914,7 +3914,7 @@ function AffiliateAutomationPanel({
       await refresh();
       setNotice('Termo de uso aceito.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Nao foi possivel aceitar o termo.');
+      setNotice(error instanceof Error ? error.message : 'não foi possivel aceitar o termo.');
     } finally {
       setBusy('');
     }
@@ -3968,7 +3968,7 @@ function AffiliateAutomationPanel({
       <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] max-sm:p-4">
         <div className="flex items-start justify-between gap-4 max-lg:flex-col">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Automacao de Afiliados</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">automação de Afiliados</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">Links Amazon e Shopee no automatico</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Um fluxo separado para ler ofertas do Telegram, converter links elegiveis e entregar a mensagem final nos grupos de WhatsApp escolhidos.
@@ -3987,7 +3987,7 @@ function AffiliateAutomationPanel({
 
         {!affiliateModuleAllowed ? (
           <p className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
-            Seu plano {planLimits?.label || 'atual'} esta em modo ponte simples. Automacao de Afiliados entra a partir do plano Plus.
+            Seu plano {planLimits?.label || 'atual'} esta em modo ponte simples. automação de Afiliados entra a partir do plano Plus.
           </p>
         ) : null}
 
@@ -3995,7 +3995,7 @@ function AffiliateAutomationPanel({
           <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
             <p className="text-sm font-semibold text-amber-50">Aceite obrigatorio</p>
             <p className="mt-2 text-xs leading-5 text-amber-100/80">
-              Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automacao. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
+              Declaro que tenho autorizacao para reutilizar, adaptar e republicar as mensagens monitoradas por esta automação. Tambem sou responsavel pelos links de afiliado configurados e pelo cumprimento das politicas dos programas.
             </p>
             <button type="button" disabled={readOnlyAccount || busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
               {busy === 'affiliate-terms' ? 'Liberando modulo...' : 'Aceitar termo e liberar modulo'}
@@ -4011,11 +4011,11 @@ function AffiliateAutomationPanel({
               <div>
                 <p className="text-sm font-semibold">Regras do automatizador</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui voce concentra apenas as configuracoes de afiliado, os testes e o historico.
+                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui você concentra apenas as configuracoes de afiliado, os testes e o Histórico.
                 </p>
               </div>
               <span className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">
-                {activeAutomation?.name || 'Fluxo nao configurado'}
+                {activeAutomation?.name || 'Fluxo não configurado'}
               </span>
             </div>
 
@@ -4048,7 +4048,7 @@ function AffiliateAutomationPanel({
                 <div>
                   <p className="text-sm font-semibold">Regras de tratamento</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Defina o que fazer com links que nao sao Amazon/Shopee e personalize o rodape das mensagens convertidas.
+                    Defina o que fazer com links que não sao Amazon/Shopee e personalize o rodape das mensagens convertidas.
                   </p>
                 </div>
                 {!activeAutomation ? (
@@ -4080,7 +4080,7 @@ function AffiliateAutomationPanel({
                     <option value="ignore_message">Ignorar mensagem inteira</option>
                   </select>
                   <span className="text-xs leading-5 text-[var(--muted)]">
-                    Recomendado: manter o link original para nao perder conteudo quando o marketplace nao for reconhecido.
+                    Recomendado: manter o link original para não perder conteudo quando o marketplace não for reconhecido.
                   </span>
                 </label>
 
@@ -4129,7 +4129,7 @@ function AffiliateAutomationPanel({
                     placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voces la`}
                     className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
                   />
-                  <span className="text-xs leading-5 text-[var(--muted)]">Voce pode quebrar linhas livremente nesse rodape.</span>
+                  <span className="text-xs leading-5 text-[var(--muted)]">você pode quebrar linhas livremente nesse rodape.</span>
                 </label>
               </div>
 
@@ -4169,7 +4169,7 @@ function AffiliateAutomationPanel({
               <div>
                 <p className="text-sm font-semibold">Simulador de mensagem final</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Cole uma oferta e veja exatamente como ela sera entregue, sem enviar nada ao WhatsApp.
+                  Cole uma oferta e veja exatamente como ela será entregue, sem enviar nada ao WhatsApp.
                 </p>
               </div>
               <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test' || !affiliateModuleAllowed || !affiliateTermsAccepted} onClick={runManualTest} className={affiliateSecondaryButtonClass}>
@@ -4274,7 +4274,7 @@ function AffiliateAutomationPanel({
                     </pre>
                   </div>
                   <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Saida que sera enviada</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Saida que será enviada</p>
                     <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-emerald-400/15 bg-black/20 p-4 text-xs leading-5 text-emerald-50/90">
                       {testResult.processedMessage}
                     </pre>
@@ -4370,9 +4370,9 @@ function AffiliateAutomationPanel({
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
-                <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret ja configurado' : 'Secret/API Secret'} />
+                <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret já configurado' : 'Secret/API Secret'} />
                 <span className="text-xs leading-5 text-[var(--muted)]">
-                  Usado apenas na comunicacao segura com a Shopee. Se ja estiver configurado, deixe em branco para manter o secret atual.
+                  Usado apenas na comunicacao segura com a Shopee. Se já estiver configurado, deixe em branco para manter o secret atual.
                 </span>
               </label>
             </div>
@@ -4406,7 +4406,7 @@ function AffiliateAutomationPanel({
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
-            <p className="text-sm font-semibold">Historico recente</p>
+            <p className="text-sm font-semibold">Histórico recente</p>
             <div className="mt-4 grid gap-3">
               {affiliate.logs?.length ? affiliate.logs.map((log) => (
                 <div key={log.id} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-3">
@@ -4445,7 +4445,7 @@ function ActivityLog({ state, compact = false }: { state: AppState; compact?: bo
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Historico</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Histórico</p>
           <h2 className="mt-1 text-xl font-semibold">Atividade recente</h2>
         </div>
       </div>
@@ -4514,7 +4514,7 @@ function AccountPanel({
               <div>
                 <p className="text-sm font-semibold">Dados do perfil</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Essas informações aparecem no seu painel e ajudam a identificar a conta conectada.
+                  Essas informaÃ§Ãµes aparecem no seu painel e ajudam a identificar a conta conectada.
                 </p>
               </div>
 
@@ -4563,7 +4563,7 @@ function AccountPanel({
                   setProfileEditing(false);
                   setNotice('Perfil atualizado com sucesso.');
                 } catch (error) {
-                  setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar o perfil.');
+                  setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar o perfil.');
                 } finally {
                   setBusy('');
                 }
@@ -4588,7 +4588,7 @@ function AccountPanel({
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {canChangePassword
                     ? 'Use uma senha forte e atualize o acesso sempre que necessario.'
-                    : 'Esta conta usa autenticacao externa e a senha e gerenciada fora do Portal do Afiliado.'}
+                    : 'Esta conta usa Autenticação externa e a senha e gerenciada fora do Portal do Afiliado.'}
                 </p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
@@ -4615,7 +4615,7 @@ function AccountPanel({
                     await refresh();
                     setNotice('Senha atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar a senha.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar a senha.');
                   } finally {
                     setBusy('');
                   }
@@ -4700,7 +4700,7 @@ function AccountPanel({
           <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
             <p className="text-sm font-semibold">Enviar nova foto</p>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              Aceitamos PNG, JPG ou WEBP com ate 1 MB.
+              Aceitamos PNG, JPG ou WEBP com até 1 MB.
             </p>
             <label className={cn('mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 px-4 py-6 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10', readOnlyAccount && 'cursor-not-allowed opacity-60')}>
               <Camera size={18} />
@@ -4719,7 +4719,7 @@ function AccountPanel({
 
                   try {
                     if (file.size > 1024 * 1024) {
-                      throw new Error('A imagem deve ter no máximo 1 MB.');
+                      throw new Error('A imagem deve ter no mÃ¡ximo 1 MB.');
                     }
 
                     const avatarDataUrl = await readFileAsDataUrl(file);
@@ -4730,7 +4730,7 @@ function AccountPanel({
                     await refresh();
                     setNotice('Foto do perfil atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel atualizar a foto do perfil.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possivel atualizar a foto do perfil.');
                   } finally {
                     event.currentTarget.value = '';
                     setBusy('');
@@ -4819,7 +4819,7 @@ function AdminPanel({
         <div className="grid gap-2">
           {auditEvents.length ? (
             auditEvents.map((event) => {
-              const action = String(event?.metadata?.action || 'admin.acao');
+              const action = String(event?.metadata?.action || 'admin.ação');
               const outcome = String(event?.metadata?.outcome || 'unknown');
               const target = String(event?.metadata?.targetUserId || '-');
 
@@ -4923,7 +4923,7 @@ function AdminPanel({
                   await refresh();
                   setNotice(
                     event.target.value === 'suspended'
-                      ? 'Conta suspensa e sessao encerrada imediatamente.'
+                      ? 'Conta suspensa e sessão encerrada imediatamente.'
                       : 'Status da conta atualizado.'
                   );
                 }}
@@ -4938,18 +4938,18 @@ function AdminPanel({
                 onClick={async () => {
                   await postJson(`/api/admin/users/${encodeURIComponent(user.id)}/restart-runtime`);
                   await refresh();
-                  setNotice(`Sessao de ${user.name} reiniciada sem apagar dados.`);
+                  setNotice(`sessão de ${user.name} reiniciada sem apagar dados.`);
                 }}
               >
                 <RefreshCcw size={16} />
-                Reiniciar sessao
+                Reiniciar sessão
               </button>
               <button
                 type="button"
                 className="col-span-2 inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-400/15"
                 onClick={async () => {
                   const confirmed = window.confirm(
-                    `Deseja realmente excluir a conta de ${user.name}? Essa acao remove o acesso, o perfil e os dados locais dessa conta.`
+                    `Deseja realmente excluir a conta de ${user.name}? Essa ação remove o acesso, o perfil e os dados locais dessa conta.`
                   );
 
                   if (!confirmed) {
@@ -4963,7 +4963,7 @@ function AdminPanel({
                     await refresh();
                     setNotice('Conta excluida com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'Nao foi possivel excluir a conta.');
+                    setNotice(error instanceof Error ? error.message : 'não foi possivel excluir a conta.');
                   }
                 }}
               >
@@ -5052,7 +5052,7 @@ function getFlowHealthStatus({
   if (!selected && saved) {
     return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
   }
-  return { label: 'Incompleto', reason: 'Nao salvo' };
+  return { label: 'Incompleto', reason: 'não salvo' };
 }
 
 function getActiveAffiliateAutomation(state: AppState) {
@@ -5091,10 +5091,10 @@ function canEnableAutomationState(state: AppState) {
 
 function getAutomationLockReason(state: AppState) {
   if (state.telegramStatus !== 'listening') {
-    return 'Conecte e conclua o login no Telegram para liberar a automacao.';
+    return 'Conecte e conclua o login no Telegram para liberar a automação.';
   }
   if (!isWhatsAppConnectedStatus(state.whatsAppStatus)) {
-    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automacao.';
+    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automação.';
   }
   if (!hasOperationalTelegramSource(state)) {
     return 'Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.';
@@ -5242,7 +5242,7 @@ async function readFileAsDataUrl(file: File) {
       const result = typeof reader.result === 'string' ? reader.result : '';
 
       if (!result) {
-        reject(new Error('Nao foi possivel ler a imagem selecionada.'));
+        reject(new Error('não foi possivel ler a imagem selecionada.'));
         return;
       }
 
@@ -5250,9 +5250,11 @@ async function readFileAsDataUrl(file: File) {
     };
 
     reader.onerror = () => {
-      reject(new Error('Nao foi possivel ler a imagem selecionada.'));
+      reject(new Error('não foi possivel ler a imagem selecionada.'));
     };
 
     reader.readAsDataURL(file);
   });
 }
+
+
