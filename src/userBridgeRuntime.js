@@ -1333,13 +1333,13 @@ export class UserBridgeRuntime {
       }
 
       const originalMessageText = String(result.processedMessage || '');
-      const whatsAppMessageText = sanitizeWhatsAppAffiliateText(originalMessageText);
-      const whatsAppPayload = await this.prepareAffiliateWhatsAppPayload({
-        messageText: whatsAppMessageText,
+      const channelPayloads = await this.prepareAffiliateChannelPayloads({
+        originalMessageText,
         telegramMessage,
         automation,
         convertedUrls: result.convertedUrls
       });
+      const whatsAppPayload = channelPayloads.whatsApp;
       const delivery = await this.sendAffiliateMessageToWhatsAppGroups(whatsAppPayload, targetGroupIds, {
         automationId: automation.id,
         telegramMessageId: String(telegramMessageId || '')
@@ -1355,9 +1355,8 @@ export class UserBridgeRuntime {
           telegramForwardResult.error = `Telegram indisponível: ${this.telegramStatus || 'offline'}`;
         } else {
           try {
-            const telegramPayload = cloneAffiliatePayloadWithMessageText(whatsAppPayload, originalMessageText);
             await this.sendAffiliateMessageToTelegramDestination(
-              telegramPayload,
+              channelPayloads.telegram,
               automation.telegramDestinationGroupId
             );
             telegramForwardResult.sent = true;
@@ -1412,6 +1411,27 @@ export class UserBridgeRuntime {
     return true;
   }
 
+  async prepareAffiliateChannelPayloads({ originalMessageText, telegramMessage, automation, convertedUrls }) {
+    const whatsAppPayload = await this.prepareAffiliateWhatsAppPayload({
+      messageText: sanitizeWhatsAppAffiliateText(originalMessageText),
+      telegramMessage,
+      automation,
+      convertedUrls
+    });
+
+    const telegramPayload = await this.prepareAffiliateTelegramPayload({
+      messageText: originalMessageText,
+      telegramMessage,
+      automation,
+      convertedUrls
+    });
+
+    return {
+      whatsApp: whatsAppPayload,
+      telegram: telegramPayload
+    };
+  }
+
   async prepareAffiliateWhatsAppPayload({ messageText, telegramMessage, automation, convertedUrls }) {
     const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
 
@@ -1435,6 +1455,42 @@ export class UserBridgeRuntime {
         }
       } catch (error) {
         this.log(`Não foi possível reaproveitar a mídia original no fluxo de afiliados: ${error.message}`, {
+          level: 'error',
+          type: 'affiliate_media_fallback',
+          increments: { errors: 1 }
+        });
+      }
+    }
+
+    return {
+      type: 'text',
+      text: messageText
+    };
+  }
+
+  async prepareAffiliateTelegramPayload({ messageText, telegramMessage, automation, convertedUrls }) {
+    const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
+
+    if (mode === 'product_image') {
+      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls);
+
+      if (productImagePayload) {
+        return productImagePayload;
+      }
+    }
+
+    if (telegramMessage) {
+      try {
+        const originalPayload = await this.prepareWhatsAppPayload(telegramMessage);
+
+        if (originalPayload.type === 'media') {
+          return {
+            ...originalPayload,
+            caption: messageText
+          };
+        }
+      } catch (error) {
+        this.log(`Não foi possível reaproveitar a mídia original no envio para Telegram: ${error.message}`, {
           level: 'error',
           type: 'affiliate_media_fallback',
           increments: { errors: 1 }
@@ -2867,27 +2923,6 @@ function stripWrappedFormattingMarkers(line) {
     .replace(/^~(.+)~$/u, '$1');
 
   return value.replace(trimmed, unwrapped);
-}
-
-function cloneAffiliatePayloadWithMessageText(payload, messageText) {
-  if (!payload || typeof payload !== 'object') {
-    return {
-      type: 'text',
-      text: String(messageText ?? '')
-    };
-  }
-
-  if (payload.type === 'media') {
-    return {
-      ...payload,
-      caption: String(messageText ?? '')
-    };
-  }
-
-  return {
-    ...payload,
-    text: String(messageText ?? '')
-  };
 }
 
 function extractPrimaryConvertedProductUrl(convertedUrls = []) {
