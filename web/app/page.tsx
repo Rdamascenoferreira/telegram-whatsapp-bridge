@@ -87,7 +87,8 @@ export default function Home() {
   const [groupFilter, setGroupFilter] = useState('');
   const [affiliateAutomationEditing, setAffiliateAutomationEditing] = useSessionStorageBoolean('affiliate-automation-editing');
   const { state, setState, bootError, setBootError, reload } = usePolledState<AppState>({
-    fetcher: async () => await requestJson<AppState>('/api/state'),
+    fetcher: async () =>
+      await requestJson<AppState>(view === 'admin' ? '/api/state?includeAdmin=1' : '/api/state'),
     normalize: normalizeAppState,
     defaultErrorMessage: 'não foi possível carregar o painel agora. Tente novamente.',
     pausePolling: view === 'flows' && affiliateAutomationEditing,
