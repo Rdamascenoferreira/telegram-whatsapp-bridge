@@ -8,7 +8,7 @@ import { formatDate, formatNumber, formatOfferStatus, humanize, isWhatsAppConnec
 import { cn } from '../../../lib/utils';
 import type { AppState, ViewKey } from '../../types/panel';
 
-const panelVersion = 'Versão 2.00';
+const panelVersion = 'Versão 2.01';
 
 const primaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';

@@ -9,7 +9,7 @@ import {
   deleteUserAccount,
   findUserById,
   getUserAvatarFile,
-  isPrimaryAdminEmail,
+  isAdminUserRecord,
   sanitizeUser,
   updateUserAvatar,
   updateUserPassword,
@@ -397,7 +397,7 @@ export class AuthService {
   }
 
   isAdminUser(user) {
-    return isPrimaryAdminEmail(user?.email);
+    return isAdminUserRecord(user);
   }
 
   isReadOnlyUser(user) {

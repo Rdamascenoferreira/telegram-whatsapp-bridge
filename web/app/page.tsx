@@ -62,7 +62,7 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Versão 2.00';
+const panelVersion = 'Versão 2.01';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },

@@ -79,6 +79,18 @@ export function isPrimaryAdminEmail(email) {
   return normalizeEmail(email) === primaryAdminEmail;
 }
 
+export function isAdminUserRecord(user) {
+  if (!user) {
+    return false;
+  }
+
+  if (isPrimaryAdminEmail(user.email)) {
+    return true;
+  }
+
+  return String(user.role ?? '').trim().toLowerCase() === 'admin';
+}
+
 function resolvePrimaryAdminEmail() {
   const normalized = normalizeEmail(process.env.ADMIN_EMAIL);
 
@@ -144,8 +156,13 @@ function normalizeOption(value, validOptions, fallback) {
   return validOptions.includes(normalized) ? normalized : fallback;
 }
 
-function resolveUserRole(_role, email) {
+function resolveUserRole(role, email) {
   if (isPrimaryAdminEmail(email)) {
+    return 'admin';
+  }
+
+  const normalizedRole = String(role ?? '').trim().toLowerCase();
+  if (normalizedRole === 'admin') {
     return 'admin';
   }
 
@@ -238,7 +255,7 @@ export function sanitizeUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
-    isAdmin: isPrimaryAdminEmail(user.email),
+    isAdmin: isAdminUserRecord(user),
     avatarUrl: user.avatarUrl || '',
     avatarStorage: user.avatarStorage || 'none',
     providers: buildProviders(user),
