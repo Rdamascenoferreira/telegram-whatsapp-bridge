@@ -3,6 +3,7 @@
 import { FormEvent, useRef, useState } from 'react';
 import { formatDate, normalizeRouteSourceId } from '../../../lib/panel-utils';
 import { HTTP_TIMEOUT_MS, postJson, postJsonWithOptions } from '../../../lib/http';
+import { cn } from '../../../lib/utils';
 import type { AffiliateLog, AppState } from '../../types/panel';
 
 function isReadOnlyAccount(state: AppState) {
@@ -66,11 +67,11 @@ export function AffiliateAutomationPanel({
       return;
     }
     if (readOnlyAccount) {
-      setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+      setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n„o inclui automaÁ„o de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n√£o inclui automa√ß√£o de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -95,7 +96,7 @@ export function AffiliateAutomationPanel({
       setAffiliateAccountEditing(false);
       setNotice('Dados de afiliado salvos.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel salvar os dados de afiliado.');
+      setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel salvar os dados de afiliado.');
     } finally {
       setBusy('');
     }
@@ -103,11 +104,11 @@ export function AffiliateAutomationPanel({
 
   async function runManualTest() {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+      setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n„o inclui automaÁ„o de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n√£o inclui automa√ß√£o de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -140,9 +141,9 @@ export function AffiliateAutomationPanel({
         message: testMessage
       });
       setTestResult(result);
-      setNotice('Teste de convers„o concluÌdo.');
+      setNotice('Teste de convers√£o conclu√≠do.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel concluir o teste de convers„o.');
+      setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel concluir o teste de convers√£o.');
     } finally {
       setBusy('');
     }
@@ -150,11 +151,11 @@ export function AffiliateAutomationPanel({
 
   async function saveAffiliateRules(formElement: HTMLFormElement) {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+      setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
       return;
     }
     if (!affiliateModuleAllowed) {
-      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n„o inclui automaÁ„o de Afiliados.`);
+      setNotice(`O plano ${planLimits?.label || 'atual'} ainda n√£o inclui automa√ß√£o de Afiliados.`);
       return;
     }
     if (!affiliate.termsAccepted) {
@@ -184,7 +185,7 @@ export function AffiliateAutomationPanel({
       setAffiliateRulesEditing(false);
       setNotice('Regras de afiliados salvas.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel salvar as regras de afiliados.');
+      setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel salvar as regras de afiliados.');
     } finally {
       setBusy('');
     }
@@ -192,7 +193,7 @@ export function AffiliateAutomationPanel({
 
   async function acceptTerms() {
     if (readOnlyAccount) {
-      setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+      setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
       return;
     }
 
@@ -202,7 +203,7 @@ export function AffiliateAutomationPanel({
       await refresh();
       setNotice('Termo de uso aceito.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel aceitar o termo.');
+      setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel aceitar o termo.');
     } finally {
       setBusy('');
     }
@@ -256,7 +257,7 @@ export function AffiliateAutomationPanel({
       <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] max-sm:p-4">
         <div className="flex items-start justify-between gap-4 max-lg:flex-col">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">automaÁ„o de Afiliados</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">automa√ß√£o de Afiliados</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">Links Amazon e Shopee no automatico</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Um fluxo separado para ler ofertas do Telegram, converter links elegiveis e entregar a mensagem final nos grupos de WhatsApp escolhidos.
@@ -275,7 +276,7 @@ export function AffiliateAutomationPanel({
 
         {!affiliateModuleAllowed ? (
           <p className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
-            Seu plano {planLimits?.label || 'atual'} est· em modo ponte simples. automaÁ„o de Afiliados entra a partir do plano Plus.
+            Seu plano {planLimits?.label || 'atual'} est√° em modo ponte simples. automa√ß√£o de Afiliados entra a partir do plano Plus.
           </p>
         ) : null}
 
@@ -283,10 +284,10 @@ export function AffiliateAutomationPanel({
           <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
             <p className="text-sm font-semibold text-amber-50">Aceite obrigatorio</p>
             <p className="mt-2 text-xs leading-5 text-amber-100/80">
-              Declaro que tenho autorizaÁ„o para reutilizar, adaptar e republicar as mensagens monitoradas por esta automaÁ„o. TambÈm sou respons·vel pelos links de afiliado configurados e pelo cumprimento das polÌticas dos programas.
+              Declaro que tenho autoriza√ß√£o para reutilizar, adaptar e republicar as mensagens monitoradas por esta automa√ß√£o. Tamb√©m sou respons√°vel pelos links de afiliado configurados e pelo cumprimento das pol√≠ticas dos programas.
             </p>
             <button type="button" disabled={readOnlyAccount || busy === 'affiliate-terms'} onClick={acceptTerms} className={`mt-3 ${affiliatePrimaryButtonClass}`}>
-              {busy === 'affiliate-terms' ? 'Liberando mÛdulo...' : 'Aceitar termo e liberar mÛdulo'}
+              {busy === 'affiliate-terms' ? 'Liberando m√≥dulo...' : 'Aceitar termo e liberar m√≥dulo'}
             </button>
           </div>
         ) : null}
@@ -299,11 +300,11 @@ export function AffiliateAutomationPanel({
               <div>
                 <p className="text-sm font-semibold">Regras do automatizador</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui vocÍ concentra apenas as configuraÁıes de afiliado, os testes e o HistÛrico.
+                  As origens e destinos operacionais agora ficam na aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span>. Aqui voc√™ concentra apenas as configura√ß√µes de afiliado, os testes e o Hist√≥rico.
                 </p>
               </div>
               <span className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">
-                {activeAutomation?.name || 'Fluxo n„o configurado'}
+                {activeAutomation?.name || 'Fluxo n√£o configurado'}
               </span>
             </div>
 
@@ -336,7 +337,7 @@ export function AffiliateAutomationPanel({
                 <div>
                   <p className="text-sm font-semibold">Regras de tratamento</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Defina o que fazer com links que n„o sao Amazon/Shopee e personalize o rodapÈ das mensagens convertidas.
+                    Defina o que fazer com links que n√£o sao Amazon/Shopee e personalize o rodap√© das mensagens convertidas.
                   </p>
                 </div>
                 {!activeAutomation ? (
@@ -368,7 +369,7 @@ export function AffiliateAutomationPanel({
                     <option value="ignore_message">Ignorar mensagem inteira</option>
                   </select>
                   <span className="text-xs leading-5 text-[var(--muted)]">
-                    Recomendado: manter o link original para n„o perder conteudo quando o marketplace n„o for reconhecido.
+                    Recomendado: manter o link original para n√£o perder conteudo quando o marketplace n√£o for reconhecido.
                   </span>
                 </label>
 
@@ -394,7 +395,7 @@ export function AffiliateAutomationPanel({
                     <span>
                       <span className="block font-semibold text-[var(--foreground)]">Modo de escrita ativo</span>
                       <span className="mt-1 block text-xs leading-5">
-                        O sistema preserva a mensagem original e substitui somente os links convertidos, removendo o rodapÈ antigo antes de aplicar o seu rodapÈ final.
+                        O sistema preserva a mensagem original e substitui somente os links convertidos, removendo o rodap√© antigo antes de aplicar o seu rodap√© final.
                       </span>
                     </span>
                   </div>
@@ -403,7 +404,7 @@ export function AffiliateAutomationPanel({
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Processamento atual</p>
                     <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">Preservar texto original e substituir apenas os links</p>
                     <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                      Essa e a ˙nica regra de escrita mantida no painel para garantir previsibilidade na saÌda e evitar conflito entre modos diferentes.
+                      Essa e a √∫nica regra de escrita mantida no painel para garantir previsibilidade na sa√≠da e evitar conflito entre modos diferentes.
                     </p>
                   </div>
                 </div>
@@ -414,10 +415,10 @@ export function AffiliateAutomationPanel({
                     name="customFooter"
                     defaultValue={activeAutomation?.customFooter || ''}
                     disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
-                    placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por vocÍs l·`}
+                    placeholder={`Exemplo:\nVisite nosso Instagram:\n- www.instagram.com/exemplo\nEsperamos por voc√™s l√°`}
                     className="min-h-32 rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm leading-6 outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-65"
                   />
-                  <span className="text-xs leading-5 text-[var(--muted)]">vocÍ pode quebrar linhas livremente nesse rodapÈ.</span>
+                  <span className="text-xs leading-5 text-[var(--muted)]">voc√™ pode quebrar linhas livremente nesse rodap√©.</span>
                 </label>
               </div>
 
@@ -429,7 +430,7 @@ export function AffiliateAutomationPanel({
                     defaultChecked={Boolean(activeAutomation?.removeOriginalFooter)}
                     disabled={readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || !activeAutomation || !affiliateRulesEditing || busy === 'affiliate-rules'}
                   />
-                  Remover rodapÈ original da mensagem captada
+                  Remover rodap√© original da mensagem captada
                 </label>
                 <button
                   type="button"
@@ -457,7 +458,7 @@ export function AffiliateAutomationPanel({
               <div>
                 <p className="text-sm font-semibold">Simulador de mensagem final</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Cole uma oferta e veja exatamente como ela ser· entregue, sem enviar nada ao WhatsApp.
+                  Cole uma oferta e veja exatamente como ela ser√° entregue, sem enviar nada ao WhatsApp.
                 </p>
               </div>
               <button type="button" disabled={readOnlyAccount || busy === 'affiliate-test' || !affiliateModuleAllowed || !affiliateTermsAccepted} onClick={runManualTest} className={affiliateSecondaryButtonClass}>
@@ -562,7 +563,7 @@ export function AffiliateAutomationPanel({
                     </pre>
                   </div>
                   <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Saida que ser· enviada</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Saida que ser√° enviada</p>
                     <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-emerald-400/15 bg-black/20 p-4 text-xs leading-5 text-emerald-50/90">
                       {testResult.processedMessage}
                     </pre>
@@ -635,7 +636,7 @@ export function AffiliateAutomationPanel({
                   Converter Shopee com link curto oficial
                 </label>
                 <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                  SUBIDs sao opcionais e servem apenas para rastrear de onde veio a venda. O link funciona sem eles, mas recomendamos usar para relatÛrios.
+                  SUBIDs sao opcionais e servem apenas para rastrear de onde veio a venda. O link funciona sem eles, mas recomendamos usar para relat√≥rios.
                 </p>
               </div>
 
@@ -646,7 +647,7 @@ export function AffiliateAutomationPanel({
               </label>
 
               <label className="grid gap-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padr„o</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prefixo de rastreamento / Campanha padr√£o</span>
                 <input name="defaultSubId" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} defaultValue={affiliate.account?.defaultSubId || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder="Ex: auto" />
                 <span className="text-xs leading-5 text-[var(--muted)]">Usado no SUBID para identificar origem das conversoes. Exemplo: auto, maio2026, grupo-vip.</span>
               </label>
@@ -658,9 +659,9 @@ export function AffiliateAutomationPanel({
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Secret/API Secret</span>
-                <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret j· configurado' : 'Secret/API Secret'} />
+                <input name="shopeeSecret" disabled={affiliateAccountFieldsDisabled || !planLimits?.shopeeAffiliate} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={affiliate.account?.shopeeSecretConfigured ? 'Secret j√° configurado' : 'Secret/API Secret'} />
                 <span className="text-xs leading-5 text-[var(--muted)]">
-                  Usado apenas na comunicaÁ„o segura com a Shopee. Se j· estiver configurado, deixe em branco para manter o secret atual.
+                  Usado apenas na comunica√ß√£o segura com a Shopee. Se j√° estiver configurado, deixe em branco para manter o secret atual.
                 </span>
               </label>
             </div>
@@ -694,7 +695,7 @@ export function AffiliateAutomationPanel({
           </form>
 
           <section className="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-5">
-            <p className="text-sm font-semibold">HistÛrico recente</p>
+            <p className="text-sm font-semibold">Hist√≥rico recente</p>
             <div className="mt-4 grid gap-3">
               {affiliate.logs?.length ? affiliate.logs.map((log) => (
                 <div key={log.id} className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-3">

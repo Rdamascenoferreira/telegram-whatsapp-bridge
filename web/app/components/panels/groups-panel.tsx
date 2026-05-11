@@ -53,14 +53,14 @@ export function GroupsPanel({
   const whatsAppConnected = isWhatsAppConnectedStatus(state.whatsAppStatus);
   const hasQrCode = Boolean(state.qrDataUrl);
   const whatsAppReconnecting = ['connecting', 'authenticated', 'reconnecting'].includes(String(state.whatsAppStatus || '').toLowerCase());
-  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sess„o';
+  const whatsAppStatusLabel = whatsAppConnected ? 'Conectado' : hasQrCode ? 'QR pronto' : whatsAppReconnecting ? 'Reconectando' : 'Sem sess√£o';
   const selectedGroups = useMemo(
     () => state.groups.filter((group) => (state.config.selectedGroupIds || []).includes(group.id)),
     [state.config.selectedGroupIds, state.groups]
   );
   const hasSavedDestinations = selectedGroups.length > 0;
   const whatsappInternalChecklist = [
-    { label: 'Iniciar sess„o', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
+    { label: 'Iniciar sess√£o', done: hasQrCode || whatsAppConnected, ready: whatsAppReconnecting || !whatsAppConnected },
     { label: 'Escanear QR Code', done: whatsAppConnected, ready: hasQrCode && !whatsAppConnected },
     { label: 'Atualizar grupos', done: Boolean(state.metrics.hasCachedGroups), ready: whatsAppConnected },
     { label: 'Salvar destinos em Fluxos', done: hasSavedDestinations, ready: Boolean(state.metrics.hasCachedGroups) && !hasSavedDestinations }
@@ -85,7 +85,7 @@ export function GroupsPanel({
                 <div>
                   <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do WhatsApp</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Conecte sua conta, acompanhe o QR Code e mantenha a sess„o pronta. A escolha dos grupos de destino agora fica concentrada na aba Fluxos.
+                    Conecte sua conta, acompanhe o QR Code e mantenha a sess√£o pronta. A escolha dos grupos de destino agora fica concentrada na aba Fluxos.
                   </p>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export function GroupsPanel({
                 {whatsAppStatusLabel}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {state.whatsAppPhone || 'Sem sess„o conectada'}
+                {state.whatsAppPhone || 'Sem sess√£o conectada'}
               </span>
             </div>
           </div>
@@ -117,12 +117,12 @@ export function GroupsPanel({
                     <Smartphone size={18} />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conex„o</p>
-                    <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'n„o conectada'}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Conex√£o</p>
+                    <p className="mt-1 text-base font-semibold">{whatsAppConnected ? 'Pronta para uso' : hasQrCode ? 'Aguardando leitura' : 'n√£o conectada'}</p>
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  {whatsAppConnected ? 'sess„o autenticada e pronta para uso no painel.' : 'Use o QR Code ao lado para concluir a AutenticaÁ„o da conta.'}
+                  {whatsAppConnected ? 'sess√£o autenticada e pronta para uso no painel.' : 'Use o QR Code ao lado para concluir a Autentica√ß√£o da conta.'}
                 </p>
               </div>
 
@@ -156,7 +156,7 @@ export function GroupsPanel({
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                  {state.metrics.groupsRefreshing ? 'sincronizaÁ„o em andamento.' : 'Grupos detectados com acesso administrativo.'}
+                  {state.metrics.groupsRefreshing ? 'sincroniza√ß√£o em andamento.' : 'Grupos detectados com acesso administrativo.'}
                 </p>
               </div>
             </div>
@@ -170,14 +170,14 @@ export function GroupsPanel({
             <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
               <div className="flex items-start justify-between gap-4 max-lg:flex-col">
                 <div>
-                  <p className="text-sm font-semibold">Conex„o do WhatsApp</p>
+                  <p className="text-sm font-semibold">Conex√£o do WhatsApp</p>
                   <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                    Use a reconexao para tentar recuperar a sess„o sem apagar dados do cliente.
+                    Use a reconexao para tentar recuperar a sess√£o sem apagar dados do cliente.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
-                    OperaÁ„o segura
+                    Opera√ß√£o segura
                   </span>
                   {isAdmin ? (
                     <button
@@ -210,7 +210,7 @@ export function GroupsPanel({
                     </div>
                     <div>
                       <p className="text-sm font-semibold">Reconectar</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">Solicita uma nova tentativa de conex„o.</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">Solicita uma nova tentativa de conex√£o.</p>
                     </div>
                   </div>
                 </button>
@@ -243,7 +243,7 @@ export function GroupsPanel({
                     setBusy('wa-reset');
                     await postJsonWithOptions('/api/whatsapp/reset-session', undefined, { timeoutMs: HTTP_TIMEOUT_MS.LONG });
                     await refresh();
-                    setNotice('Nova sess„o do WhatsApp preparada.');
+                    setNotice('Nova sess√£o do WhatsApp preparada.');
                     setBusy('');
                     setDestructiveConfirmStep(null);
                   }}
@@ -264,8 +264,8 @@ export function GroupsPanel({
                       </p>
                       <p className="mt-1 text-xs text-[var(--muted)]">
                         {destructiveConfirmStep === 'wa-reset'
-                          ? 'Clique novamente para confirmar. Isso inv·lida a sess„o atual.'
-                          : 'Gera uma nova sess„o para autenticar outra conta.'}
+                          ? 'Clique novamente para confirmar. Isso inv√°lida a sess√£o atual.'
+                          : 'Gera uma nova sess√£o para autenticar outra conta.'}
                       </p>
                     </div>
                   </div>
@@ -283,7 +283,7 @@ export function GroupsPanel({
                     setBusy('reset-all');
                     await postJsonWithOptions('/api/connections/reset-all', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                     await refresh();
-                    setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conex„o.');
+                    setNotice('Tudo foi resetado. O painel voltou ao estado inicial de conex√£o.');
                     setBusy('');
                     setDestructiveConfirmStep(null);
                   }}
@@ -304,8 +304,8 @@ export function GroupsPanel({
                       </p>
                       <p className="mt-1 text-xs text-red-100/75">
                         {destructiveConfirmStep === 'reset-all'
-                          ? 'Clique novamente para confirmar. Esta aÁ„o remove todas as conexıes ativas.'
-                          : 'Limpa conexıes e volta o painel ao estado inicial.'}
+                          ? 'Clique novamente para confirmar. Esta a√ß√£o remove todas as conex√µes ativas.'
+                          : 'Limpa conex√µes e volta o painel ao estado inicial.'}
                       </p>
                     </div>
                   </div>
@@ -314,7 +314,7 @@ export function GroupsPanel({
                   {destructiveConfirmStep ? (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 max-md:flex-col max-md:items-start">
                       <span>
-                        Confirmacao em 2 passos ativa para aÁ„o destrutiva.
+                        Confirmacao em 2 passos ativa para a√ß√£o destrutiva.
                       </span>
                       <button
                         type="button"
@@ -332,7 +332,7 @@ export function GroupsPanel({
             <div className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
               <p className="text-sm font-semibold">Comportamento ao sair</p>
               <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                Recomendado manter a sess„o conectada para reconexao mais rapida ao voltar.
+                Recomendado manter a sess√£o conectada para reconexao mais rapida ao voltar.
               </p>
               <label className="mt-3 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
                 <input
@@ -345,7 +345,7 @@ export function GroupsPanel({
                 <span>
                   <span className="block font-semibold text-white">Desconectar WhatsApp ao sair</span>
                   <span className="mt-1 block text-xs leading-5">
-                    Quando ativado, ao clicar em Sair o sistema derruba a sess„o do WhatsApp e exige novo QR no prÛximo login.
+                    Quando ativado, ao clicar em Sair o sistema derruba a sess√£o do WhatsApp e exige novo QR no pr√≥ximo login.
                   </span>
                 </span>
               </label>
@@ -379,10 +379,10 @@ export function GroupsPanel({
                 <p className="text-base font-semibold">QR Code do WhatsApp</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {hasQrCode
-                    ? 'Escaneie com o seu WhatsApp para concluir a AutenticaÁ„o.'
+                    ? 'Escaneie com o seu WhatsApp para concluir a Autentica√ß√£o.'
                     : whatsAppConnected
-                      ? 'Sua sess„o j· est· conectada. O QR Code n„o È mais necess·rio.'
-                      : 'Quando uma nova AutenticaÁ„o for exigida, o QR Code ser· exibido aqui automaticamente.'}
+                      ? 'Sua sess√£o j√° est√° conectada. O QR Code n√£o √© mais necess√°rio.'
+                      : 'Quando uma nova Autentica√ß√£o for exigida, o QR Code ser√° exibido aqui automaticamente.'}
                 </p>
               </div>
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
@@ -398,10 +398,10 @@ export function GroupsPanel({
               ) : (
                 <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 px-6 text-center text-sm text-[var(--muted)]">
                   {whatsAppConnected
-                    ? 'sess„o autenticada com sucesso.'
+                    ? 'sess√£o autenticada com sucesso.'
                     : whatsAppReconnecting
-                      ? 'Reconectando com a sess„o salva. Se demorar, use Reconectar WhatsApp.'
-                      : 'Nenhum QR Code disponÌvel no momento.'}
+                      ? 'Reconectando com a sess√£o salva. Se demorar, use Reconectar WhatsApp.'
+                      : 'Nenhum QR Code dispon√≠vel no momento.'}
                 </div>
               )}
             </div>
@@ -445,8 +445,8 @@ export function GroupsPanel({
               <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
-                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados atÈ agora.`
-                  : 'Preparando a leitura dos grupos. Na primeira sincronizaÁ„o isso pode levar alguns minutos.'}
+                  ? `Verificando seus grupos administrados. ${groupsProcessed}/${groupsTotal} analisados at√© agora.`
+                  : 'Preparando a leitura dos grupos. Na primeira sincroniza√ß√£o isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -463,8 +463,8 @@ export function GroupsPanel({
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
             <span>
-              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizaÁ„o'}
-              {state.metrics.hasCachedGroups && cachedAtLabel ? ` ¬∑ exibindo lista salva de ${cachedAtLabel}` : ''}
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincroniza√ß√£o'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` √Ç¬∑ exibindo lista salva de ${cachedAtLabel}` : ''}
             </span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
           </div>
@@ -473,7 +473,7 @@ export function GroupsPanel({
 
       {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
         <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
-          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. vocÍ pode usar essa lista imediatamente enquanto uma nova sincronizaÁ„o n„o for necessaria.
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. voc√™ pode usar essa lista imediatamente enquanto uma nova sincroniza√ß√£o n√£o for necessaria.
         </div>
       ) : null}
 
@@ -511,7 +511,7 @@ export function GroupsPanel({
                 type="button"
                 onClick={() => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+                    setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
                     return;
                   }
                   const next = new Set(selected);
@@ -547,7 +547,7 @@ export function GroupsPanel({
                     const next = new Set(selected);
                     if (event.target.checked) {
                       if (next.size >= whatsappDestinationLimit) {
-                        setNotice(`Seu plano permite atÈ ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        setNotice(`Seu plano permite at√© ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                         return;
                       }
                       next.add(group.id);

@@ -8,7 +8,7 @@ import { formatDate, formatNumber, formatOfferStatus, humanize, isWhatsAppConnec
 import { cn } from '../../../lib/utils';
 import type { AppState, ViewKey } from '../../types/panel';
 
-const panelVersion = 'Vers„o 2.00';
+const panelVersion = 'Vers√£o 2.00';
 
 const primaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
@@ -45,7 +45,7 @@ export function OverviewPanel({
   const groupProgressText =
     state.metrics.groupsRefreshing && progress?.total
       ? `${progress.processed || 0}/${progress.total} grupos (${progress.percent || 0}%)`
-      : `${state.metrics.availableAdminGroupCount || 0} grupos disponÌveis`;
+      : `${state.metrics.availableAdminGroupCount || 0} grupos dispon√≠veis`;
   const deliveryStats = state.metrics.deliveryStats || {};
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'errors' | 'delivery' | 'auth'>('all');
   const totalForwarded = state.metrics.totalForwardedMessages || 0;
@@ -113,7 +113,7 @@ export function OverviewPanel({
         typeText.includes('telegram') ||
         typeText.includes('whatsapp') ||
         messageText.includes('login') ||
-        messageText.includes('sess„o') ||
+        messageText.includes('sess√£o') ||
         messageText.includes('telegram') ||
         messageText.includes('whatsapp')
       );
@@ -125,8 +125,8 @@ export function OverviewPanel({
     criticalAlerts.push({
       id: 'telegram-session',
       title: 'Telegram desconectado',
-      detail: 'A captura de mensagens est· pausada atÈ concluir o login.',
-      cta: 'Revisar conex„o',
+      detail: 'A captura de mensagens est√° pausada at√© concluir o login.',
+      cta: 'Revisar conex√£o',
       goTo: 'connections'
     });
   }
@@ -134,8 +134,8 @@ export function OverviewPanel({
   if (state.whatsAppStatus !== 'ready') {
     criticalAlerts.push({
       id: 'whatsapp-session',
-      title: 'WhatsApp n„o est· pronto',
-      detail: 'As entregas podem falhar enquanto a sess„o n„o estiver autenticada.',
+      title: 'WhatsApp n√£o est√° pronto',
+      detail: 'As entregas podem falhar enquanto a sess√£o n√£o estiver autenticada.',
       cta: 'Abrir config. WhatsApp',
       goTo: 'groups'
     });
@@ -145,7 +145,7 @@ export function OverviewPanel({
     criticalAlerts.push({
       id: 'flow-config',
       title: 'Fluxo incompleto',
-      detail: 'Falta origem Telegram ou destino WhatsApp para a OperaÁ„o completa.',
+      detail: 'Falta origem Telegram ou destino WhatsApp para a Opera√ß√£o completa.',
       cta: 'Configurar fluxo',
       goTo: 'flows'
     });
@@ -164,25 +164,25 @@ export function OverviewPanel({
                 Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">OperaÁ„o da ponte</h2>
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">Opera√ß√£o da ponte</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">
-              Acompanhe a sa˙de das conexıes, controle a automaÁ„o e valide se as mensagens est„o fluindo.
+              Acompanhe a sa√∫de das conex√µes, controle a automa√ß√£o e valide se as mensagens est√£o fluindo.
             </p>
           </div>
           <div className="grid min-w-[300px] gap-3 rounded-xl border border-[var(--border)] bg-black/25 p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Status da automaÁ„o</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Status da automa√ß√£o</p>
                 <p className="mt-1 text-sm font-semibold">
-                  {effectiveBridgeEnabled ? 'AutomaÁ„o ativa' : 'AutomaÁ„o pausada'}
+                  {effectiveBridgeEnabled ? 'Automa√ß√£o ativa' : 'Automa√ß√£o pausada'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
                   {effectiveBridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
                     : state.config.bridgeEnabled
-                      ? 'A automaÁ„o foi pausada porque nem todas as conexıes est„o prontas.'
+                      ? 'A automa√ß√£o foi pausada porque nem todas as conex√µes est√£o prontas.'
                     : canEnableAutomation
-                      ? 'As mensagens recebidas ficam sem encaminhamento atÈ vocÍ ligar de novo.'
+                      ? 'As mensagens recebidas ficam sem encaminhamento at√© voc√™ ligar de novo.'
                       : automationLockReason}
                 </p>
               </div>
@@ -191,7 +191,7 @@ export function OverviewPanel({
                 disabled={readOnlyAccount || busy === 'power' || !canEnableAutomation}
                 onChange={async (nextValue) => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+                    setNotice('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
                     return;
                   }
 
@@ -211,11 +211,11 @@ export function OverviewPanel({
 
             {readOnlyAccount ? (
               <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                Conta em teste: a automaÁ„o fica somente para visualizaÁ„o atÈ o administrador liberar.
+                Conta em teste: a automa√ß√£o fica somente para visualiza√ß√£o at√© o administrador liberar.
               </p>
               ) : !canEnableAutomation ? (
                 <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                  O interruptor ser· liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
+                  O interruptor ser√° liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
                 </p>
               ) : null}
 
@@ -225,7 +225,7 @@ export function OverviewPanel({
                 disabled={readOnlyAccount || busy === 'reset-all'}
                 onClick={async () => {
                   const confirmed = window.confirm(
-                    'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automaÁ„o. Deseja continuar?'
+                    'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automa√ß√£o. Deseja continuar?'
                   );
 
                   if (!confirmed) {
@@ -235,7 +235,7 @@ export function OverviewPanel({
                   setBusy('reset-all');
                   await postJsonWithOptions('/api/connections/reset-all', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                   await refresh();
-                  setNotice('conexıes resetadas. Agora vocÍ pode configurar tudo de novo.');
+                  setNotice('conex√µes resetadas. Agora voc√™ pode configurar tudo de novo.');
                   setBusy('');
                 }}
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
@@ -263,7 +263,7 @@ export function OverviewPanel({
         />
         <Metric
           icon={Activity}
-          label="PendÍncias Telegram"
+          label="Pend√™ncias Telegram"
           value={pendingTelegramCount}
           detail={pendingTelegramCount > 0 ? 'Mensagens aguardando encaminhamento' : 'Sem backlog no Telegram'}
         />
@@ -271,7 +271,7 @@ export function OverviewPanel({
           icon={AlertCircle}
           label="Alertas ativos"
           value={criticalAlerts.length}
-          detail={criticalAlerts.length > 0 ? 'Requer aÁ„o da OperaÁ„o' : 'Sem alertas crÌticos no momento'}
+          detail={criticalAlerts.length > 0 ? 'Requer a√ß√£o da Opera√ß√£o' : 'Sem alertas cr√≠ticos no momento'}
         />
       </section>
 
@@ -285,13 +285,13 @@ export function OverviewPanel({
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estabilidade</p>
-          <p className="mt-2 text-sm font-semibold">Press„o de retries</p>
+          <p className="mt-2 text-sm font-semibold">Press√£o de retries</p>
           <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
             Falhas transientes representam {retriesShare}% do fluxo monitorado.
           </p>
         </article>
         <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">EficiÍncia</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Efici√™ncia</p>
           <p className="mt-2 text-sm font-semibold">Score operacional</p>
           <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
             Score atual {automationScore}/100 considerando erros e severidade.
@@ -302,7 +302,7 @@ export function OverviewPanel({
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
         <div className="flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">AtenÁ„o agora</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Aten√ß√£o agora</p>
             <p className="mt-1 text-sm text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
           </div>
           <button
@@ -345,7 +345,7 @@ export function OverviewPanel({
             ))
           ) : (
             <p className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
-              OperaÁ„o est·vel: conexıes, fluxo e destinos est„o prontos.
+              Opera√ß√£o est√°vel: conex√µes, fluxo e destinos est√£o prontos.
             </p>
           )}
         </div>
@@ -355,7 +355,7 @@ export function OverviewPanel({
         <PlanUsageCard
           title="Plano e limites"
           planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
-          description="Acompanhe o que est· liberado no seu plano e quanto da estrutura atual j· est· em uso."
+          description="Acompanhe o que est√° liberado no seu plano e quanto da estrutura atual j√° est√° em uso."
           items={[
             {
               label: 'Destinos WhatsApp',
@@ -376,13 +376,13 @@ export function OverviewPanel({
               detail:
                 (state.affiliate?.automations?.length || 0) > 0
                   ? `${state.affiliate?.automations?.length || 0} regra(s) criada(s)`
-                  : 'Nenhuma automaÁ„o criada ainda'
+                  : 'Nenhuma automa√ß√£o criada ainda'
             }
           ]}
           featureBadges={[
             { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
             { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
-            { label: 'HistÛrico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
+            { label: 'Hist√≥rico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
             { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
           ]}
         />
@@ -410,7 +410,7 @@ export function OverviewPanel({
             icon={AlertCircle}
             label="Falhas fatais"
             value={deliveryStats.fatalFailures || 0}
-            detail="Erros definitivos que exigem AtenÁ„o operacional"
+            detail="Erros definitivos que exigem Aten√ß√£o operacional"
           />
         </section>
       </section>
@@ -419,8 +419,8 @@ export function OverviewPanel({
         <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">sa˙de dos fluxos</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Vis„o rapida da Ponte e do Automatizador de Ofertas.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">sa√∫de dos fluxos</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Vis√£o rapida da Ponte e do Automatizador de Ofertas.</p>
             </div>
             <button
               type="button"
@@ -448,7 +448,7 @@ export function OverviewPanel({
                   {bridgeHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em OperaÁ„o.'}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em Opera√ß√£o.'}</p>
             </div>
 
             <div className="rounded-lg border border-white/10 bg-black/10 p-3">
@@ -467,7 +467,7 @@ export function OverviewPanel({
                   {affiliateHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em OperaÁ„o.'}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em Opera√ß√£o.'}</p>
             </div>
           </div>
         </article>
@@ -476,13 +476,13 @@ export function OverviewPanel({
           <div className="flex items-start justify-between gap-3 max-md:flex-col">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Timeline operacional</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">⁄ltimos eventos com filtro r·pido para investigaÁ„o.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">√öltimos eventos com filtro r√°pido para investiga√ß√£o.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'all' ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Todos</button>
               <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'errors' ? 'border-red-400/20 bg-red-400/10 text-red-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Erros</button>
               <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'delivery' ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Entrega</button>
-              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>AutenticaÁ„o</button>
+              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Autentica√ß√£o</button>
             </div>
           </div>
 
@@ -519,14 +519,14 @@ export function OverviewPanel({
         <div className="flex items-start justify-between gap-3 max-md:flex-col">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Drill-down de falhas</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">SeparaÁ„o por tipo para acelerar correÁ„o operacional.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Separa√ß√£o por tipo para acelerar corre√ß√£o operacional.</p>
           </div>
           <button
             type="button"
             onClick={() => setView('activity')}
             className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
           >
-            Abrir HistÛrico completo
+            Abrir Hist√≥rico completo
           </button>
         </div>
 
@@ -539,7 +539,7 @@ export function OverviewPanel({
               </span>
             </div>
             <p className="mt-1 text-xs leading-5 text-amber-100/90">
-              Geralmente ligadas a instabilidade de sess„o/rede. Recomendado: revisar conexıes e repetir sincronizaÁ„o.
+              Geralmente ligadas a instabilidade de sess√£o/rede. Recomendado: revisar conex√µes e repetir sincroniza√ß√£o.
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -547,7 +547,7 @@ export function OverviewPanel({
                 onClick={() => setView('connections')}
                 className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
               >
-                Revisar conexıes
+                Revisar conex√µes
               </button>
               <button
                 type="button"
@@ -567,7 +567,7 @@ export function OverviewPanel({
               </span>
             </div>
             <p className="mt-1 text-xs leading-5 text-red-100/90">
-              Erros que pedem aÁ„o imediata. Recomendado: checar HistÛrico detalhado e regras de envio/credenciais.
+              Erros que pedem a√ß√£o imediata. Recomendado: checar Hist√≥rico detalhado e regras de envio/credenciais.
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -625,7 +625,7 @@ function OffersPanel({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entregas</p>
           <h2 className="mt-1 text-xl font-semibold">Ofertas captadas</h2>
           <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-            Isso limpa apenas a visualizaÁ„o do painel. Suas cotas, mÈtricas reais e HistÛrico tÈcnico continuam intactos.
+            Isso limpa apenas a visualiza√ß√£o do painel. Suas cotas, m√©tricas reais e Hist√≥rico t√©cnico continuam intactos.
           </p>
           {dashboardViewClearedAt ? (
             <p className="mt-1 text-[11px] text-[var(--muted)]">Ultima limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
@@ -641,12 +641,12 @@ function OffersPanel({
               disabled={readOnlyAccount || busy === 'clear-dashboard'}
               onClick={async () => {
                 if (readOnlyAccount) {
-                  setNotice?.('Conta em teste: ediÁıes est„o bloqueadas atÈ liberaÁ„o do administrador.');
+                  setNotice?.('Conta em teste: edi√ß√µes est√£o bloqueadas at√© libera√ß√£o do administrador.');
                   return;
                 }
 
                 const confirmed = window.confirm(
-                  'Isso vai limpar apenas a visualizaÁ„o de ofertas e atividade recente deste painel. Deseja continuar?'
+                  'Isso vai limpar apenas a visualiza√ß√£o de ofertas e atividade recente deste painel. Deseja continuar?'
                 );
 
                 if (!confirmed) {
@@ -659,7 +659,7 @@ function OffersPanel({
                   await refresh?.();
                   setNotice?.('Painel visual limpo com sucesso.');
                 } catch (error) {
-                  setNotice?.(error instanceof Error ? error.message : 'n„o foi possÌvel limpar o painel.');
+                  setNotice?.(error instanceof Error ? error.message : 'n√£o foi poss√≠vel limpar o painel.');
                 } finally {
                   setBusy?.('');
                 }
@@ -814,7 +814,7 @@ function getFlowHealthStatus({
   if (!selected && saved) {
     return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
   }
-  return { label: 'Incompleto', reason: 'n„o salvo' };
+  return { label: 'Incompleto', reason: 'n√£o salvo' };
 }
 
 function getActiveAffiliateAutomation(state: AppState) {
@@ -853,10 +853,10 @@ function canEnableAutomationState(state: AppState) {
 
 function getAutomationLockReason(state: AppState) {
   if (state.telegramStatus !== 'listening') {
-    return 'Conecte e conclua o login no Telegram para liberar a automaÁ„o.';
+    return 'Conecte e conclua o login no Telegram para liberar a automa√ß√£o.';
   }
   if (!isWhatsAppConnectedStatus(state.whatsAppStatus)) {
-    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automaÁ„o.';
+    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automa√ß√£o.';
   }
   if (!hasOperationalTelegramSource(state)) {
     return 'Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.';

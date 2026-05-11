@@ -45,7 +45,7 @@ export function AuthScreen({
       void onAuthenticated(auth);
       setNotice('Login realizado com sucesso.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel continuar.');
+      setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel continuar.');
     } finally {
       setBusy(false);
     }
@@ -63,7 +63,7 @@ export function AuthScreen({
             <div className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(37,211,102,0.18)] bg-[rgba(5,24,17,0.74)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#DDFCEF] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
                 <Zap size={14} className="text-[#25D366]" />
-                  OperaÁ„o automatizada com <span className="text-[#25D366]">Telegram</span> + <span className="text-[#229ED9]">WhatsApp</span> + afiliados
+                  Opera√ß√£o automatizada com <span className="text-[#25D366]">Telegram</span> + <span className="text-[#229ED9]">WhatsApp</span> + afiliados
               </span>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-start max-sm:grid-cols-1">
@@ -87,14 +87,14 @@ export function AuthScreen({
                   </h1>
 
                   <p className="mt-4 max-w-3xl text-[1.08rem] leading-8 text-[#AAB8B0] max-sm:text-base max-sm:leading-7">
-                    Centralize origem, destinos, sessıes, HistÛrico e testes em um painel pensado para OperaÁ„o real. Quando quiser, ative o mÛdulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para convers„o.
+                    Centralize origem, destinos, sess√µes, Hist√≥rico e testes em um painel pensado para Opera√ß√£o real. Quando quiser, ative o m√≥dulo de afiliados para tratar links Amazon e Shopee antes do envio e manter a mensagem pronta para convers√£o.
                   </p>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <AuthMetricPill label="Origem Telegram" value="Conta prÛpria" accentClassName="text-[#25D366]" />
+                    <AuthMetricPill label="Origem Telegram" value="Conta pr√≥pria" accentClassName="text-[#25D366]" />
                     <AuthMetricPill label="Entrega" value="WhatsApp controlado" accentClassName="text-[#229ED9]" />
                     <AuthMetricPill label="Afiliados" value="Amazon + Shopee" accentClassName="text-[#7EE59F]" />
-                    <AuthMetricPill label="OperaÁ„o" value="HistÛrico e testes" accentClassName="text-[#9FD7FF]" />
+                    <AuthMetricPill label="Opera√ß√£o" value="Hist√≥rico e testes" accentClassName="text-[#9FD7FF]" />
                   </div>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export function AuthScreen({
                     <Rocket size={19} className="text-[#25D366]" />
                   </div>
                   <p className="text-base leading-7 text-[#DBEAE1]">
-                    O cliente escolhe a origem no Telegram, define os destinos no WhatsApp, valida o fluxo antes de ativar e acompanha tudo no painel. Sem cÛpia e cola manual, sem perder contexto e com visibilidade clara do que foi captado, tratado e entregue.
+                    O cliente escolhe a origem no Telegram, define os destinos no WhatsApp, valida o fluxo antes de ativar e acompanha tudo no painel. Sem c√≥pia e cola manual, sem perder contexto e com visibilidade clara do que foi captado, tratado e entregue.
                   </p>
                 </div>
               </div>
@@ -114,28 +114,28 @@ export function AuthScreen({
                 <AuthFlowStep
                   icon={Send}
                   title="1. Conecte a origem"
-                  text="FaÁa login no Telegram com sua prÛpria conta e escolha o grupo ou canal que ser· monitorado."
+                  text="Fa√ßa login no Telegram com sua pr√≥pria conta e escolha o grupo ou canal que ser√° monitorado."
                 />
                 <AuthFlowStep
                   icon={Smartphone}
                   title="2. Defina os destinos"
-                  text="Conecte o WhatsApp, escolha os grupos de entrega e salve o fluxo da OperaÁ„o em poucos passos."
+                  text="Conecte o WhatsApp, escolha os grupos de entrega e salve o fluxo da Opera√ß√£o em poucos passos."
                 />
                 <AuthFlowStep
                   icon={CreditCard}
                   title="3. Ative afiliados quando quiser"
-                  text="Trate links, adicione rodapÈ prÛprio, rode testes e publique a saÌda final de forma mais profissional."
+                  text="Trate links, adicione rodap√© pr√≥prio, rode testes e publique a sa√≠da final de forma mais profissional."
                 />
               </div>
 
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div className="rounded-[24px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,26,18,0.92),rgba(4,18,13,0.96))] p-5 shadow-[0_12px_36px_rgba(0,0,0,0.22)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Central de OperaÁ„o</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#5DE0A0]">Central de Opera√ß√£o</p>
                   <h2 className="mt-3 max-w-lg text-[2.3rem] font-semibold leading-[1.04] text-[#F8FAFC] max-sm:text-[1.9rem]">
                     Uma estrutura pronta para rodar todo dia.
                   </h2>
                   <p className="mt-3 max-w-lg text-[0.98rem] leading-7 text-[#AAB8B0]">
-                    O Portal do Afiliado conecta sua conta do Telegram, mantÈm a sess„o do WhatsApp, organiza grupos de destino, registra HistÛrico, oferece teste manual e separa a OperaÁ„o comum da automaÁ„o de afiliados. O resultado È mais controle, menos retrabalho e uma rotina comercial muito mais previsÌvel.
+                    O Portal do Afiliado conecta sua conta do Telegram, mant√©m a sess√£o do WhatsApp, organiza grupos de destino, registra Hist√≥rico, oferece teste manual e separa a Opera√ß√£o comum da automa√ß√£o de afiliados. O resultado √© mais controle, menos retrabalho e uma rotina comercial muito mais previs√≠vel.
                   </p>
 
                   <div className="mt-6 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[#C8D7D0]">
@@ -151,7 +151,7 @@ export function AuthScreen({
                       <span className="h-2 w-2 rounded-full bg-[#25D366]" />
                       Modulo de afiliados separado
                     </span>
-                    <span className="text-[#8FA69C]">Cada fluxo tem regra prÛpria, com rastreabilidade do que entrou, do que foi tratado e para onde a mensagem saiu.</span>
+                    <span className="text-[#8FA69C]">Cada fluxo tem regra pr√≥pria, com rastreabilidade do que entrou, do que foi tratado e para onde a mensagem saiu.</span>
                   </div>
                 </div>
 
@@ -166,7 +166,7 @@ export function AuthScreen({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8BA39A]">Painel operacional</p>
-                        <p className="mt-1 text-sm text-[#DCE9E2]">OperaÁ„o acompanhada em tempo real</p>
+                        <p className="mt-1 text-sm text-[#DCE9E2]">Opera√ß√£o acompanhada em tempo real</p>
                       </div>
                       <div className="rounded-full border border-[rgba(37,211,102,0.2)] bg-[rgba(37,211,102,0.08)] px-2.5 py-1 text-[11px] font-semibold text-[#9CF0BF]">
                         Em monitoramento
@@ -192,7 +192,7 @@ export function AuthScreen({
                       </div>
                       <div className="mt-3 flex items-center justify-between text-[11px] text-[#7E9088]">
                         <span>Entrega monitorada</span>
-                        <span>Vis„o operacional</span>
+                        <span>Vis√£o operacional</span>
                       </div>
                     </div>
 
@@ -205,7 +205,7 @@ export function AuthScreen({
                       <AuthMiniSignal
                         icon={Smartphone}
                         title="WhatsApp"
-                        detail="sess„o valida"
+                        detail="sess√£o valida"
                         accentClassName="text-[#25D366]"
                         panelClassName="border-[rgba(37,211,102,0.14)] bg-[rgba(37,211,102,0.06)]"
                       />
@@ -226,39 +226,39 @@ export function AuthScreen({
                   icon={Gauge}
                   iconClassName="text-[#25D366]"
                   title="Origem controlada"
-                  text="Escolha exatamente qual grupo ou canal ser· monitorado. A OperaÁ„o parte de uma origem definida, com menos erro e mais consistÍncia."
+                  text="Escolha exatamente qual grupo ou canal ser√° monitorado. A Opera√ß√£o parte de uma origem definida, com menos erro e mais consist√™ncia."
                 />
                 <AuthBenefitCard
                   icon={Clock3}
                   iconClassName="text-[#229ED9]"
                   title="Teste antes do envio real"
-                  text="Simule mensagens, revise a saÌda final e ative a automaÁ„o sÛ quando o fluxo estiver validado. Mais seguranÁa e menos tentativa no escuro."
+                  text="Simule mensagens, revise a sa√≠da final e ative a automa√ß√£o s√≥ quando o fluxo estiver validado. Mais seguran√ßa e menos tentativa no escuro."
                 />
                 <AuthBenefitCard
                   icon={ShieldCheck}
                   iconClassName="text-[#76E599]"
                   title="Afiliados integrados"
-                  text="Converta links Amazon, organize a OperaÁ„o da Shopee e mantenha o mÛdulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
+                  text="Converta links Amazon, organize a Opera√ß√£o da Shopee e mantenha o m√≥dulo de afiliados separado da ponte comum entre Telegram e WhatsApp."
                 />
               </div>
 
               <div className="mt-5 grid gap-3 rounded-[24px] border border-[rgba(37,211,102,0.16)] bg-[linear-gradient(180deg,rgba(8,29,21,0.9),rgba(4,18,13,0.96))] p-5 shadow-[0_16px_36px_rgba(0,0,0,0.24)] lg:grid-cols-3">
                 <AuthTrustItem
                   icon={TrendingUp}
-                  title="HistÛrico auditavel"
+                  title="Hist√≥rico auditavel"
                   label="veja o que entrou, o que foi processado, para onde saiu e quando cada entrega aconteceu."
                   accentClassName="text-[#25D366]"
                 />
                 <AuthTrustItem
                   icon={ShieldCheck}
-                  title="Sessıes sempre visiveis"
-                  label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir r·pido quando precisar."
+                  title="Sess√µes sempre visiveis"
+                  label="o painel mostra o estado do Telegram e do WhatsApp para a equipe agir r√°pido quando precisar."
                   accentClassName="text-[#77E6A0]"
                 />
                 <AuthTrustItem
                   icon={Users}
                   title="Estrutura de SaaS real"
-                  label="conta, grupos, fluxos, afiliados, HistÛrico e administraÁ„o no mesmo ambiente."
+                  label="conta, grupos, fluxos, afiliados, Hist√≥rico e administra√ß√£o no mesmo ambiente."
                   accentClassName="text-[#51CFFF]"
                 />
               </div>
@@ -270,7 +270,7 @@ export function AuthScreen({
               <div>
                 <h2 className="text-[2.1rem] font-semibold leading-[1.08] text-[#F8FAFC]">Entrar na plataforma</h2>
                 <p className="mt-3 max-w-sm text-[1.05rem] leading-8 text-[#AAB8B0]">
-                  Acesse o painel para configurar suas conexıes, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um sÛ lugar.
+                  Acesse o painel para configurar suas conex√µes, organizar os fluxos, validar as entregas e operar sua estrutura de Telegram, WhatsApp e afiliados em um s√≥ lugar.
                 </p>
               </div>
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[rgba(34,158,217,0.18)] bg-[rgba(34,158,217,0.08)] shadow-[0_12px_26px_rgba(0,0,0,0.2)]">
@@ -309,7 +309,7 @@ export function AuthScreen({
               {mode === 'register' ? (
                 <Field label="Nome" name="name" placeholder="Seu nome" autoComplete="name" icon={Users} />
               ) : null}
-              <Field label="E-mail" name="email" placeholder="vocÍ@empresa.com" autoComplete="email" icon={Mail} />
+              <Field label="E-mail" name="email" placeholder="voc√™@empresa.com" autoComplete="email" icon={Mail} />
               <Field
                 label="Senha"
                 name="password"
@@ -323,7 +323,7 @@ export function AuthScreen({
               <div className="-mt-1 flex items-center justify-end">
                 <button
                   type="button"
-                  onClick={() => setNotice('RecuperaÁ„o de senha estar· disponÌvel em breve.')}
+                  onClick={() => setNotice('Recupera√ß√£o de senha estar√° dispon√≠vel em breve.')}
                   className="text-sm font-semibold text-[#32D07C] transition hover:text-[#5EE19C] focus:outline-none focus:ring-2 focus:ring-[rgba(37,211,102,0.16)]"
                 >
                   Esqueci minha senha
@@ -346,11 +346,11 @@ export function AuthScreen({
                   <Gauge size={18} className="text-[#7ED4FF]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#E8F6EF]">O que vocÍ encontra depois do login</p>
+                  <p className="text-sm font-semibold text-[#E8F6EF]">O que voc√™ encontra depois do login</p>
                   <ul className="mt-2 grid gap-2 text-sm leading-6 text-[#AAB8B0]">
-                    <li>configuraÁ„o separada para Telegram, WhatsApp, Fluxos e Afiliados.</li>
-                    <li>HistÛrico operacional com mensagens, entregas e eventos recentes.</li>
-                    <li>Teste manual para validar a saÌda antes de ligar a automaÁ„o.</li>
+                    <li>configura√ß√£o separada para Telegram, WhatsApp, Fluxos e Afiliados.</li>
+                    <li>Hist√≥rico operacional com mensagens, entregas e eventos recentes.</li>
+                    <li>Teste manual para validar a sa√≠da antes de ligar a automa√ß√£o.</li>
                   </ul>
                 </div>
               </div>
@@ -372,7 +372,7 @@ export function AuthScreen({
               </a>
             ) : (
               <p className="rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-4 text-sm text-[#AAB8B0]">
-                Login com Google estar· disponÌvel em breve.
+                Login com Google estar√° dispon√≠vel em breve.
               </p>
             )}
 
@@ -382,9 +382,9 @@ export function AuthScreen({
                   <ShieldCheck size={18} className="text-[#46E285]" />
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-[#E8F6EF]">Painel feito para OperaÁ„o diaria</p>
+                  <p className="text-base font-semibold text-[#E8F6EF]">Painel feito para Opera√ß√£o diaria</p>
                   <p className="mt-1 text-sm leading-6 text-[#AAB8B0]">
-                    Login, sessıes, grupos, fluxos, HistÛrico e afiliados centralizados em uma experiÍncia ˙nica para quem precisa publicar, acompanhar e ajustar r·pido.
+                    Login, sess√µes, grupos, fluxos, Hist√≥rico e afiliados centralizados em uma experi√™ncia √∫nica para quem precisa publicar, acompanhar e ajustar r√°pido.
                   </p>
                 </div>
               </div>
@@ -399,7 +399,7 @@ export function AuthScreen({
         </div>
 
         <footer className="mt-6 text-center text-xs leading-6 text-[#6F8178]">
-          Copyright 2026 Portal do Afiliado. Todos os direitos reservados. Proibida a cÛpia, distribuiÁ„o ou reproduÁ„o sem autorizaÁ„o. Criado por Rodrigo Damasceno.
+          Copyright 2026 Portal do Afiliado. Todos os direitos reservados. Proibida a c√≥pia, distribui√ß√£o ou reprodu√ß√£o sem autoriza√ß√£o. Criado por Rodrigo Damasceno.
         </footer>
       </div>
     </main>

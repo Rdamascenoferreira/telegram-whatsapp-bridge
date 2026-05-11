@@ -22,7 +22,7 @@ export function ActivityLogPanel({ state, compact = false }: { state: AppState; 
     <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Histórico</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">HistÃ³rico</p>
           <h2 className="mt-1 text-xl font-semibold">Atividade recente</h2>
         </div>
       </div>

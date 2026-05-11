@@ -2,10 +2,11 @@
 
 import { AlertCircle, ArrowRight, Bot, CheckCircle2, Clock3, RefreshCcw, Search, Shield, Smartphone, Users, X, Zap } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Field, InternalSetupChecklist } from '../common-ui';
+import { Field } from '../common-ui';
+import { InternalSetupChecklist } from '../connections-panel';
 import { FlowSaveActionsCard } from '../flow-save-actions-card';
-import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
-import { formatDate, humanize, isWhatsAppConnectedStatus, normalizeRouteSourceId, normalizeText } from '../../../lib/panel-utils';
+import { ApiRequestError, HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
+import { formatDate, formatOfferStatus, humanize, isWhatsAppConnectedStatus, normalizeRouteSourceId, normalizeText } from '../../../lib/panel-utils';
 import { cn } from '../../../lib/utils';
 import type { AppState, FlowFieldErrors, ViewKey, WhatsAppGroup } from '../../types/panel';
 
@@ -14,6 +15,9 @@ const primaryButton =
 
 const secondaryButton =
   'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60';
+
+const inputClass =
+  'h-[58px] w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 text-base text-[#F8FAFC] outline-none transition placeholder:text-[#6D7C75] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.05)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
 
 function isReadOnlyAccount(state: AppState) {
   return state.auth.user?.accountStatus === 'trial' && !state.auth.user?.isAdmin;
@@ -64,7 +68,7 @@ function getFlowHealthStatus({
   if (!hasDestinations) return { label: 'Incompleto', reason: 'Sem destino WhatsApp' };
   if (selected && saved) return { label: 'Ativo', reason: '' };
   if (!selected && saved) return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
-  return { label: 'Incompleto', reason: 'não salvo' };
+  return { label: 'Incompleto', reason: 'nÃ£o salvo' };
 }
 
 function getTelegramChatName(state: AppState, sourceId?: string | null) {
@@ -74,6 +78,12 @@ function getTelegramChatName(state: AppState, sourceId?: string | null) {
     normalizedSourceId ||
     'Nenhuma origem escolhida'
   );
+}
+
+function formatMediaSourceMode(value?: string) {
+  return String(value || '').toLowerCase() === 'product_image'
+    ? 'Imagem do link do produto'
+    : 'Imagem original do Telegram';
 }
 
 
@@ -173,7 +183,7 @@ export function FlowsPanel({
       : '';
     if (affiliateTelegramForwardEnabled !== savedAffiliateForwardEnabled || nextForwardDestinationId !== savedAffiliateForwardDestinationId) {
       pendingFlowChanges.push(
-        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'não'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'não'}`
+        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'nÃ£o'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'nÃ£o'}`
       );
     }
   }
@@ -211,7 +221,7 @@ export function FlowsPanel({
     const nextFieldErrors: FlowFieldErrors = {};
 
     if (readOnlyAccount) {
-      setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
+      setNotice('Conta em teste: ediÃ§Ãµes estÃ£o bloqueadas atÃ© liberaÃ§Ã£o do administrador.');
       return;
     }
 
@@ -228,7 +238,7 @@ export function FlowsPanel({
     }
 
     if (telegramFlow === 'affiliate' && !affiliateModuleAllowed) {
-      nextFieldErrors.flow = `O plano ${planLimits?.label || 'atual'} ainda não inclui Automatizador de Ofertas.`;
+      nextFieldErrors.flow = `O plano ${planLimits?.label || 'atual'} ainda nÃ£o inclui Automatizador de Ofertas.`;
     }
 
     if (telegramFlow === 'affiliate' && !state.affiliate?.termsAccepted) {
@@ -307,7 +317,7 @@ export function FlowsPanel({
           setReviewBeforeSave(false);
         }
       }
-      setNotice(error instanceof Error ? error.message : 'não foi possível salvar o fluxo.');
+      setNotice(error instanceof Error ? error.message : 'nÃ£o foi possÃ­vel salvar o fluxo.');
     } finally {
       setBusy('');
     }
@@ -325,7 +335,7 @@ export function FlowsPanel({
                   <ArrowRight size={22} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da Operação</h2>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da OperaÃ§Ã£o</h2>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
                     Escolha como a conta vai trabalhar: ponte simples para republicar exatamente o que chega do Telegram ou automatizador de ofertas para tratar links de afiliado antes do envio.
                   </p>
@@ -337,7 +347,7 @@ export function FlowsPanel({
                 {selectedWhatsAppDestinationCount} destino(s) ativo(s)
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuração'}
+                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuraÃ§Ã£o'}
               </span>
             </div>
           </div>
@@ -359,7 +369,7 @@ export function FlowsPanel({
             ) : null}
             <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de Operação</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de OperaÃ§Ã£o</p>
                 <h3 className="mt-1 text-lg font-semibold">Um fluxo ativo por vez</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                   A mesma conta pode usar a ponte simples ou o automatizador de ofertas, mas apenas um deles fica ativo por vez para evitar envio duplicado.
@@ -392,7 +402,7 @@ export function FlowsPanel({
                     {bridgeFlowStatus.reason ? ` - ${bridgeFlowStatus.reason}` : ''}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos já salvos no WhatsApp.
+                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos jÃ¡ salvos no WhatsApp.
                   </p>
                 </button>
 
@@ -453,7 +463,7 @@ export function FlowsPanel({
                     {affiliateFlowStatus.reason ? ` - ${affiliateFlowStatus.reason}` : ''}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configurações de afiliado e só depois enviar a mensagem final.
+                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configuraÃ§Ãµes de afiliado e sÃ³ depois enviar a mensagem final.
                   </p>
                 </button>
 
@@ -525,7 +535,7 @@ export function FlowsPanel({
                         !affiliateTelegramForwardEnabled
                       }
                     >
-                      <option value="">não encaminhar para Telegram</option>
+                      <option value="">nÃ£o encaminhar para Telegram</option>
                       {telegramAdminDestinationChats.map((chat) => (
                         <option key={`forward-${chat.id}`} value={chat.id}>
                           {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
@@ -559,7 +569,7 @@ export function FlowsPanel({
                   Fluxo atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta está com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
+                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta estÃ¡ com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
                 </p>
                 {flowFieldErrors.destinations ? (
                   <p className="mt-2 text-xs font-semibold text-amber-100">{flowFieldErrors.destinations}</p>
@@ -600,7 +610,7 @@ export function FlowsPanel({
                 telegramForwardLabel={
                   telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
                     ? getTelegramChatName(state, affiliateTelegramDestinationId)
-                    : 'não'
+                    : 'nÃ£o'
                 }
                 pendingFlowChanges={pendingFlowChanges}
                 onEditOrSubmit={() => {
@@ -748,7 +758,7 @@ function WhatsAppDestinationSelector({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos WhatsApp</p>
           <h2 className="mt-1 text-xl font-semibold">Grupos que recebem os fluxos</h2>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A Autenticação do WhatsApp continua em Config. WhatsApp.
+            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A AutenticaÃ§Ã£o do WhatsApp continua em Config. WhatsApp.
           </p>
         </div>
         <button
@@ -756,14 +766,14 @@ function WhatsAppDestinationSelector({
           disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
-            setNotice('sincronização dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
+            setNotice('sincronizaÃ§Ã£o dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
             void postJsonWithOptions('/api/refresh-groups', undefined, { timeoutMs: HTTP_TIMEOUT_MS.LONG })
               .then(async () => {
                 await refresh();
                 setNotice('Lista de grupos do WhatsApp atualizada.');
               })
               .catch(() => {
-                setNotice('não foi possível atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
+                setNotice('nÃ£o foi possÃ­vel atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
               })
               .finally(() => setBusy(''));
             window.setTimeout(() => {
@@ -793,7 +803,7 @@ function WhatsAppDestinationSelector({
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 {groupsTotal
                   ? 'Estamos analisando seus grupos e separando apenas os destinos validos para envio.'
-                  : 'O WhatsApp ainda está devolvendo a lista inicial. Na primeira sincronização isso pode levar alguns minutos.'}
+                  : 'O WhatsApp ainda estÃ¡ devolvendo a lista inicial. Na primeira sincronizaÃ§Ã£o isso pode levar alguns minutos.'}
               </p>
             </div>
             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
@@ -824,14 +834,14 @@ function WhatsAppDestinationSelector({
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
-            <span>você pode continuar no painel enquanto a sincronização roda em segundo plano.</span>
+            <span>vocÃª pode continuar no painel enquanto a sincronizaÃ§Ã£o roda em segundo plano.</span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} conversas analisadas` : 'Aguardando o WhatsApp informar o total'}</span>
           </div>
 
           <div className="hidden">
             <span>
-              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronização'}
-              {state.metrics.hasCachedGroups && cachedAtLabel ? ` Â· exibindo lista salva de ${cachedAtLabel}` : ''}
+              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronizaÃ§Ã£o'}
+              {state.metrics.hasCachedGroups && cachedAtLabel ? ` Ã‚Â· exibindo lista salva de ${cachedAtLabel}` : ''}
             </span>
             <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
           </div>
@@ -840,7 +850,7 @@ function WhatsAppDestinationSelector({
 
       {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
         <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
-          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. você pode usar essa lista imediatamente enquanto uma nova sincronização não for necessaria.
+          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. vocÃª pode usar essa lista imediatamente enquanto uma nova sincronizaÃ§Ã£o nÃ£o for necessaria.
         </div>
       ) : null}
 
@@ -902,7 +912,7 @@ function WhatsAppDestinationSelector({
                 : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
             )}
           >
-            Anúncios
+            AnÃºncios
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -918,7 +928,7 @@ function WhatsAppDestinationSelector({
                 }
 
                 if (next.size >= whatsappDestinationLimit) {
-                  setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                  setNotice(`Seu plano permite atÃ© ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                   break;
                 }
 
@@ -930,7 +940,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
           >
-            Selecionar visíveis
+            Selecionar visÃ­veis
           </button>
           <button
             type="button"
@@ -945,7 +955,7 @@ function WhatsAppDestinationSelector({
             }}
             className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] disabled:opacity-60"
           >
-            Limpar visíveis
+            Limpar visÃ­veis
           </button>
         </div>
       </div>
@@ -974,7 +984,7 @@ function WhatsAppDestinationSelector({
                 type="button"
                 onClick={() => {
                   if (readOnlyAccount) {
-                    setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
+                    setNotice('Conta em teste: ediÃ§Ãµes estÃ£o bloqueadas atÃ© liberaÃ§Ã£o do administrador.');
                     return;
                   }
                   const next = new Set(selected);
@@ -1010,7 +1020,7 @@ function WhatsAppDestinationSelector({
                     const next = new Set(selected);
                     if (event.target.checked) {
                       if (next.size >= whatsappDestinationLimit) {
-                        setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
+                        setNotice(`Seu plano permite atÃ© ${whatsappDestinationLimit} destino(s) WhatsApp.`);
                         return;
                       }
                       next.add(group.id);
@@ -1058,12 +1068,12 @@ function WhatsAppDestinationSelector({
           </div>
           {overPlanLimit ? (
             <p className="mt-2 text-xs text-red-100">
-              A seleção atual ultrapassa o limite do plano. Ajuste antes de salvar.
+              A seleÃ§Ã£o atual ultrapassa o limite do plano. Ajuste antes de salvar.
             </p>
           ) : null}
           {hasStaleSelections ? (
             <p className="mt-2 text-xs text-amber-100">
-              {staleSelectedIds.length} destino(s) selecionado(s) não aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
+              {staleSelectedIds.length} destino(s) selecionado(s) nÃ£o aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
             </p>
           ) : null}
         </div>

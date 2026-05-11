@@ -62,7 +62,7 @@ import {
 } from '../lib/panel-utils';
 import { cn } from '../lib/utils';
 
-const panelVersion = 'Vers„o 2.00';
+const panelVersion = 'Vers√£o 2.00';
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'overview', label: 'Dashboard', icon: Gauge },
@@ -71,7 +71,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
   { key: 'flows', label: 'Fluxos', icon: ArrowRight },
   { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
   { key: 'planUsage', label: 'Plano e Uso', icon: TrendingUp },
-  { key: 'activity', label: 'HistÛrico', icon: Activity },
+  { key: 'activity', label: 'Hist√≥rico', icon: Activity },
   { key: 'account', label: 'Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
 ];
@@ -89,7 +89,7 @@ export default function Home() {
   const { state, setState, bootError, setBootError, reload } = usePolledState<AppState>({
     fetcher: async () => await requestJson<AppState>('/api/state'),
     normalize: normalizeAppState,
-    defaultErrorMessage: 'n„o foi possÌvel carregar o painel agora. Tente novamente.',
+    defaultErrorMessage: 'n√£o foi poss√≠vel carregar o painel agora. Tente novamente.',
     pausePolling: view === 'flows' && affiliateAutomationEditing,
     pollIntervalMs: 5000
   });
@@ -130,7 +130,7 @@ export default function Home() {
         await loadAdminState();
       } catch (error) {
         if (!cancelled) {
-          setNotice(error instanceof Error ? error.message : 'N„o foi possÌvel atualizar o painel admin.');
+          setNotice(error instanceof Error ? error.message : 'N√£o foi poss√≠vel atualizar o painel admin.');
         }
       }
     };
@@ -170,7 +170,7 @@ export default function Home() {
               setNotice(
                 error instanceof Error
                   ? `Login realizado, mas o painel completo demorou para carregar: ${error.message}`
-                  : 'Login realizado, mas n„o foi possÌvel carregar o painel completo.'
+                  : 'Login realizado, mas n√£o foi poss√≠vel carregar o painel completo.'
               );
             });
           }}
@@ -346,7 +346,7 @@ async function readFileAsDataUrl(file: File) {
       const result = typeof reader.result === 'string' ? reader.result : '';
 
       if (!result) {
-        reject(new Error('n„o foi possÌvel ler a imagem selecionada.'));
+        reject(new Error('n√£o foi poss√≠vel ler a imagem selecionada.'));
         return;
       }
 
@@ -354,7 +354,7 @@ async function readFileAsDataUrl(file: File) {
     };
 
     reader.onerror = () => {
-      reject(new Error('n„o foi possÌvel ler a imagem selecionada.'));
+      reject(new Error('n√£o foi poss√≠vel ler a imagem selecionada.'));
     };
 
     reader.readAsDataURL(file);

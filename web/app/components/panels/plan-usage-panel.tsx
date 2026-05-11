@@ -36,21 +36,21 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
       key: 'plus',
       name: 'Plus',
       tone: 'border-emerald-400/20 bg-emerald-400/[0.06]',
-      description: 'Primeira camada comercial para OperaÁ„o real.',
+      description: 'Primeira camada comercial para Opera√ß√£o real.',
       highlights: ['1 origem Telegram', '10 destinos WhatsApp', 'Amazon afiliado', '500 mensagens/dia']
     },
     {
       key: 'pro',
       name: 'Pro',
       tone: 'border-cyan-400/20 bg-cyan-400/[0.06]',
-      description: 'Para escalar ofertas com afiliados e HistÛrico.',
+      description: 'Para escalar ofertas com afiliados e Hist√≥rico.',
       highlights: ['3 origens Telegram', '30 destinos WhatsApp', 'Amazon + Shopee', '2.000 mensagens/dia']
     },
     {
       key: 'business',
       name: 'Business',
       tone: 'border-emerald-300/25 bg-[linear-gradient(135deg,rgba(37,211,102,0.08),rgba(34,158,217,0.08))]',
-      description: 'OperaÁ„o robusta com mais bases e volume.',
+      description: 'Opera√ß√£o robusta com mais bases e volume.',
       highlights: ['10 origens Telegram', '100 destinos WhatsApp', '10 automacoes afiliadas', '10.000 mensagens/dia']
     }
   ];
@@ -67,9 +67,9 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
                   <TrendingUp size={22} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Limites claros para uma OperaÁ„o sem surpresa</h2>
+                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Limites claros para uma Opera√ß√£o sem surpresa</h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                    Veja o plano atual, o consumo operacional e quais recursos j· est„o liberados para a sua conta.
+                    Veja o plano atual, o consumo operacional e quais recursos j√° est√£o liberados para a sua conta.
                   </p>
                 </div>
               </div>
@@ -84,7 +84,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
           <PlanUsageCard
             title="Uso do plano atual"
             planLabel={limits?.label || humanize(currentPlan)}
-            description="Estes n˙meros ajudam o cliente a entender o que j· est· configurado e o que ainda cabe no plano."
+            description="Estes n√∫meros ajudam o cliente a entender o que j√° est√° configurado e o que ainda cabe no plano."
             items={[
               {
                 label: 'Destinos WhatsApp',
@@ -102,7 +102,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
                 label: 'Automacoes afiliadas',
                 used: state.affiliate?.automations?.length || 0,
                 limit: limits?.affiliateAutomations || 0,
-                detail: ` automaÁ„o(oes) ativa(s) no momento.`
+                detail: ` automa√ß√£o(oes) ativa(s) no momento.`
               },
               {
                 label: 'Uso operacional',
@@ -114,7 +114,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
             featureBadges={[
               { label: 'Amazon afiliado', enabled: Boolean(limits?.amazonAffiliate) },
               { label: 'Shopee afiliado', enabled: Boolean(limits?.shopeeAffiliate) },
-              { label: 'HistÛrico', enabled: Boolean((limits?.historyDays || 0) > 1), value: `${limits?.historyDays || 0} dias` },
+              { label: 'Hist√≥rico', enabled: Boolean((limits?.historyDays || 0) > 1), value: `${limits?.historyDays || 0} dias` },
               { label: 'Mensagens/dia', enabled: true, value: formatNumber(limits?.dailyMessages || 0) }
             ]}
           />
@@ -125,7 +125,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escada comercial</p>
                 <h2 className="mt-1 text-xl font-semibold">Planos recomendados</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  A ideia aqui e transformar limite em clareza: quando algo estiver bloqueado, o usu·rio entende qual upgrade libera.
+                  A ideia aqui e transformar limite em clareza: quando algo estiver bloqueado, o usu√°rio entende qual upgrade libera.
                 </p>
               </div>
               <button
@@ -181,7 +181,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
               className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <p className="font-semibold">Revisar WhatsApp</p>
-              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Veja destinos usados e grupos disponÌveis.</p>
+              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Veja destinos usados e grupos dispon√≠veis.</p>
             </button>
             <button
               type="button"
@@ -189,7 +189,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
               className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <p className="font-semibold">Configurar Afiliados</p>
-              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee e regras de convers„o.</p>
+              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee e regras de convers√£o.</p>
             </button>
           </section>
         </div>

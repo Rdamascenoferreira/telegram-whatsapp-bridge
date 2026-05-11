@@ -49,6 +49,7 @@ export type TelegramChat = {
   name: string;
   type: 'group' | 'channel';
   isAdmin?: boolean;
+  role?: string;
 };
 
 export type AffiliateAccount = {

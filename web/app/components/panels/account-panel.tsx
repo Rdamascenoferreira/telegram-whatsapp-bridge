@@ -25,7 +25,7 @@ async function readFileAsDataUrl(file: File) {
       const result = typeof reader.result === 'string' ? reader.result : '';
 
       if (!result) {
-        reject(new Error('n„o foi possÌvel ler a imagem selecionada.'));
+        reject(new Error('n√£o foi poss√≠vel ler a imagem selecionada.'));
         return;
       }
 
@@ -33,7 +33,7 @@ async function readFileAsDataUrl(file: File) {
     };
 
     reader.onerror = () => {
-      reject(new Error('n„o foi possÌvel ler a imagem selecionada.'));
+      reject(new Error('n√£o foi poss√≠vel ler a imagem selecionada.'));
     };
 
     reader.readAsDataURL(file);
@@ -80,7 +80,7 @@ export function AccountPanel({
               <div>
                 <p className="text-sm font-semibold">Dados do perfil</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Essas informaÁıes aparecem no seu painel e ajudam a identificar a conta conectada.
+                  Essas informa√ß√µes aparecem no seu painel e ajudam a identificar a conta conectada.
                 </p>
               </div>
 
@@ -129,7 +129,7 @@ export function AccountPanel({
                   setProfileEditing(false);
                   setNotice('Perfil atualizado com sucesso.');
                 } catch (error) {
-                  setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel atualizar o perfil.');
+                  setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel atualizar o perfil.');
                 } finally {
                   setBusy('');
                 }
@@ -153,8 +153,8 @@ export function AccountPanel({
                 <p className="text-sm font-semibold">Seguranca da conta</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                   {canChangePassword
-                    ? 'Use uma senha forte e atualize o acesso sempre que necess·rio.'
-                    : 'Esta conta usa AutenticaÁ„o externa e a senha e gerenciada fora do Portal do Afiliado.'}
+                    ? 'Use uma senha forte e atualize o acesso sempre que necess√°rio.'
+                    : 'Esta conta usa Autentica√ß√£o externa e a senha e gerenciada fora do Portal do Afiliado.'}
                 </p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
@@ -181,7 +181,7 @@ export function AccountPanel({
                     await refresh();
                     setNotice('Senha atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel atualizar a senha.');
+                    setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel atualizar a senha.');
                   } finally {
                     setBusy('');
                   }
@@ -235,7 +235,7 @@ export function AccountPanel({
         <h2 className="mt-1 text-xl font-semibold">Identidade da conta</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
           {usesGoogleAvatar
-            ? 'Sua foto est· sincronizada com o Google e È atualizada automaticamente.'
+            ? 'Sua foto est√° sincronizada com o Google e √© atualizada automaticamente.'
             : 'Envie uma foto clara para identificar esta conta dentro do painel.'}
         </p>
 
@@ -247,7 +247,7 @@ export function AccountPanel({
             }}
             size="lg"
           />
-          <p className="mt-4 text-lg font-semibold">{user?.name || 'Usu·rio'}</p>
+          <p className="mt-4 text-lg font-semibold">{user?.name || 'Usu√°rio'}</p>
           <p className="mt-1 text-sm text-[var(--muted)]">{user?.email}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {providers.map((provider) => (
@@ -260,13 +260,13 @@ export function AccountPanel({
 
         {usesGoogleAvatar ? (
           <div className="mt-4 rounded-md border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-50">
-            Como esta conta usa Google, a foto de perfil vem diretamente do Google do usu·rio.
+            Como esta conta usa Google, a foto de perfil vem diretamente do Google do usu√°rio.
           </div>
         ) : (
           <div className="mt-4 rounded-lg border border-[var(--border)] bg-black/10 p-4">
             <p className="text-sm font-semibold">Enviar nova foto</p>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              Aceitamos PNG, JPG ou WEBP com atÈ 1 MB.
+              Aceitamos PNG, JPG ou WEBP com at√© 1 MB.
             </p>
             <label className={cn('mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 px-4 py-6 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10', readOnlyAccount && 'cursor-not-allowed opacity-60')}>
               <Camera size={18} />
@@ -285,7 +285,7 @@ export function AccountPanel({
 
                   try {
                     if (file.size > 1024 * 1024) {
-                      throw new Error('A imagem deve ter no m·ximo 1 MB.');
+                      throw new Error('A imagem deve ter no m√°ximo 1 MB.');
                     }
 
                     const avatarDataUrl = await readFileAsDataUrl(file);
@@ -296,7 +296,7 @@ export function AccountPanel({
                     await refresh();
                     setNotice('Foto do perfil atualizada com sucesso.');
                   } catch (error) {
-                    setNotice(error instanceof Error ? error.message : 'n„o foi possÌvel atualizar a foto do perfil.');
+                    setNotice(error instanceof Error ? error.message : 'n√£o foi poss√≠vel atualizar a foto do perfil.');
                   } finally {
                     event.currentTarget.value = '';
                     setBusy('');
