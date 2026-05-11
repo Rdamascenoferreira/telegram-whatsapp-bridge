@@ -1332,8 +1332,10 @@ export class UserBridgeRuntime {
         continue;
       }
 
+      const originalMessageText = String(result.processedMessage || '');
+      const whatsAppMessageText = sanitizeWhatsAppAffiliateText(originalMessageText);
       const whatsAppPayload = await this.prepareAffiliateWhatsAppPayload({
-        messageText: result.processedMessage,
+        messageText: whatsAppMessageText,
         telegramMessage,
         automation,
         convertedUrls: result.convertedUrls
@@ -1353,8 +1355,9 @@ export class UserBridgeRuntime {
           telegramForwardResult.error = `Telegram indisponível: ${this.telegramStatus || 'offline'}`;
         } else {
           try {
+            const telegramPayload = cloneAffiliatePayloadWithMessageText(whatsAppPayload, originalMessageText);
             await this.sendAffiliateMessageToTelegramDestination(
-              whatsAppPayload,
+              telegramPayload,
               automation.telegramDestinationGroupId
             );
             telegramForwardResult.sent = true;
@@ -2842,6 +2845,49 @@ function hashText(value) {
 function normalizeAffiliateMediaSourceMode(value) {
   const mode = String(value ?? '').trim().toLowerCase();
   return ['telegram_media', 'product_image'].includes(mode) ? mode : 'telegram_media';
+}
+
+function sanitizeWhatsAppAffiliateText(value) {
+  const lines = String(value ?? '').split('\n');
+  const cleaned = lines.map((line) => stripWrappedFormattingMarkers(line));
+  return cleaned.join('\n');
+}
+
+function stripWrappedFormattingMarkers(line) {
+  const value = String(line ?? '');
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return value;
+  }
+
+  const unwrapped = trimmed
+    .replace(/^\*(.+)\*$/u, '$1')
+    .replace(/^_(.+)_$/u, '$1')
+    .replace(/^~(.+)~$/u, '$1');
+
+  return value.replace(trimmed, unwrapped);
+}
+
+function cloneAffiliatePayloadWithMessageText(payload, messageText) {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      type: 'text',
+      text: String(messageText ?? '')
+    };
+  }
+
+  if (payload.type === 'media') {
+    return {
+      ...payload,
+      caption: String(messageText ?? '')
+    };
+  }
+
+  return {
+    ...payload,
+    text: String(messageText ?? '')
+  };
 }
 
 function extractPrimaryConvertedProductUrl(convertedUrls = []) {

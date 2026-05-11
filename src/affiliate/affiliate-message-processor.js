@@ -420,29 +420,12 @@ function cleanupPreservedAffiliateMessage(message) {
       continue;
     }
 
-    cleaned.push(stripWrappedFormattingMarkers(line));
+    cleaned.push(line);
   }
 
   return normalizePreservedSpacing(cleaned.join('\n'));
 }
 
-function stripWrappedFormattingMarkers(line) {
-  const value = String(line ?? '');
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return value;
-  }
-
-  // Remove wrappers commonly used as markdown emphasis in source messages.
-  // This avoids leaking literal markers like "*🔥 Cupom Shopee*" in WhatsApp captions.
-  const unwrapped = trimmed
-    .replace(/^\*(.+)\*$/u, '$1')
-    .replace(/^_(.+)_$/u, '$1')
-    .replace(/^~(.+)~$/u, '$1');
-
-  return value.replace(trimmed, unwrapped);
-}
 
 function filterPreservedMessageBySupportedBlocks(message, convertedUrls = []) {
   const text = String(message ?? '').trim();
@@ -665,3 +648,4 @@ function buildResult(payload) {
     rewriteError: payload.rewriteError || ''
   };
 }
+
