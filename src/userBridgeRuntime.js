@@ -1491,8 +1491,7 @@ export class UserBridgeRuntime {
       }
 
       const html = await response.text();
-      const match = html.match(/<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
-      const rawImageUrl = match?.[1] ? String(match[1]).trim() : '';
+      const rawImageUrl = extractProductImageUrlFromHtml(html);
 
       if (!rawImageUrl) {
         return '';
@@ -2867,6 +2866,64 @@ function inferImageExtension(mimeType) {
   }
 
   return 'jpg';
+}
+
+function extractProductImageUrlFromHtml(html) {
+  const source = String(html ?? '');
+  const candidatePatterns = [
+    /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+property=["']og:image:secure_url["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image:src["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<link[^>]+rel=["']image_src["'][^>]*href=["']([^"']+)["'][^>]*>/i,
+    /<img[^>]+id=["']landingImage["'][^>]*src=["']([^"']+)["'][^>]*>/i,
+    /data-old-hires=["']([^"']+)["']/i
+  ];
+
+  for (const pattern of candidatePatterns) {
+    const match = source.match(pattern);
+    const candidate = sanitizeImageCandidate(match?.[1]);
+
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const dynamicImageMatch = source.match(/data-a-dynamic-image=["']\{([^"']+)\}["']/i);
+  if (dynamicImageMatch?.[1]) {
+    const unescaped = dynamicImageMatch[1].replace(/&quot;/g, '"');
+    const urlMatch = unescaped.match(/https?:\/\/[^"\\\s]+/i);
+    const candidate = sanitizeImageCandidate(urlMatch?.[0]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const jsonLdImageMatch = source.match(/"image"\s*:\s*"([^"]+)"/i);
+  const jsonLdCandidate = sanitizeImageCandidate(jsonLdImageMatch?.[1]);
+  if (jsonLdCandidate) {
+    return jsonLdCandidate;
+  }
+
+  return '';
+}
+
+function sanitizeImageCandidate(value) {
+  const candidate = String(value ?? '').trim();
+
+  if (!candidate || !/^https?:\/\//i.test(candidate)) {
+    return '';
+  }
+
+  if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(candidate)) {
+    return candidate;
+  }
+
+  if (/images(-na)?\.ssl-images-amazon\.com/i.test(candidate)) {
+    return candidate;
+  }
+
+  return '';
 }
 
 function fallbackText(message) {
