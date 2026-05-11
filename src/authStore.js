@@ -27,7 +27,6 @@ const usersPath = path.join(dataDir, 'users.json');
 const avatarUploadsDir = path.join(dataDir, 'profile-uploads');
 const primaryAdminEmail = resolvePrimaryAdminEmail();
 
-export const userRoleOptions = ['admin', 'member'];
 export const userPlanOptions = availableUserPlanOptions;
 export const userAccountStatusOptions = ['active', 'trial', 'suspended'];
 export const userBillingStatusOptions = ['beta', 'pending', 'paid', 'overdue'];
@@ -239,10 +238,10 @@ export function sanitizeUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    isAdmin: isPrimaryAdminEmail(user.email),
     avatarUrl: user.avatarUrl || '',
     avatarStorage: user.avatarStorage || 'none',
     providers: buildProviders(user),
-    role: user.role || 'member',
     plan: user.plan || 'beta',
     accountStatus: user.accountStatus || 'active',
     billingStatus: user.billingStatus || 'beta',

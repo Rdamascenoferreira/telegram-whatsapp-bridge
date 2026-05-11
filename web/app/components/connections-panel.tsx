@@ -1,7 +1,7 @@
 ﻿import { Bot, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { Field } from './common-ui';
-import { postJson } from '../../lib/http';
+import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../lib/http';
 import { cn } from '../../lib/utils';
 import { humanize } from '../../lib/panel-utils';
 
@@ -158,14 +158,14 @@ export function ConnectionsPanel({
                   return;
                 }
                 setBusy('settings');
-                await postJson('/api/settings', {
+                await postJsonWithOptions('/api/settings', {
                   telegramMode: 'user',
                   telegramChannel: state.config.telegramChannel,
                   telegramApiId,
                   telegramApiHash,
                   telegramPhone,
                   telegramBotToken: ''
-                });
+                }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                 await refresh();
                 setNotice('Credenciais do Telegram salvas.');
                 setCredentialsEditing(false);
@@ -220,15 +220,15 @@ export function ConnectionsPanel({
                   onClick={async () => {
                     setBusy('telegram-send-code');
                     try {
-                      await postJson('/api/settings', {
+                      await postJsonWithOptions('/api/settings', {
                         telegramMode: 'user',
                         telegramChannel: state.config.telegramChannel,
                         telegramApiId,
                         telegramApiHash,
                         telegramPhone,
                         telegramBotToken: ''
-                      });
-                      await postJson('/api/telegram/send-code');
+                      }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
+                      await postJsonWithOptions('/api/telegram/send-code', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                       await refresh();
                       setNotice('Código enviado para o Telegram.');
                     } catch (error) {
@@ -267,10 +267,10 @@ export function ConnectionsPanel({
                   onClick={async () => {
                     setBusy('telegram-complete-auth');
                     try {
-                      await postJson('/api/telegram/complete-auth', {
+                      await postJsonWithOptions('/api/telegram/complete-auth', {
                         code: effectiveTelegramCode,
                         password: effectiveTelegramPassword
-                      });
+                      }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                       await refresh();
                       setNotice(
                         authPhase === 'password_required'
@@ -292,7 +292,7 @@ export function ConnectionsPanel({
                   disabled={readOnlyAccount || busy === 'telegram-disconnect' || !hasSavedCredentials}
                   onClick={async () => {
                     setBusy('telegram-disconnect');
-                    await postJson('/api/telegram/disconnect');
+                    await postJsonWithOptions('/api/telegram/disconnect', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                     setTelegramApiId('');
                     setTelegramApiHash('');
                     setTelegramPhone('');

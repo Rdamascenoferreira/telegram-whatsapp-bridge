@@ -16,8 +16,7 @@ import {
   updateUserAdminSettings,
   userAccountStatusOptions,
   userBillingStatusOptions,
-  userPlanOptions,
-  userRoleOptions
+  userPlanOptions
 } from './authStore.js';
 import { BridgeManager } from './bridgeManager.js';
 import { loadConfigForUser } from './configStore.js';
@@ -73,7 +72,8 @@ export class BridgeApp {
         console.warn(`Admin audit unavailable: ${error.message}`);
       }
     };
-    const respondWithState = async (request, response) => {
+    const respondWithState = async (request, response, options = {}) => {
+      const includeAdmin = Boolean(options.includeAdmin);
       const auth = this.auth
         ? this.auth.getClientSession(request.user)
         : { authenticated: true, googleEnabled: false, user: null };
@@ -105,7 +105,7 @@ export class BridgeApp {
         }
       }
 
-      if (this.auth?.isAdminUser(request.user)) {
+      if (includeAdmin && this.auth?.isAdminUser(request.user)) {
         try {
           admin = await this.buildAdminState();
         } catch (error) {
@@ -148,7 +148,24 @@ export class BridgeApp {
         return;
       }
 
-      await respondWithState(request, response);
+      const includeAdminQuery = String(request.query?.includeAdmin ?? '').trim().toLowerCase();
+      const includeAdmin = includeAdminQuery === '1' || includeAdminQuery === 'true';
+      await respondWithState(request, response, { includeAdmin });
+    });
+
+    app.get('/api/admin/state', requireAdmin, async (_request, response) => {
+      response.json(await this.buildAdminState());
+    });
+
+    app.get('/api/admin/health', requireAdmin, async (_request, response) => {
+      response.json({
+        ok: true,
+        service: 'telegram-whatsapp-bridge',
+        environment: process.env.NODE_ENV || 'development',
+        uptimeSeconds: Math.round(process.uptime()),
+        ...this.getHealthSnapshot(),
+        timestamp: new Date().toISOString()
+      });
     });
 
     app.post('/api/settings', requireWriteAccess, async (request, response) => {
@@ -399,7 +416,6 @@ export class BridgeApp {
     app.post('/api/admin/users/:userId', requireAdmin, async (request, response) => {
       const targetUserId = String(request.params.userId ?? '').trim();
       const updatedUser = await updateUserAdminSettings(String(request.params.userId ?? '').trim(), {
-        role: request.body?.role,
         plan: request.body?.plan,
         accountStatus: request.body?.accountStatus,
         billingStatus: request.body?.billingStatus,
@@ -540,7 +556,6 @@ export class BridgeApp {
         sessions: supervisor
       },
       options: {
-        roles: userRoleOptions,
         plans: userPlanOptions,
         accountStatuses: userAccountStatusOptions,
         billingStatuses: userBillingStatusOptions
@@ -613,7 +628,6 @@ export class BridgeApp {
         sessions: supervisor
       },
       options: {
-        roles: userRoleOptions,
         plans: userPlanOptions,
         accountStatuses: userAccountStatusOptions,
         billingStatuses: userBillingStatusOptions

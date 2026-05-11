@@ -5,6 +5,7 @@ import { BridgeApp } from './bridgeApp.js';
 
 const port = Number(process.env.PORT ?? 3100);
 const appBaseUrl = process.env.APP_BASE_URL ?? `http://localhost:${port}`;
+const appVersion = String(process.env.APP_VERSION ?? process.env.npm_package_version ?? '0.1.0').trim();
 const frontendBaseUrl = String(process.env.FRONTEND_BASE_URL ?? '').trim().replace(/\/$/, '');
 const allowedOrigins = [
   frontendBaseUrl,
@@ -43,9 +44,9 @@ app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
     service: 'telegram-whatsapp-bridge',
+    version: appVersion,
     environment: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.round(process.uptime()),
-    ...bridge.getHealthSnapshot(),
     timestamp: new Date().toISOString()
   });
 });

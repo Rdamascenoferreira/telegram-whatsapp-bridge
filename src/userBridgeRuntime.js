@@ -73,10 +73,6 @@ function isWhatsAppOperationalStatus(value) {
   return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
 }
 
-function createRemovedTelegramBotClient() {
-  throw new Error('O modo de bot do Telegram foi removido. Use a sessão de usuário do Telegram.');
-}
-
 export class UserBridgeRuntime {
   constructor(options = {}) {
     this.userId = String(options.userId ?? '').trim();
@@ -829,61 +825,6 @@ export class UserBridgeRuntime {
     this.telegramUserProfile = null;
 
     await this.startTelegramUser();
-    return;
-
-    if (!this.config.telegramBotToken) {
-      this.telegramStatus = 'not_configured';
-      this.log('Telegram ainda não configurado.', {
-        type: 'telegram_not_configured'
-      });
-      return;
-    }
-
-    this.telegramStatus = 'connecting';
-    this.telegramBot = createRemovedTelegramBotClient(this.config.telegramBotToken, {
-      polling: true
-    });
-
-    this.telegramBot.on('polling_error', (error) => {
-      this.telegramStatus = 'error';
-      this.log(`Erro no polling do Telegram: ${error.message}`, {
-        level: 'error',
-        type: 'telegram_polling_error',
-        increments: { errors: 1 }
-      });
-    });
-
-    this.telegramBot.on('channel_post', async (message) => {
-      try {
-        await this.routeTelegramMessage('channel_post', message);
-      } catch (error) {
-        this.log(`Falha ao encaminhar post do Telegram: ${error.message}`, {
-          level: 'error',
-          type: 'telegram_forward_error',
-          increments: { errors: 1 }
-        });
-      }
-    });
-
-    this.telegramBot.on('message', async (message) => {
-      try {
-        await this.routeTelegramMessage('message', message);
-      } catch (error) {
-        this.log(`Falha ao encaminhar mensagem do Telegram: ${error.message}`, {
-          level: 'error',
-          type: 'telegram_forward_error',
-          increments: { errors: 1 }
-        });
-      }
-    });
-
-    this.telegramStatus = 'listening';
-    this.log(
-      'Telegram conectado pelo bot. Se a origem for grupo, deixe o bot no grupo; se for canal, deixe como admin do canal.',
-      {
-        type: 'telegram_ready'
-      }
-    );
   }
 
   async stopTelegramTransport() {

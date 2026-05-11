@@ -10,16 +10,29 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
+type RequestJsonOptions = RequestInit & {
+  timeoutMs?: number;
+};
+
+export const HTTP_TIMEOUT_MS = {
+  FAST: 10_000,
+  DEFAULT: 15_000,
+  MEDIUM: 30_000,
+  LONG: 180_000
+} as const;
+
+export async function requestJson<T>(url: string, options?: RequestJsonOptions): Promise<T> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 15000);
+  const timeoutMs = Math.max(1000, Number(options?.timeoutMs ?? HTTP_TIMEOUT_MS.DEFAULT));
+  const { timeoutMs: _timeoutMs, ...fetchOptions } = options || {};
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;
 
   try {
     response = await fetch(url, {
       credentials: 'include',
-      ...options,
+      ...fetchOptions,
       signal: controller.signal
     });
   } catch (error) {
@@ -45,7 +58,16 @@ export async function requestJson<T>(url: string, options?: RequestInit): Promis
 }
 
 export async function postJson<T = unknown>(url: string, body?: unknown): Promise<T> {
+  return postJsonWithOptions<T>(url, body);
+}
+
+export async function postJsonWithOptions<T = unknown>(
+  url: string,
+  body?: unknown,
+  options?: Omit<RequestJsonOptions, 'method' | 'headers' | 'body'>
+): Promise<T> {
   return requestJson<T>(url, {
+    ...options,
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
