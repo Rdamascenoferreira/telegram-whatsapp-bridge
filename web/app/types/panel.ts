@@ -55,6 +55,7 @@ export type TelegramChat = {
 export type AffiliateAccount = {
   id?: string;
   amazonTag?: string;
+  amazonShortenerEnabled?: boolean;
   shopeeAffiliateId?: string;
   shopeeAppId?: string;
   shopeeSecretConfigured?: boolean;

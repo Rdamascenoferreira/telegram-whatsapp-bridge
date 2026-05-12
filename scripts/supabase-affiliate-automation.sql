@@ -50,6 +50,7 @@ create table if not exists public.affiliate_accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   amazon_tag text,
+  amazon_shortener_enabled boolean not null default false,
   shopee_affiliate_id text,
   shopee_app_id text,
   shopee_secret text,
@@ -60,6 +61,9 @@ create table if not exists public.affiliate_accounts (
   updated_at timestamptz not null default now(),
   constraint affiliate_accounts_user_unique unique (user_id)
 );
+
+alter table if exists public.affiliate_accounts
+  add column if not exists amazon_shortener_enabled boolean not null default false;
 
 create table if not exists public.affiliate_messages_log (
   id uuid primary key default gen_random_uuid(),

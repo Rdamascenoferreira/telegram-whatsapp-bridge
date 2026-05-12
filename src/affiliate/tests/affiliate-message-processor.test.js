@@ -19,6 +19,7 @@ const automation = {
 const account = {
   amazonEnabled: true,
   amazonTag: 'tagdocliente-20',
+  amazonShortenerEnabled: false,
   shopeeEnabled: false
 };
 
@@ -257,7 +258,7 @@ test('processAffiliateMessage shortens converted Amazon link when shortener is a
     userId: 'user-1',
     automationId: 'automation-1',
     automation,
-    account,
+    account: { ...account, amazonShortenerEnabled: true },
     dryRun: true,
     message: 'Oferta https://amzn.to/abc',
     expandUrlFn: async (url) => ({
@@ -278,7 +279,7 @@ test('processAffiliateMessage keeps Amazon affiliate link when shortener fails',
     userId: 'user-1',
     automationId: 'automation-1',
     automation,
-    account,
+    account: { ...account, amazonShortenerEnabled: true },
     dryRun: true,
     message: 'Oferta https://amzn.to/abc',
     expandUrlFn: async (url) => ({
@@ -293,6 +294,29 @@ test('processAffiliateMessage keeps Amazon affiliate link when shortener fails',
 
   assert.equal(result.status, 'converted');
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.equal(
+    result.convertedUrls[0].affiliateUrl,
+    'https://www.amazon.com.br/dp/B0ABC12345?tag=tagdocliente-20'
+  );
+});
+
+test('processAffiliateMessage does not shorten Amazon link when account shortener is disabled', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account: { ...account, amazonShortenerEnabled: false },
+    dryRun: true,
+    message: 'Oferta https://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    shortenUrlFn: async () => 'https://is.gd/abc123'
+  });
+
+  assert.equal(result.status, 'converted');
   assert.equal(
     result.convertedUrls[0].affiliateUrl,
     'https://www.amazon.com.br/dp/B0ABC12345?tag=tagdocliente-20'

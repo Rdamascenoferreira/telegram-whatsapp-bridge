@@ -92,6 +92,7 @@ export async function upsertAffiliateAccount(userId, payload = {}) {
   const body = {
     user_id: userId,
     amazon_tag: cleanText(payload.amazonTag),
+    amazon_shortener_enabled: Boolean(payload.amazonShortenerEnabled),
     shopee_affiliate_id: cleanText(payload.shopeeAffiliateId),
     shopee_app_id: cleanText(payload.shopeeAppId),
     default_sub_id: cleanText(payload.defaultSubId),
@@ -491,6 +492,7 @@ function mapAffiliateAccount(row, options = {}) {
     id: String(row.id ?? ''),
     userId: String(row.user_id ?? ''),
     amazonTag: String(row.amazon_tag ?? ''),
+    amazonShortenerEnabled: Boolean(row.amazon_shortener_enabled),
     shopeeAffiliateId: String(row.shopee_affiliate_id ?? ''),
     shopeeAppId: String(row.shopee_app_id ?? ''),
     shopeeSecretConfigured: Boolean(row.shopee_secret),

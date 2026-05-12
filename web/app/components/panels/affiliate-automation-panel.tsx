@@ -85,6 +85,7 @@ export function AffiliateAutomationPanel({
       await postJsonWithOptions('/api/affiliate/account', {
         amazonEnabled: form.get('amazonEnabled') === 'on',
         amazonTag: form.get('amazonTag'),
+        amazonShortenerEnabled: form.get('amazonShortenerEnabled') === 'on',
         shopeeEnabled: form.get('shopeeEnabled') === 'on',
         shopeeAffiliateId: form.get('shopeeAffiliateId'),
         defaultSubId: form.get('defaultSubId'),
@@ -629,6 +630,15 @@ export function AffiliateAutomationPanel({
             <div className="mt-4 grid gap-3">
               <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><input type="checkbox" name="amazonEnabled" defaultChecked={Boolean(affiliate.account?.amazonEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate} /> Converter Amazon</label>
               <input name="amazonTag" disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate} defaultValue={affiliate.account?.amazonTag || ''} className="rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-65" placeholder={planLimits?.amazonAffiliate ? 'sua-tag-20' : 'Disponivel no Plus'} />
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  name="amazonShortenerEnabled"
+                  defaultChecked={Boolean(affiliate.account?.amazonShortenerEnabled)}
+                  disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate}
+                />
+                Encurtar links Amazon automaticamente
+              </label>
 
               <div className="mt-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] p-4">
                 <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">

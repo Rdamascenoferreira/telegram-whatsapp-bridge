@@ -35,7 +35,7 @@ export function createMarketplaceProviders(options = {}) {
       const amazonResult = convertAmazonLinkFn(context.expandedUrl, context.account.amazonTag);
       let affiliateUrl = amazonResult.affiliateUrl;
 
-      if (amazonResult.success && affiliateUrl && shortenUrlFn) {
+      if (amazonResult.success && affiliateUrl && shortenUrlFn && context.account?.amazonShortenerEnabled) {
         try {
           affiliateUrl = await shortenUrlFn(affiliateUrl);
         } catch (error) {
