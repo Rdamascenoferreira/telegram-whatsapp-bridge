@@ -11,13 +11,13 @@ import { cn } from '../../../lib/utils';
 import type { AppState, FlowFieldErrors, ViewKey, WhatsAppGroup } from '../../types/panel';
 
 const primaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[#25D366]/90 disabled:opacity-60';
 
 const secondaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60';
+  'inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-60';
 
 const inputClass =
-  'h-[58px] w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 text-base text-[#F8FAFC] outline-none transition placeholder:text-[#6D7C75] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.05)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
+  'h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-600 hover:border-white/20 focus:border-[#25D366] focus:bg-black/40 focus:ring-2 focus:ring-[#25D366]/20 disabled:opacity-60 disabled:cursor-not-allowed';
 
 function isReadOnlyAccount(state: AppState) {
   return state.auth.user?.accountStatus === 'trial' && !state.auth.user?.isAdmin;
@@ -68,7 +68,7 @@ function getFlowHealthStatus({
   if (!hasDestinations) return { label: 'Incompleto', reason: 'Sem destino WhatsApp' };
   if (selected && saved) return { label: 'Ativo', reason: '' };
   if (!selected && saved) return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
-  return { label: 'Incompleto', reason: 'não salvo' };
+  return { label: 'Incompleto', reason: 'Não salvo' };
 }
 
 function getTelegramChatName(state: AppState, sourceId?: string | null) {
@@ -85,7 +85,6 @@ function formatMediaSourceMode(value?: string) {
     ? 'Imagem do link do produto'
     : 'Imagem original do Telegram';
 }
-
 
 export function FlowsPanel({
   state,
@@ -129,6 +128,7 @@ export function FlowsPanel({
   const [flowFieldErrors, setFlowFieldErrors] = useState<FlowFieldErrors>({});
   const [reviewBeforeSave, setReviewBeforeSave] = useState(false);
   const flowFormRef = useRef<HTMLFormElement | null>(null);
+  
   const selectedWhatsAppDestinations = state.groups
     .filter((group) => (state.config.selectedGroupIds || []).includes(group.id))
     .map((group) => ({ whatsappGroupId: group.id, whatsappGroupName: group.name }));
@@ -141,6 +141,7 @@ export function FlowsPanel({
   const hasTelegramSession = Boolean(state.config.hasTelegramSession || state.telegramStatus === 'listening');
   const canChooseTelegramSource = hasTelegramSession;
   const affiliateModuleAllowed = (planLimits?.affiliateAutomations ?? 0) > 0;
+  
   const selectedBridgeName = getTelegramChatName(state, state.config.telegramChannel);
   const selectedAffiliateName = getTelegramChatName(state, savedAffiliateSource);
   const selectedAffiliateTelegramDestinationName = getTelegramChatName(
@@ -183,17 +184,19 @@ export function FlowsPanel({
       : '';
     if (affiliateTelegramForwardEnabled !== savedAffiliateForwardEnabled || nextForwardDestinationId !== savedAffiliateForwardDestinationId) {
       pendingFlowChanges.push(
-        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'não'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'não'}`
+        `Encaminhar para Telegram: ${savedAffiliateForwardEnabled ? getTelegramChatName(state, savedAffiliateForwardDestinationId) : 'Não'} -> ${affiliateTelegramForwardEnabled && nextForwardDestinationId ? getTelegramChatName(state, nextForwardDestinationId) : 'Não'}`
       );
     }
   }
   const hasPendingFlowChanges = pendingFlowChanges.length > 0;
+  
   const flowChecklist = [
     { label: 'Telegram conectado', done: hasTelegramSession, ready: Boolean(state.config.telegramApiId) },
     { label: 'Destinos WhatsApp prontos', done: selectedWhatsAppDestinationCount > 0, ready: state.groups.length > 0 },
     { label: 'Fluxo escolhido', done: hasSavedSource, ready: canChooseTelegramSource && selectedWhatsAppDestinationCount > 0 }
   ];
   const flowChecklistComplete = flowChecklist.every((step) => step.done);
+  
   const bridgeFlowStatus = getFlowHealthStatus({
     selected: telegramFlow === 'bridge',
     saved: Boolean(state.config.telegramChannel),
@@ -256,7 +259,7 @@ export function FlowsPanel({
 
     if (!hasPendingFlowChanges) {
       setReviewBeforeSave(false);
-      setNotice('Nenhuma alteracao detectada no fluxo.');
+      setNotice('Nenhuma alteração detectada no fluxo.');
       return;
     }
 
@@ -317,333 +320,314 @@ export function FlowsPanel({
           setReviewBeforeSave(false);
         }
       }
-      setNotice(error instanceof Error ? error.message : 'não foi possível salvar o fluxo.');
+      setNotice(error instanceof Error ? error.message : 'Não foi possível salvar o fluxo.');
     } finally {
       setBusy('');
     }
   }
 
   return (
-    <div className="grid gap-5">
-      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
-          <div className="flex items-start justify-between gap-4 max-lg:flex-col">
-            <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Fluxos</p>
-              <div className="mt-3 flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-                  <ArrowRight size={22} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Fluxos da Operação</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                    Escolha como a conta vai trabalhar: ponte simples para republicar exatamente o que chega do Telegram ou automatizador de ofertas para tratar links de afiliado antes do envio.
-                  </p>
-                </div>
+    <div className="grid gap-8">
+      {/* HEADER */}
+      <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-md max-sm:p-6">
+        <div className="flex items-start justify-between gap-4 max-lg:flex-col">
+          <div className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Configuração Estrutural</p>
+            <div className="mt-4 flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#25D366]/10 text-[#25D366]">
+                <ArrowRight size={24} />
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
-                {selectedWhatsAppDestinationCount} destino(s) ativo(s)
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
-                {hasSavedSource ? 'Fluxo salvo' : 'Aguardando configuração'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-5 px-6 py-6 max-sm:px-4">
-          <InternalSetupChecklist
-            title="Checklist dos Fluxos"
-            steps={flowChecklist}
-            complete={flowChecklistComplete}
-            completeLabel="Fluxo operacional pronto para rodar"
-          />
-
-          <form ref={flowFormRef} onSubmit={(event) => { event.preventDefault(); void saveFlow(); }} className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations ? (
-              <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-3 text-xs leading-5 text-amber-100">
-                {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations}
-              </div>
-            ) : null}
-            <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Escolha de Operação</p>
-                <h3 className="mt-1 text-lg font-semibold">Um fluxo ativo por vez</h3>
-                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  A mesma conta pode usar a ponte simples ou o automatizador de ofertas, mas apenas um deles fica ativo por vez para evitar envio duplicado.
+                <h2 className="text-3xl font-bold tracking-tight text-white">Fluxos da Operação</h2>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  Escolha como a conta vai trabalhar: ponte simples para republicar exatamente o que chega do Telegram ou automatizador de ofertas para tratar links de afiliado antes do envio.
                 </p>
               </div>
-              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-                {hasTelegramSession ? 'Telegram pronto' : 'Conecte o Telegram primeiro'}
-              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full border border-[#25D366]/20 bg-[#25D366]/10 px-4 py-2 text-xs font-bold text-[#25D366]">
+              {selectedWhatsAppDestinationCount} destino(s) ativo(s)
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-zinc-400">
+              {hasSavedSource ? 'Fluxo Salvo' : 'Aguardando Configuração'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-8">
+        <InternalSetupChecklist
+          title="Checklist de Preparação"
+          steps={flowChecklist}
+          complete={flowChecklistComplete}
+          completeLabel="Fluxo operacional pronto para rodar"
+        />
+
+        <form ref={flowFormRef} onSubmit={(event) => { event.preventDefault(); void saveFlow(); }} className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-sm max-sm:p-6">
+          {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations ? (
+            <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-4 text-sm font-semibold text-red-400">
+              {flowFieldErrors.flow || flowFieldErrors.telegram || flowFieldErrors.destinations}
+            </div>
+          ) : null}
+
+          <div className="mb-8 flex items-start justify-between gap-4 max-md:flex-col border-b border-white/5 pb-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Motor de Encaminhamento</p>
+              <h3 className="mt-1 text-xl font-bold text-white">Um fluxo ativo por vez</h3>
+              <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                A mesma conta pode usar a ponte simples ou o automatizador de ofertas. Apenas um fica ativo por vez para evitar envios duplicados.
+              </p>
+            </div>
+            <span className={cn('rounded-xl border px-3 py-1.5 text-xs font-bold shrink-0', hasTelegramSession ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]' : 'border-amber-500/20 bg-amber-500/10 text-amber-400')}>
+              {hasTelegramSession ? 'Telegram Conectado' : 'Conecte o Telegram primeiro'}
+            </span>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Fluxo 1: Ponte Simples */}
+            <div className={cn('rounded-3xl border p-6 transition-all duration-300', telegramFlow === 'bridge' ? 'border-[#25D366]/30 bg-[#25D366]/5 shadow-[0_0_30px_rgba(37,211,102,0.05)]' : 'border-white/5 bg-black/20 hover:bg-white/[0.02]', !isAutomationEditing && 'opacity-70')}>
+              <button
+                type="button"
+                disabled={readOnlyAccount || !isAutomationEditing}
+                onClick={() => setTelegramFlow('bridge')}
+                className="w-full text-left disabled:cursor-not-allowed"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={cn('text-[10px] font-bold uppercase tracking-wider', telegramFlow === 'bridge' ? 'text-[#25D366]' : 'text-zinc-500')}>Fluxo 1</p>
+                    <h4 className="mt-1 text-lg font-bold text-white">Ponte Direta</h4>
+                  </div>
+                  <div className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors', telegramFlow === 'bridge' ? 'border-[#25D366] bg-[#25D366]' : 'border-zinc-600')}>
+                    {telegramFlow === 'bridge' && <CheckCircle2 size={14} className="text-black" />}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-bold text-zinc-400">
+                  Status: <span className={bridgeFlowStatus.label === 'Ativo' ? 'text-[#25D366]' : 'text-amber-400'}>{bridgeFlowStatus.label}</span>
+                  {bridgeFlowStatus.reason ? ` - ${bridgeFlowStatus.reason}` : ''}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+                  Ideal para encaminhar a mensagem do Telegram exatamente como chegou, sem modificações.
+                </p>
+              </button>
+
+              <div className={cn("mt-6 grid gap-4 transition-opacity", telegramFlow === 'bridge' ? 'opacity-100' : 'opacity-30 pointer-events-none')}>
+                <label className="grid gap-2 text-sm font-bold text-zinc-300">
+                  Origem da ponte
+                  <select
+                    value={telegramChannel}
+                    onChange={(event) => {
+                      setTelegramChannel(event.target.value);
+                      setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                    }}
+                    className={inputClass}
+                    disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
+                  >
+                    <option value="">Selecione uma origem</option>
+                    {(state.telegram.availableChats || []).map((chat) => (
+                      <option key={chat.id} value={chat.id}>
+                        {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Field
+                  label="ID manual da origem"
+                  value={telegramChannel}
+                  onChange={(value) => {
+                    setTelegramChannel(value);
+                    setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                  }}
+                  placeholder="-100..."
+                  disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
+                />
+                {telegramFlow === 'bridge' && flowFieldErrors.telegramSourceGroupId && (
+                  <p className="text-xs font-bold text-red-400">{flowFieldErrors.telegramSourceGroupId}</p>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className={cn('rounded-2xl border p-4 transition', telegramFlow === 'bridge' ? 'border-emerald-400/50 bg-emerald-400/10 shadow-[0_18px_45px_rgba(16,185,129,0.08)]' : 'border-[var(--border)] bg-black/10', !isAutomationEditing && 'opacity-90')}>
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || !isAutomationEditing}
-                  onClick={() => setTelegramFlow('bridge')}
-                  className="w-full text-left disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">Fluxo 1</p>
-                      <h4 className="mt-1 text-base font-semibold">Ponte Telegram -&gt; WhatsApp</h4>
-                    </div>
-                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', telegramFlow === 'bridge' ? 'bg-emerald-400/15 text-emerald-100' : 'bg-white/5 text-[var(--muted)]')}>
-                      {telegramFlow === 'bridge' ? 'Selecionado' : 'Escolher'}
-                    </span>
+            {/* Fluxo 2: Afiliado */}
+            <div className={cn('rounded-3xl border p-6 transition-all duration-300', telegramFlow === 'affiliate' ? 'border-[#25D366]/30 bg-[#25D366]/5 shadow-[0_0_30px_rgba(37,211,102,0.05)]' : 'border-white/5 bg-black/20 hover:bg-white/[0.02]', !isAutomationEditing && 'opacity-70')}>
+              <button
+                type="button"
+                disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
+                onClick={() => setTelegramFlow('affiliate')}
+                className="w-full text-left disabled:cursor-not-allowed"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={cn('text-[10px] font-bold uppercase tracking-wider', telegramFlow === 'affiliate' ? 'text-[#25D366]' : 'text-zinc-500')}>Fluxo 2</p>
+                    <h4 className="mt-1 text-lg font-bold text-white">Automatizador de Ofertas</h4>
                   </div>
-                  <p className="mt-2 text-xs font-semibold text-emerald-100">
-                    Status: {bridgeFlowStatus.label}
-                    {bridgeFlowStatus.reason ? ` - ${bridgeFlowStatus.reason}` : ''}
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para quem quer apenas encaminhar a mensagem do Telegram exatamente como ela chegou para os grupos já salvos no WhatsApp.
-                  </p>
-                </button>
-
-                <div className="mt-4 grid gap-3">
-                  <label className="grid gap-2 text-sm font-semibold">
-                    Origem da ponte
-                    <select
-                      value={telegramChannel}
-                      onChange={(event) => {
-                        setTelegramChannel(event.target.value);
-                        setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
-                      }}
-                      className={inputClass}
-                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
-                    >
-                      <option value="">Selecione uma origem</option>
-                      {(state.telegram.availableChats || []).map((chat) => (
-                        <option key={chat.id} value={chat.id}>
-                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Field
-                    label="ID manual da origem"
-                    value={telegramChannel}
-                    onChange={(value) => {
-                      setTelegramChannel(value);
-                      setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
-                    }}
-                    placeholder="-100..."
-                    disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'bridge'}
-                  />
-                  {telegramFlow === 'bridge' && flowFieldErrors.telegramSourceGroupId ? (
-                    <p className="text-xs font-semibold text-amber-100">{flowFieldErrors.telegramSourceGroupId}</p>
-                  ) : null}
+                  <div className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors', telegramFlow === 'affiliate' ? 'border-[#25D366] bg-[#25D366]' : 'border-zinc-600')}>
+                    {telegramFlow === 'affiliate' && <CheckCircle2 size={14} className="text-black" />}
+                  </div>
                 </div>
-              </div>
+                <p className="mt-3 text-xs font-bold text-zinc-400">
+                  Status: <span className={affiliateFlowStatus.label === 'Ativo' ? 'text-[#25D366]' : 'text-amber-400'}>{affiliateFlowStatus.label}</span>
+                  {affiliateFlowStatus.reason ? ` - ${affiliateFlowStatus.reason}` : ''}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+                  Lê a oferta, converte links para o seu ID de afiliado, e só depois envia a mensagem.
+                </p>
+              </button>
 
-              <div className={cn('rounded-2xl border p-4 transition', telegramFlow === 'affiliate' ? 'border-cyan-300/50 bg-cyan-400/10 shadow-[0_18px_45px_rgba(34,158,217,0.08)]' : 'border-[var(--border)] bg-black/10', !isAutomationEditing && 'opacity-90')}>
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || !isAutomationEditing || !affiliateModuleAllowed}
-                  onClick={() => setTelegramFlow('affiliate')}
-                  className="w-full text-left disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100">Fluxo 2</p>
-                      <h4 className="mt-1 text-base font-semibold">Automatizador de Ofertas</h4>
-                    </div>
-                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', telegramFlow === 'affiliate' ? 'bg-cyan-400/15 text-cyan-100' : 'bg-white/5 text-[var(--muted)]')}>
-                      {telegramFlow === 'affiliate' ? 'Selecionado' : 'Escolher'}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-cyan-100">
-                    Status: {affiliateFlowStatus.label}
-                    {affiliateFlowStatus.reason ? ` - ${affiliateFlowStatus.reason}` : ''}
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                    Ideal para ler a oferta, converter links Amazon ou Shopee com suas configurações de afiliado e só depois enviar a mensagem final.
-                  </p>
-                </button>
-
-                <div className="mt-4 grid gap-3">
-                  <label className="grid gap-2 text-sm font-semibold">
-                    Origem das ofertas
-                    <select
-                      value={affiliateTelegramChannel}
-                      onChange={(event) => {
-                        setAffiliateTelegramChannel(event.target.value);
-                        setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
-                      }}
-                      className={inputClass}
-                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
-                    >
-                      <option value="">Selecione uma origem</option>
-                      {(state.telegram.availableChats || []).map((chat) => (
-                        <option key={chat.id} value={chat.id}>
-                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Field
-                    label="ID manual da origem"
+              <div className={cn("mt-6 grid gap-4 transition-opacity", telegramFlow === 'affiliate' ? 'opacity-100' : 'opacity-30 pointer-events-none')}>
+                <label className="grid gap-2 text-sm font-bold text-zinc-300">
+                  Origem das ofertas
+                  <select
                     value={affiliateTelegramChannel}
-                    onChange={(value) => {
-                      setAffiliateTelegramChannel(value);
+                    onChange={(event) => {
+                      setAffiliateTelegramChannel(event.target.value);
                       setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
                     }}
-                    placeholder="-100..."
+                    className={inputClass}
                     disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
-                  />
-                  {telegramFlow === 'affiliate' && flowFieldErrors.telegramSourceGroupId ? (
-                    <p className="text-xs font-semibold text-amber-100">{flowFieldErrors.telegramSourceGroupId}</p>
-                  ) : null}
-                  <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[var(--muted)]">
+                  >
+                    <option value="">Selecione uma origem</option>
+                    {(state.telegram.availableChats || []).map((chat) => (
+                      <option key={chat.id} value={chat.id}>
+                        {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Field
+                  label="ID manual da origem"
+                  value={affiliateTelegramChannel}
+                  onChange={(value) => {
+                    setAffiliateTelegramChannel(value);
+                    setFlowFieldErrors((current) => ({ ...current, telegramSourceGroupId: '' }));
+                  }}
+                  placeholder="-100..."
+                  disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                />
+                {telegramFlow === 'affiliate' && flowFieldErrors.telegramSourceGroupId && (
+                  <p className="text-xs font-bold text-red-400">{flowFieldErrors.telegramSourceGroupId}</p>
+                )}
+                
+                <label className="mt-2 flex cursor-pointer items-start gap-4 rounded-2xl border border-white/5 bg-black/20 p-4 transition hover:bg-black/40">
+                  <div className="relative mt-0.5 flex items-center justify-center">
                     <input
                       type="checkbox"
                       checked={affiliateTelegramForwardEnabled}
-                      onChange={(event) => {
-                        const enabled = event.target.checked;
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
                         setAffiliateTelegramForwardEnabled(enabled);
-                        if (!enabled) {
-                          setAffiliateTelegramDestinationId('');
-                        }
+                        if (!enabled) setAffiliateTelegramDestinationId('');
                       }}
                       disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
-                      className="mt-1 h-4 w-4 rounded border-white/15 bg-transparent accent-emerald-400"
+                      className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-zinc-600 bg-transparent transition-all checked:border-[#25D366] checked:bg-[#25D366] disabled:cursor-not-allowed disabled:opacity-50"
                     />
-                    <span>
-                      <span className="block font-semibold text-white">Encaminhar tambem para Telegram</span>
-                      <span className="mt-1 block text-xs leading-5">
-                        Opcional. Depois de tratar a oferta com seu link de afiliado, a SaaS tambem pode publicar a mensagem final em um grupo ou canal do Telegram onde sua conta tenha permissao.
-                      </span>
+                    <CheckCircle2 size={14} className="absolute pointer-events-none text-black opacity-0 peer-checked:opacity-100" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-bold text-white">Encaminhar também para Telegram</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                      Opcional. Publica a mensagem já formatada em um canal do Telegram onde você seja admin.
                     </span>
-                  </label>
-                  <label className="grid gap-2 text-sm font-semibold">
-                    Destino opcional no Telegram
-                    <select
+                  </div>
+                </label>
+                
+                {affiliateTelegramForwardEnabled && (
+                  <>
+                    <label className="grid gap-2 text-sm font-bold text-zinc-300">
+                      Destino opcional no Telegram
+                      <select
+                        value={affiliateTelegramDestinationId}
+                        onChange={(event) => setAffiliateTelegramDestinationId(event.target.value)}
+                        className={inputClass}
+                        disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                      >
+                        <option value="">Não encaminhar para Telegram</option>
+                        {telegramAdminDestinationChats.map((chat) => (
+                          <option key={`forward-${chat.id}`} value={chat.id}>
+                            {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      label="ID manual do destino"
                       value={affiliateTelegramDestinationId}
-                      onChange={(event) => setAffiliateTelegramDestinationId(event.target.value)}
-                      className={inputClass}
-                      disabled={
-                        readOnlyAccount ||
-                        !isAutomationEditing ||
-                        telegramFlow !== 'affiliate' ||
-                        !affiliateModuleAllowed ||
-                        !affiliateTelegramForwardEnabled
-                      }
-                    >
-                      <option value="">não encaminhar para Telegram</option>
-                      {telegramAdminDestinationChats.map((chat) => (
-                        <option key={`forward-${chat.id}`} value={chat.id}>
-                          {chat.name} ({chat.type === 'channel' ? 'canal' : 'grupo'})
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-xs font-normal text-[var(--muted)]">
-                      Lista restrita a grupos/canais em que sua conta e admin.
-                    </span>
-                  </label>
-                  <Field
-                    label="ID manual do destino opcional"
-                    value={affiliateTelegramDestinationId}
-                    onChange={setAffiliateTelegramDestinationId}
-                    placeholder="-100..."
-                    disabled={
-                      readOnlyAccount ||
-                      !isAutomationEditing ||
-                      telegramFlow !== 'affiliate' ||
-                      !affiliateModuleAllowed ||
-                      !affiliateTelegramForwardEnabled
-                    }
-                  />
-                </div>
+                      onChange={setAffiliateTelegramDestinationId}
+                      placeholder="-100..."
+                      disabled={readOnlyAccount || !isAutomationEditing || telegramFlow !== 'affiliate' || !affiliateModuleAllowed}
+                    />
+                  </>
+                )}
               </div>
             </div>
+          </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
-              <div className="rounded-2xl border border-[var(--border)] bg-black/10 px-4 py-4">
-                <p className="text-sm font-semibold">
-                  Fluxo atual: {telegramFlow === 'bridge' ? 'Ponte Telegram -> WhatsApp' : 'Automatizador de Ofertas'}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                  Os dois fluxos usam os destinos escolhidos aqui em Fluxos. Hoje sua conta está com {selectedWhatsAppDestinationCount} grupo(s) pronto(s) para receber mensagens.
-                </p>
-                {flowFieldErrors.destinations ? (
-                  <p className="mt-2 text-xs font-semibold text-amber-100">{flowFieldErrors.destinations}</p>
-                ) : null}
-                {telegramFlow === 'affiliate' ? (
-                  <p className="mt-2 text-xs font-semibold text-cyan-100">
-                    Modo de imagem: {formatMediaSourceMode(activeAutomation?.mediaSourceMode)}
+          {/* Action Footer */}
+          <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
+            <div className="rounded-3xl border border-white/5 bg-black/20 p-6">
+              <p className="text-sm font-bold text-white">
+                Resumo Atual: {telegramFlow === 'bridge' ? 'Ponte Direta' : 'Automatizador'}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                O fluxo selecionado enviará as mensagens para os {selectedWhatsAppDestinationCount} destinos do WhatsApp configurados abaixo.
+              </p>
+              
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Ponte Simples</p>
+                  <p className="mt-2 text-sm font-bold text-white truncate">{selectedBridgeName}</p>
+                </div>
+                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#25D366]">Automatizador</p>
+                  <p className="mt-2 text-sm font-bold text-white truncate">{selectedAffiliateName}</p>
+                  <p className="mt-2 text-[11px] font-semibold text-zinc-500 truncate">
+                    Telegram extra: {activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId ? selectedAffiliateTelegramDestinationName : 'Off'}
                   </p>
-                ) : null}
-                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
-                    <p className="font-semibold text-emerald-100">Ponte simples salva</p>
-                    <p className="mt-1 leading-5 text-[var(--muted)]">{selectedBridgeName}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
-                    <p className="font-semibold text-cyan-100">Automatizador salvo</p>
-                    <p className="mt-1 leading-5 text-[var(--muted)]">{selectedAffiliateName}</p>
-                    <p className="mt-2 leading-5 text-[var(--muted)]">
-                      Telegram opcional:{' '}
-                      {activeAutomation?.telegramForwardEnabled && activeAutomation?.telegramDestinationGroupId
-                        ? selectedAffiliateTelegramDestinationName
-                        : 'desligado'}
-                    </p>
-                  </div>
                 </div>
               </div>
-
-              <FlowSaveActionsCard
-                readOnlyAccount={readOnlyAccount}
-                busy={busy}
-                isAutomationEditing={isAutomationEditing || !hasSavedSource}
-                selectedRouteSource={selectedRouteSource}
-                hasPendingFlowChanges={hasPendingFlowChanges}
-                shouldShowFlowReview={shouldShowFlowReview}
-                telegramFlow={telegramFlow}
-                selectedSourceName={getTelegramChatName(state, selectedRouteSource)}
-                selectedWhatsAppDestinationCount={selectedWhatsAppDestinationCount}
-                telegramForwardLabel={
-                  telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId
-                    ? getTelegramChatName(state, affiliateTelegramDestinationId)
-                    : 'não'
-                }
-                pendingFlowChanges={pendingFlowChanges}
-                onEditOrSubmit={() => {
-                  if (!isAutomationEditing && hasSavedSource) {
-                    setAutomationEditing(true);
-                    return;
-                  }
-                  flowFormRef.current?.requestSubmit();
-                }}
-                onCancelReview={() => setReviewBeforeSave(false)}
-                onRefreshOrigins={async () => {
-                  setBusy('telegram-chats');
-                  await postJsonWithOptions('/api/telegram/refresh-chats', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
-                  await refresh();
-                  setNotice('Lista de grupos e canais do Telegram atualizada.');
-                  setBusy('');
-                }}
-                primaryButtonClassName={primaryButton}
-                secondaryButtonClassName={secondaryButton}
-              />
             </div>
-          </form>
 
-          <WhatsAppDestinationSelector
-            state={state}
-            filter={groupFilter}
-            setFilter={setGroupFilter}
-            setNotice={setNotice}
-            setBusy={setBusy}
-            busy={busy}
-            refresh={refresh}
-          />
-        </div>
+            <FlowSaveActionsCard
+              readOnlyAccount={readOnlyAccount}
+              busy={busy}
+              isAutomationEditing={isAutomationEditing || !hasSavedSource}
+              selectedRouteSource={selectedRouteSource}
+              hasPendingFlowChanges={hasPendingFlowChanges}
+              shouldShowFlowReview={shouldShowFlowReview}
+              telegramFlow={telegramFlow}
+              selectedSourceName={getTelegramChatName(state, selectedRouteSource)}
+              selectedWhatsAppDestinationCount={selectedWhatsAppDestinationCount}
+              telegramForwardLabel={telegramFlow === 'affiliate' && affiliateTelegramForwardEnabled && affiliateTelegramDestinationId ? getTelegramChatName(state, affiliateTelegramDestinationId) : 'Não'}
+              pendingFlowChanges={pendingFlowChanges}
+              onEditOrSubmit={() => {
+                if (!isAutomationEditing && hasSavedSource) {
+                  setAutomationEditing(true);
+                  return;
+                }
+                flowFormRef.current?.requestSubmit();
+              }}
+              onCancelReview={() => setReviewBeforeSave(false)}
+              onRefreshOrigins={async () => {
+                setBusy('telegram-chats');
+                await postJsonWithOptions('/api/telegram/refresh-chats', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
+                await refresh();
+                setNotice('Lista atualizada.');
+                setBusy('');
+              }}
+              primaryButtonClassName={primaryButton}
+              secondaryButtonClassName={secondaryButton}
+            />
+          </div>
+        </form>
+
+        <WhatsAppDestinationSelector
+          state={state}
+          filter={groupFilter}
+          setFilter={setGroupFilter}
+          setNotice={setNotice}
+          setBusy={setBusy}
+          busy={busy}
+          refresh={refresh}
+        />
       </section>
     </div>
   );
@@ -678,87 +662,52 @@ function WhatsAppDestinationSelector({
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
   const groupsProcessed = groupsProgress?.processed || 0;
   const groupsTotal = groupsProgress?.total || 0;
-  const groupsFoundAdmins = groupsProgress?.foundAdmins ?? state.metrics.availableAdminGroupCount ?? 0;
+  
   const groupsPhaseLabel =
-    groupsPhase === 'loading_groups'
-      ? 'Carregando lista de conversas'
-      : groupsPhase === 'checking_admins'
-        ? 'Verificando permissao de envio'
-        : groupsPhase === 'done'
-          ? 'Lista atualizada'
-          : groupsPhase === 'error'
-            ? 'Falha ao atualizar'
-            : 'Preparando leitura';
-  const groupsProgressLabel = groupsTotal
-    ? `${groupsProcessed}/${groupsTotal} verificados`
-    : groupsPhase === 'loading_groups'
-      ? 'Buscando grupos no WhatsApp'
-      : 'Aguardando total';
-  const cachedAtLabel = state.metrics.groupCacheRefreshedAt
-    ? formatDate(state.metrics.groupCacheRefreshedAt)
-    : '';
-  const selectedGroups = useMemo(
-    () => state.groups.filter((group) => selected.has(group.id)),
-    [selected, state.groups]
-  );
-  const savedSelectedSet = useMemo(
-    () => new Set(state.config.selectedGroupIds || []),
-    [state.config.selectedGroupIds]
-  );
+    groupsPhase === 'loading_groups' ? 'Carregando lista'
+      : groupsPhase === 'checking_admins' ? 'Verificando permissão'
+      : groupsPhase === 'done' ? 'Atualizado'
+      : groupsPhase === 'error' ? 'Falha ao atualizar' : 'Preparando leitura';
+  
+  const cachedAtLabel = state.metrics.groupCacheRefreshedAt ? formatDate(state.metrics.groupCacheRefreshedAt) : '';
+  const selectedGroups = useMemo(() => state.groups.filter((group) => selected.has(group.id)), [selected, state.groups]);
+  const savedSelectedSet = useMemo(() => new Set(state.config.selectedGroupIds || []), [state.config.selectedGroupIds]);
   const selectedCount = selected.size;
   const savedCount = savedSelectedSet.size;
   const selectionDelta = selectedCount - savedCount;
   const overPlanLimit = selectedCount > whatsappDestinationLimit;
-  const staleSelectedIds = useMemo(
-    () =>
-      [...selected].filter((groupId) => !state.groups.some((group) => group.id === groupId)),
-    [selected, state.groups]
-  );
+  const staleSelectedIds = useMemo(() => [...selected].filter((groupId) => !state.groups.some((group) => group.id === groupId)), [selected, state.groups]);
   const hasStaleSelections = staleSelectedIds.length > 0;
+  
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
     return state.groups
       .filter((group) => {
-        if (quickFilter === 'selected') {
-          return selected.has(group.id);
-        }
-        if (quickFilter === 'community') {
-          return Boolean(group.isCommunityLinked) && !Boolean(group.isAnnouncement);
-        }
-        if (quickFilter === 'announcement') {
-          return Boolean(group.isAnnouncement);
-        }
+        if (quickFilter === 'selected') return selected.has(group.id);
+        if (quickFilter === 'community') return Boolean(group.isCommunityLinked) && !Boolean(group.isAnnouncement);
+        if (quickFilter === 'announcement') return Boolean(group.isAnnouncement);
         return true;
       })
       .filter((group) => normalizeText(group.name).includes(normalized))
       .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
   }, [filter, quickFilter, selected, state.groups]);
 
-  const visibleSelectableGroupIds = useMemo(
-    () => filteredGroups.map((group) => group.id),
-    [filteredGroups]
-  );
+  const visibleSelectableGroupIds = useMemo(() => filteredGroups.map((group) => group.id), [filteredGroups]);
 
   useEffect(() => {
-    if (!state.metrics.groupsRefreshing) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      void refresh().catch(() => undefined);
-    }, 2000);
-
+    if (!state.metrics.groupsRefreshing) return;
+    const timer = window.setInterval(() => { void refresh().catch(() => undefined); }, 2000);
     return () => window.clearInterval(timer);
   }, [refresh, state.metrics.groupsRefreshing]);
 
   return (
-    <section className="rounded-[24px] border border-[var(--border)] bg-black/10 p-5">
-      <div className="mb-5 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
+    <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-sm max-sm:p-6">
+      <div className="mb-8 flex items-start justify-between gap-4 max-md:flex-col border-b border-white/5 pb-6">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos WhatsApp</p>
-          <h2 className="mt-1 text-xl font-semibold">Grupos que recebem os fluxos</h2>
-          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            Esta selecao vale para a ponte comum e para o Automatizador de Ofertas. A Autenticação do WhatsApp continua em Config. WhatsApp.
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Destinos WhatsApp</p>
+          <h2 className="mt-1 text-2xl font-bold text-white">Grupos que recebem os fluxos</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            Esta seleção vale para a ponte comum e para o Automatizador.
           </p>
         </div>
         <button
@@ -766,335 +715,242 @@ function WhatsAppDestinationSelector({
           disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
-            setNotice('sincronização dos grupos iniciada. Pode levar alguns minutos na primeira leitura.');
+            setNotice('Sincronização dos grupos iniciada. Pode levar alguns minutos.');
             void postJsonWithOptions('/api/refresh-groups', undefined, { timeoutMs: HTTP_TIMEOUT_MS.LONG })
-              .then(async () => {
-                await refresh();
-                setNotice('Lista de grupos do WhatsApp atualizada.');
-              })
-              .catch(() => {
-                setNotice('não foi possível atualizar os grupos agora. Tente reconectar o WhatsApp e repetir.');
-              })
+              .then(async () => { await refresh(); setNotice('Lista de grupos do WhatsApp atualizada.'); })
+              .catch(() => { setNotice('Falha ao atualizar os grupos. Tente reconectar o WhatsApp.'); })
               .finally(() => setBusy(''));
-            window.setTimeout(() => {
-              void refresh().catch(() => undefined);
-            }, 600);
+            window.setTimeout(() => { void refresh().catch(() => undefined); }, 600);
           }}
           className={cn(secondaryButton, state.metrics.groupsRefreshing && 'animate-pulse')}
         >
           <RefreshCcw size={16} className={state.metrics.groupsRefreshing ? 'animate-spin' : ''} />
-          {state.metrics.groupsRefreshing
-            ? `Sincronizando ${groupsPercent}%`
-            : 'Atualizar grupos'}
+          {state.metrics.groupsRefreshing ? `Sincronizando ${groupsPercent}%` : 'Atualizar grupos'}
         </button>
       </div>
 
-      {state.metrics.groupsRefreshing ? (
-        <div className="mb-4 overflow-hidden rounded-2xl border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.14),transparent_34%),rgba(16,185,129,0.08)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
-          <div className="flex items-start justify-between gap-3 max-md:flex-col">
+      {state.metrics.groupsRefreshing && (
+        <div className="mb-6 overflow-hidden rounded-3xl border border-[#25D366]/20 bg-[#25D366]/5 p-6 shadow-xl">
+          <div className="flex items-start justify-between gap-4 max-md:flex-col">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.9)]" />
-                <p className="text-sm font-semibold text-emerald-100">Sincronizando grupos do WhatsApp</p>
-                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#25D366]"></span>
+                </span>
+                <p className="text-sm font-bold text-white">Sincronizando grupos do WhatsApp</p>
+                <span className="rounded-full border border-[#25D366]/20 bg-[#25D366]/10 px-3 py-1 text-xs font-bold text-[#25D366]">
                   {groupsPhaseLabel}
                 </span>
               </div>
-              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                {groupsTotal
-                  ? 'Estamos analisando seus grupos e separando apenas os destinos validos para envio.'
-                  : 'O WhatsApp ainda está devolvendo a lista inicial. Na primeira sincronização isso pode levar alguns minutos.'}
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                {groupsTotal ? 'Analisando grupos válidos para envio.' : 'Aguardando lista inicial do WhatsApp...'}
               </p>
             </div>
-            <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-100">
+            <span className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/20 px-4 py-2 text-sm font-black text-[#25D366]">
               {groupsTotal ? `${groupsPercent}%` : 'Preparando'}
             </span>
           </div>
-
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/8">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-300 to-lime-300 transition-[width] duration-700 ease-out"
-              style={{ width: `${groupsTotal ? Math.max(8, groupsPercent) : 14}%` }}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Progresso real</p>
-              <p className="mt-1 text-sm font-semibold">{groupsProgressLabel}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Destinos validos</p>
-              <p className="mt-1 text-sm font-semibold">{groupsFoundAdmins} encontrado(s)</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Lista anterior</p>
-              <p className="mt-1 text-sm font-semibold">{cachedAtLabel || 'Ainda sem cache'}</p>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)] max-sm:flex-col max-sm:items-start">
-            <span>você pode continuar no painel enquanto a sincronização roda em segundo plano.</span>
-            <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} conversas analisadas` : 'Aguardando o WhatsApp informar o total'}</span>
-          </div>
-
-          <div className="hidden">
-            <span>
-              {groupsTotal ? 'Leitura em andamento' : 'Iniciando sincronização'}
-              {state.metrics.hasCachedGroups && cachedAtLabel ? ` Â· exibindo lista salva de ${cachedAtLabel}` : ''}
-            </span>
-            <span>{groupsTotal ? `${groupsProcessed} de ${groupsTotal} grupos verificados` : 'Aguardando contagem total'}</span>
+          
+          <div className="mt-6 h-2 overflow-hidden rounded-full bg-black/40">
+            <div className="h-full rounded-full bg-[#25D366] transition-all duration-700 ease-out" style={{ width: `${groupsTotal ? Math.max(5, groupsPercent) : 10}%` }} />
           </div>
         </div>
-      ) : null}
+      )}
 
-      {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel ? (
-        <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-[var(--muted)]">
-          Ultima lista salva: <span className="font-semibold text-[var(--foreground)]">{cachedAtLabel}</span>. você pode usar essa lista imediatamente enquanto uma nova sincronização não for necessaria.
+      {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel && (
+        <div className="mb-6 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-sm text-zinc-400 flex items-center gap-3">
+           <Clock3 size={18} className="text-zinc-500" />
+           <span>Última lista salva: <strong className="text-white font-semibold">{cachedAtLabel}</strong></span>
         </div>
-      ) : null}
+      )}
 
-      <div className="mb-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/10 px-3 py-2">
-        <Search size={17} className="text-[var(--muted)]" />
-        <input
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder="Buscar grupo pelo nome"
-          className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
-        />
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-black/10 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setQuickFilter('all')}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold transition',
-              quickFilter === 'all'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
-            )}
-          >
-            Todos
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuickFilter('selected')}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold transition',
-              quickFilter === 'selected'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
-            )}
-          >
-            Selecionados
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuickFilter('community')}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold transition',
-              quickFilter === 'community'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
-            )}
-          >
-            Comunidades
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuickFilter('announcement')}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-semibold transition',
-              quickFilter === 'announcement'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                : 'border-white/10 bg-white/[0.03] text-[var(--muted)] hover:bg-white/[0.06]'
-            )}
-          >
-            Anúncios
-          </button>
+      {/* SEARCH AND FILTERS */}
+      <div className="mb-6 grid gap-4 xl:grid-cols-[1fr_auto]">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-2 hover:border-white/20 transition-colors">
+          <Search size={18} className="text-zinc-500" />
+          <input
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder="Buscar grupo pelo nome..."
+            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-600 h-10"
+          />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
-            onClick={() => {
-              const next = new Set(selected);
-
-              for (const groupId of visibleSelectableGroupIds) {
-                if (next.has(groupId)) {
-                  continue;
+        
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-black/10 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'all', label: 'Todos' },
+              { id: 'selected', label: 'Selecionados' },
+              { id: 'community', label: 'Comunidades' },
+              { id: 'announcement', label: 'Anúncios' }
+            ].map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setQuickFilter(f.id as any)}
+                className={cn(
+                  'rounded-xl border px-4 py-2 text-xs font-bold transition-colors',
+                  quickFilter === f.id
+                    ? 'border-[#25D366]/30 bg-[#25D366]/10 text-[#25D366]'
+                    : 'border-transparent text-zinc-500 hover:text-white hover:bg-white/5'
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 border-l border-white/5 pl-3">
+            <button
+              type="button"
+              disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
+              onClick={() => {
+                const next = new Set(selected);
+                for (const groupId of visibleSelectableGroupIds) {
+                  if (next.has(groupId)) continue;
+                  if (next.size >= whatsappDestinationLimit) {
+                    setNotice(`Limite de ${whatsappDestinationLimit} destinos atingido.`);
+                    break;
+                  }
+                  next.add(groupId);
                 }
-
-                if (next.size >= whatsappDestinationLimit) {
-                  setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
-                  break;
-                }
-
-                next.add(groupId);
-              }
-
-              setSelected(next);
-              setHasPendingSelectionChanges(true);
-            }}
-            className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-400/15 disabled:opacity-60"
-          >
-            Selecionar visíveis
-          </button>
-          <button
-            type="button"
-            disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
-            onClick={() => {
-              const next = new Set(selected);
-              for (const groupId of visibleSelectableGroupIds) {
-                next.delete(groupId);
-              }
-              setSelected(next);
-              setHasPendingSelectionChanges(true);
-            }}
-            className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] disabled:opacity-60"
-          >
-            Limpar visíveis
-          </button>
+                setSelected(next);
+                setHasPendingSelectionChanges(true);
+              }}
+              className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-400 hover:bg-sky-500/20 disabled:opacity-50 transition-colors"
+            >
+              Selecionar Visíveis
+            </button>
+            <button
+              type="button"
+              disabled={readOnlyAccount || busy === 'save-groups' || visibleSelectableGroupIds.length === 0}
+              onClick={() => {
+                const next = new Set(selected);
+                for (const groupId of visibleSelectableGroupIds) next.delete(groupId);
+                setSelected(next);
+                setHasPendingSelectionChanges(true);
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-zinc-400 hover:bg-white/10 hover:text-white disabled:opacity-50 transition-colors"
+            >
+              Limpar
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-4 rounded-md border border-[var(--border)] bg-black/10 p-3">
-        <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
+      <div className="mb-6 rounded-3xl border border-white/5 bg-black/20 p-6">
+        <div className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start mb-4">
           <div>
-            <p className="text-sm font-semibold">Grupos selecionados</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              {selectedGroups.length
-                ? `${selectedGroups.length} destino(s) pronto(s) para receber mensagens.`
-                : 'Nenhum destino selecionado ainda.'}
-              {hasWhatsAppDestinationLimit ? ` Limite do plano ${planLimits?.label}: ${whatsappDestinationLimit}.` : ''}
+            <p className="text-sm font-bold text-white">Grupos Selecionados</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {selectedGroups.length ? `${selectedGroups.length} destino(s) pronto(s) para receber mensagens.` : 'Nenhum destino selecionado ainda.'}
             </p>
           </div>
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+          <span className="rounded-xl border border-[#25D366]/20 bg-[#25D366]/10 px-4 py-2 text-xs font-black text-[#25D366]">
             {hasWhatsAppDestinationLimit ? `${selectedGroups.length}/${whatsappDestinationLimit}` : selectedGroups.length}
           </span>
         </div>
 
         {selectedGroups.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {selectedGroups.map((group) => (
               <button
                 key={group.id}
                 type="button"
                 onClick={() => {
-                  if (readOnlyAccount) {
-                    setNotice('Conta em teste: edições estão bloqueadas até liberação do administrador.');
-                    return;
-                  }
+                  if (readOnlyAccount) return setNotice('Conta em teste: edições bloqueadas.');
                   const next = new Set(selected);
                   next.delete(group.id);
                   setSelected(next);
                   setHasPendingSelectionChanges(true);
                 }}
-                className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-left text-xs font-semibold text-emerald-50 transition hover:bg-emerald-400/15"
-                title="Remover dos selecionados"
+                className="group flex max-w-full items-center gap-2 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-3 py-2 text-xs font-bold text-white transition-all hover:bg-[#25D366]/20 hover:border-[#25D366]/50"
               >
                 <span className="truncate">{group.name}</span>
                 <GroupKindBadge group={group} />
-                <X size={13} className="text-emerald-100/70" />
+                <div className="rounded-full bg-black/20 p-0.5 text-[#25D366] group-hover:bg-red-500 group-hover:text-white transition-colors">
+                  <X size={12} />
+                </div>
               </button>
             ))}
           </div>
         ) : null}
       </div>
 
-      <div className="max-h-[560px] overflow-auto rounded-md border border-[var(--border)]">
+      <div className="max-h-[500px] overflow-auto rounded-3xl border border-white/5 bg-black/20">
         {filteredGroups.length ? (
           filteredGroups.map((group) => {
             const checked = selected.has(group.id);
             const disabledByLimit = !checked && selected.size >= whatsappDestinationLimit;
 
             return (
-              <label key={group.id} className={cn('flex items-center gap-3 border-b border-[var(--border)] px-4 py-3 last:border-b-0 hover:bg-white/5', disabledByLimit && 'opacity-55')}>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={readOnlyAccount || disabledByLimit}
-                  onChange={(event) => {
-                    const next = new Set(selected);
-                    if (event.target.checked) {
-                      if (next.size >= whatsappDestinationLimit) {
-                        setNotice(`Seu plano permite até ${whatsappDestinationLimit} destino(s) WhatsApp.`);
-                        return;
+              <label key={group.id} className={cn('flex cursor-pointer items-center gap-4 border-b border-white/5 px-6 py-4 transition-colors hover:bg-white/[0.02] last:border-0', disabledByLimit && 'opacity-50 cursor-not-allowed', checked && 'bg-white/[0.02]')}>
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={readOnlyAccount || disabledByLimit}
+                    onChange={(event) => {
+                      const next = new Set(selected);
+                      if (event.target.checked) {
+                        if (next.size >= whatsappDestinationLimit) return setNotice(`Limite de ${whatsappDestinationLimit} atingido.`);
+                        next.add(group.id);
+                      } else {
+                        next.delete(group.id);
                       }
-                      next.add(group.id);
-                    } else {
-                      next.delete(group.id);
-                    }
-                    setSelected(next);
-                    setHasPendingSelectionChanges(true);
-                  }}
-                />
-                <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
+                      setSelected(next);
+                      setHasPendingSelectionChanges(true);
+                    }}
+                    className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-zinc-600 bg-transparent transition-all checked:border-[#25D366] checked:bg-[#25D366] disabled:cursor-not-allowed"
+                  />
+                  <CheckCircle2 size={14} className="absolute pointer-events-none text-black opacity-0 peer-checked:opacity-100" />
+                </div>
+                <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", checked ? "text-white" : "text-zinc-300")}>{group.name}</span>
                 <GroupKindBadge group={group} />
               </label>
             );
           })
         ) : (
-          <p className="p-4 text-sm text-[var(--muted)]">Nenhum grupo encontrado.</p>
+          <div className="p-12 text-center text-sm text-zinc-500">Nenhum grupo encontrado com este filtro.</div>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-        <div className="flex-1 rounded-md border border-[var(--border)] bg-black/10 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Preview antes de salvar</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-              Selecionados: <span className="font-semibold text-[var(--foreground)]">{selectedCount}</span>
+      <div className="mt-6 flex items-center justify-between gap-4 max-lg:flex-col max-lg:items-stretch">
+        <div className="flex-1 rounded-3xl border border-white/5 bg-black/20 p-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Preview antes de salvar</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 font-bold text-zinc-300">
+              Selecionados: <span className="text-white">{selectedCount}</span>
             </span>
-            {hasWhatsAppDestinationLimit ? (
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                Limite plano {planLimits?.label}: <span className="font-semibold text-[var(--foreground)]">{whatsappDestinationLimit}</span>
+            {hasWhatsAppDestinationLimit && (
+              <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 font-bold text-zinc-300">
+                Limite: <span className="text-white">{whatsappDestinationLimit}</span>
               </span>
-            ) : null}
-            <span
-              className={cn(
-                'rounded-full border px-2.5 py-1',
-                selectionDelta === 0
-                  ? 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
-                  : selectionDelta > 0
-                    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                    : 'border-amber-400/20 bg-amber-400/10 text-amber-100'
-              )}
-            >
-              Delta vs salvo: {selectionDelta > 0 ? `+${selectionDelta}` : selectionDelta}
+            )}
+            <span className={cn('rounded-xl border px-3 py-1.5 font-bold', selectionDelta === 0 ? 'border-white/10 bg-white/5 text-zinc-400' : selectionDelta > 0 ? 'border-sky-500/30 bg-sky-500/10 text-sky-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-400')}>
+              Modificação: {selectionDelta > 0 ? `+${selectionDelta}` : selectionDelta}
             </span>
           </div>
-          {overPlanLimit ? (
-            <p className="mt-2 text-xs text-red-100">
-              A seleção atual ultrapassa o limite do plano. Ajuste antes de salvar.
-            </p>
-          ) : null}
-          {hasStaleSelections ? (
-            <p className="mt-2 text-xs text-amber-100">
-              {staleSelectedIds.length} destino(s) selecionado(s) não aparece(m) na lista atual e pode(m) ser removido(s) ao salvar.
-            </p>
-          ) : null}
+          {overPlanLimit && <p className="mt-3 text-xs font-bold text-red-400">A seleção atual ultrapassa o limite do plano.</p>}
+          {hasStaleSelections && <p className="mt-3 text-xs font-bold text-amber-400">{staleSelectedIds.length} destino(s) não aparecem na lista e serão removidos ao salvar.</p>}
         </div>
-        <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
-          {hasPendingSelectionChanges ? (
-            <span className="text-xs font-semibold text-amber-200">Selecao alterada. Clique em salvar para manter esses destinos.</span>
-          ) : null}
+        
+        <div className="flex items-center gap-4 max-sm:flex-col max-sm:items-stretch">
+          {hasPendingSelectionChanges && <span className="text-xs font-bold text-amber-400 animate-pulse">Existem alterações não salvas!</span>}
           <button
             type="button"
             disabled={readOnlyAccount || busy === 'save-groups' || overPlanLimit}
-            className={primaryButton}
+            className={cn(primaryButton, "h-14 px-8 text-base")}
             onClick={async () => {
               setBusy('save-groups');
               await postJsonWithOptions('/api/groups', { selectedGroupIds: [...selected] }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
               await refresh();
               setHasPendingSelectionChanges(false);
-              setNotice('Grupos de destino salvos no fluxo.');
+              setNotice('Grupos de destino salvos com sucesso.');
               setBusy('');
             }}
           >
-            Salvar destinos
+            Salvar Destinos
           </button>
         </div>
       </div>
@@ -1105,52 +961,26 @@ function WhatsAppDestinationSelector({
 function StatusPill({ status }: { status: string }) {
   const label = formatOfferStatus(status);
   const className =
-    status === 'sent'
-      ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-      : status === 'queued'
-        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
-        : status === 'failed'
-          ? 'border-red-400/20 bg-red-400/10 text-red-100'
-          : status === 'ignored'
-            ? 'border-zinc-400/20 bg-zinc-400/10 text-zinc-200'
-            : 'border-sky-400/20 bg-sky-400/10 text-sky-100';
+    status === 'sent' ? 'border-[#25D366]/30 bg-[#25D366]/10 text-[#25D366]'
+      : status === 'queued' ? 'border-amber-400/30 bg-amber-400/10 text-amber-400'
+      : status === 'failed' ? 'border-red-500/30 bg-red-500/10 text-red-400'
+      : status === 'ignored' ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'
+      : 'border-sky-500/30 bg-sky-500/10 text-sky-400';
 
-  return <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', className)}>{label}</span>;
+  return <span className={cn('rounded-xl border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', className)}>{label}</span>;
 }
 
 function GroupKindBadge({ group }: { group: WhatsAppGroup }) {
   if (group.isAnnouncement) {
-    return (
-      <span className="shrink-0 rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-100">
-        Avisos
-      </span>
-    );
+    return <span className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-400">Avisos</span>;
   }
-
   if (group.isCommunityLinked) {
-    return (
-      <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
-        Comunidade
-      </span>
-    );
+    return <span className="shrink-0 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#25D366]">Comunidade</span>;
   }
-
-  return (
-    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">
-      Grupo
-    </span>
-  );
+  return <span className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Grupo</span>;
 }
 
-function SystemPowerSwitch({
-  checked,
-  disabled,
-  onChange
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (nextValue: boolean) => Promise<void>;
-}) {
+function SystemPowerSwitch({ checked, disabled, onChange }: { checked: boolean; disabled?: boolean; onChange: (nextValue: boolean) => Promise<void>; }) {
   return (
     <button
       type="button"
@@ -1159,25 +989,17 @@ function SystemPowerSwitch({
       disabled={disabled}
       onClick={() => void onChange(!checked)}
       className={cn(
-        'relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border px-1 transition',
-        checked
-          ? 'border-emerald-400/20 bg-emerald-400/20'
-          : 'border-[var(--border)] bg-white/8',
-        disabled && 'opacity-60'
+        'relative inline-flex h-10 w-20 shrink-0 items-center rounded-full border-2 transition-all duration-300',
+        checked ? 'border-[#25D366]/30 bg-[#25D366]/10 shadow-[0_0_20px_rgba(37,211,102,0.2)]' : 'border-white/10 bg-black/40',
+        disabled && 'cursor-not-allowed opacity-50'
       )}
     >
       <span
         className={cn(
-          'absolute inset-y-1 w-6 rounded-full bg-white shadow transition',
-          checked ? 'left-[calc(100%-1.75rem)] bg-[var(--accent)]' : 'left-1 bg-white/90'
+          'absolute inset-y-1 w-7 rounded-full transition-all duration-300',
+          checked ? 'left-[calc(100%-2.2rem)] bg-[#25D366] shadow-[0_0_15px_rgba(37,211,102,0.6)]' : 'left-1.5 bg-zinc-500'
         )}
       />
-      <span className="relative z-10 flex w-full justify-between px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--foreground)]">
-        <span className={cn(checked ? 'opacity-100' : 'opacity-30')}>On</span>
-        <span className={cn(checked ? 'opacity-30' : 'opacity-100')}>Off</span>
-      </span>
     </button>
   );
 }
-
-
