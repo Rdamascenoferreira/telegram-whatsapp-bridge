@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertCircle, CheckCircle2, Clock3, Gauge, MessageSquare, Power, RefreshCcw, Send, ShieldCheck, Trash2, TrendingUp, Users } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, Clock3, Gauge, MessageSquare, Power, RefreshCcw, Send, ShieldCheck, Trash2, TrendingUp, Users, LayoutDashboard, Wrench, CreditCard } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ConnectionSummary } from '../connections-panel';
 import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
@@ -48,6 +48,8 @@ export function OverviewPanel({
       : `${state.metrics.availableAdminGroupCount || 0} grupos disponíveis`;
   const deliveryStats = state.metrics.deliveryStats || {};
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'errors' | 'delivery' | 'auth'>('all');
+  const [activeTab, setActiveTab] = useState<'geral' | 'tecnico' | 'plano'>('geral');
+  
   const totalForwarded = state.metrics.totalForwardedMessages || 0;
   const totalErrors = state.metrics.totalErrors || 0;
   const transientFailures = deliveryStats.transientFailures || 0;
@@ -152,8 +154,9 @@ export function OverviewPanel({
   }
 
   return (
-    <div className="grid gap-6">
-      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-md">
+    <div className="grid gap-8">
+      {/* HEADER SECTION */}
+      <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-md max-sm:p-6">
         <div className="flex items-start justify-between gap-4 max-md:flex-col">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -164,26 +167,18 @@ export function OverviewPanel({
                 Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">Operação da ponte</h2>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight text-white">Visão Geral</h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-              Acompanhe a saúde das conexões, controle a automação e valide se as mensagens estão fluindo de forma eficiente.
+              Acompanhe o fluxo de mensagens e controle sua automação.
             </p>
           </div>
-          <div className="grid min-w-[300px] gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-5 shadow-inner">
+          
+          <div className="grid min-w-[320px] gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-5 shadow-inner">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Status da automação</p>
-                <p className="mt-1 text-sm font-medium text-white">
-                  {effectiveBridgeEnabled ? 'Automação ativa' : 'Automação pausada'}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-                  {effectiveBridgeEnabled
-                    ? 'A ponte pode encaminhar mensagens normalmente.'
-                    : state.config.bridgeEnabled
-                      ? 'A automação foi pausada porque nem todas as conexões estão prontas.'
-                    : canEnableAutomation
-                      ? 'As mensagens recebidas ficam sem encaminhamento até você ligar de novo.'
-                      : automationLockReason}
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Status do Motor</p>
+                <p className="mt-1 text-base font-semibold text-white">
+                  {effectiveBridgeEnabled ? 'Automação Ativa' : 'Automação Pausada'}
                 </p>
               </div>
               <SystemPowerSwitch
@@ -211,393 +206,339 @@ export function OverviewPanel({
 
             {readOnlyAccount ? (
               <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
-                Conta em teste: a automação fica somente para visualização até o administrador liberar.
+                Conta em teste: visualização apenas.
               </p>
-              ) : !canEnableAutomation ? (
-                <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
-                  O interruptor será liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
-                </p>
-              ) : null}
+            ) : !canEnableAutomation ? (
+              <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
+                Ligue assim que configurar as Conexões e os Fluxos.
+              </p>
+            ) : null}
 
             {isAdmin ? (
               <button
                 type="button"
                 disabled={readOnlyAccount || busy === 'reset-all'}
                 onClick={async () => {
-                  const confirmed = window.confirm(
-                    'Isso vai limpar Telegram, WhatsApp, grupos selecionados e desligar a automação. Deseja continuar?'
-                  );
-
-                  if (!confirmed) {
-                    return;
-                  }
+                  const confirmed = window.confirm('Isso vai limpar conexões e automações. Deseja continuar?');
+                  if (!confirmed) return;
 
                   setBusy('reset-all');
                   await postJsonWithOptions('/api/connections/reset-all', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                   await refresh();
-                  setNotice('Conexões resetadas. Agora você pode configurar tudo de novo.');
+                  setNotice('Conexões resetadas. Configure tudo de novo.');
                   setBusy('');
                 }}
-                className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 disabled:opacity-60"
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-[13px] font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 disabled:opacity-60"
               >
-                <Power size={16} />
-                Começar do zero
+                <Power size={14} />
+                Reset de Emergência
               </button>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section className="grid gap-3 xl:grid-cols-4 max-xl:grid-cols-2 max-md:grid-cols-1">
-        <Metric
-          icon={TrendingUp}
-          label="Taxa de sucesso"
-          value={successRate}
-          detail={`${formatNumber(totalForwarded)} envio(s) monitorado(s) - percentual`}
-        />
-        <Metric
-          icon={Clock3}
-          label="Fila pendente"
-          value={queuedCount}
-          detail={queuedCount > 0 ? 'Mensagens aguardando processamento' : 'Fila operacional em dia'}
-        />
-        <Metric
-          icon={Activity}
-          label="Pendências Telegram"
-          value={pendingTelegramCount}
-          detail={pendingTelegramCount > 0 ? 'Mensagens aguardando encaminhamento' : 'Sem backlog no Telegram'}
-        />
-        <Metric
-          icon={AlertCircle}
-          label="Alertas ativos"
-          value={criticalAlerts.length}
-          detail={criticalAlerts.length > 0 ? 'Requer ação da Operação' : 'Sem alertas críticos no momento'}
-        />
-      </section>
+      {/* TABS NAVIGATION */}
+      <div className="flex items-center gap-8 border-b border-white/5 px-4 overflow-x-auto">
+        <button 
+          onClick={() => setActiveTab('geral')} 
+          className={cn('flex items-center gap-2 border-b-2 px-2 py-4 text-sm font-medium transition-colors whitespace-nowrap', activeTab === 'geral' ? 'border-[#25D366] text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300')}
+        >
+          <LayoutDashboard size={18} />
+          Resumo Geral
+        </button>
+        <button 
+          onClick={() => setActiveTab('tecnico')} 
+          className={cn('flex items-center gap-2 border-b-2 px-2 py-4 text-sm font-medium transition-colors whitespace-nowrap', activeTab === 'tecnico' ? 'border-[#25D366] text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300')}
+        >
+          <Wrench size={18} />
+          Saúde Técnica
+        </button>
+        <button 
+          onClick={() => setActiveTab('plano')} 
+          className={cn('flex items-center gap-2 border-b-2 px-2 py-4 text-sm font-medium transition-colors whitespace-nowrap', activeTab === 'plano' ? 'border-[#25D366] text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300')}
+        >
+          <CreditCard size={18} />
+          Meu Plano
+        </button>
+      </div>
 
-      <section className="grid gap-3 xl:grid-cols-3 max-xl:grid-cols-1">
-        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Entrega</p>
-          <p className="mt-2 text-sm font-medium text-zinc-200">Qualidade de entrega</p>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-            Sucesso {successRate}% vs erros {errorRate}% com base no volume atual.
-          </p>
-        </article>
-        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Estabilidade</p>
-          <p className="mt-2 text-sm font-medium text-zinc-200">Pressão de retries</p>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-            Falhas transientes representam {retriesShare}% do fluxo monitorado.
-          </p>
-        </article>
-        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Eficiência</p>
-          <p className="mt-2 text-sm font-medium text-zinc-200">Score operacional</p>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-            Score atual {automationScore}/100 considerando erros e severidade.
-          </p>
-        </article>
-      </section>
+      {/* TAB CONTENT: GERAL */}
+      {activeTab === 'geral' && (
+        <div className="grid gap-8">
+          <section className="grid gap-4 xl:grid-cols-4 max-xl:grid-cols-2 max-md:grid-cols-1">
+            <Metric icon={MessageSquare} label="Recebidas" value={state.metrics.totalTelegramReceived || 0} detail="Mensagens do Telegram" />
+            <Metric icon={Send} label="Enviadas" value={state.metrics.totalForwardedMessages || 0} detail="Encaminhamentos pro WhatsApp" />
+            <Metric icon={Clock3} label="Fila Pendente" value={queuedCount} detail={queuedCount > 0 ? 'Aguardando envio' : 'Tudo em dia'} />
+            <Metric icon={Users} label="Grupos Ativos" value={state.metrics.selectedGroupCount || 0} detail="Recebendo mensagens" />
+          </section>
 
-      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-3 max-md:flex-col max-md:items-start">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Atenção agora</p>
-            <p className="mt-1 text-sm text-zinc-400">Itens que podem bloquear entrega ou captura em tempo real.</p>
-          </div>
-          <button
-            type="button"
-            className={secondaryButton}
-            disabled={busy === 'overview-refresh'}
-            onClick={async () => {
-              setBusy('overview-refresh');
-              try {
-                await refresh();
-                setNotice('Dashboard atualizada.');
-              } finally {
-                setBusy('');
-              }
-            }}
-          >
-            <RefreshCcw size={15} />
-            Atualizar agora
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-3">
-          {criticalAlerts.length ? (
-            criticalAlerts.slice(0, 4).map((alert) => (
-              <article key={alert.id} className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 transition-colors hover:bg-amber-500/15">
-                <div className="flex items-start justify-between gap-3 max-md:flex-col">
-                  <div>
-                    <p className="text-sm font-semibold text-amber-300">{alert.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-amber-200/80">{alert.detail}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setView(alert.goTo)}
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/20 hover:text-amber-100"
-                  >
-                    {alert.cta}
-                  </button>
-                </div>
-              </article>
-            ))
-          ) : (
-            <div className="flex items-center gap-3 rounded-xl border border-[#25D366]/20 bg-[#25D366]/10 px-4 py-4 text-sm font-medium text-[#25D366]">
-              <div className="h-2 w-2 rounded-full bg-[#25D366] shrink-0" />
-              Operação estável: conexões, fluxo e destinos estão prontos.
-            </div>
+          {criticalAlerts.length > 0 && (
+            <section className="rounded-3xl border border-red-500/20 bg-red-500/5 p-6 backdrop-blur-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-red-400">
+                  <AlertCircle size={20} />
+                  Atenção Necessária
+                </h3>
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  disabled={busy === 'overview-refresh'}
+                  onClick={async () => {
+                    setBusy('overview-refresh');
+                    try { await refresh(); setNotice('Dashboard atualizada.'); } finally { setBusy(''); }
+                  }}
+                >
+                  <RefreshCcw size={15} />
+                  Atualizar
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {criticalAlerts.map((alert) => (
+                  <article key={alert.id} className="rounded-2xl border border-red-500/20 bg-black/20 p-5 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-red-300">{alert.title}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-red-200/70">{alert.detail}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setView(alert.goTo)}
+                        className="shrink-0 rounded-xl border border-red-500/30 bg-red-500/20 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-500/40"
+                      >
+                        {alert.cta}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           )}
+
+          <section className="grid grid-cols-[1fr_360px] gap-6 max-xl:grid-cols-1">
+            <OffersPanel state={state} compact refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
+            <ConnectionSummary state={state} />
+          </section>
         </div>
-      </section>
+      )}
 
-      <section className="grid gap-3 xl:grid-cols-[1.2fr_1fr] max-xl:grid-cols-1">
-        <PlanUsageCard
-          title="Plano e limites"
-          planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
-          description="Acompanhe o que está liberado no seu plano e quanto da estrutura atual já está em uso."
-          items={[
-            {
-              label: 'Destinos WhatsApp',
-              used: whatsappDestinationsUsed,
-              limit: state.planLimits?.whatsappDestinations || 0,
-              detail: `${whatsappDestinationsUsed} grupo(s) selecionado(s) em Fluxos`
-            },
-            {
-              label: 'Origens Telegram',
-              used: hasOperationalTelegramSource(state) ? 1 : 0,
-              limit: state.planLimits?.telegramSources || 0,
-              detail: hasOperationalTelegramSource(state) ? 'Uma origem ativa no fluxo atual' : 'Nenhuma origem salva no momento'
-            },
-            {
-              label: 'Automacoes de afiliados',
-              used: state.affiliate?.automations?.length || 0,
-              limit: state.planLimits?.affiliateAutomations || 0,
-              detail:
-                (state.affiliate?.automations?.length || 0) > 0
-                  ? `${state.affiliate?.automations?.length || 0} regra(s) criada(s)`
-                  : 'Nenhuma automação criada ainda'
-            }
-          ]}
-          featureBadges={[
-            { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
-            { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
-            { label: 'Histórico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
-            { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
-          ]}
-        />
-
-        <section className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
-          <Metric icon={MessageSquare} label="Telegram" value={state.metrics.totalTelegramReceived || 0} detail={lastLabel(state.metrics.lastTelegramMessageAt)} />
-          <Metric icon={Send} label="Encaminhadas" value={state.metrics.totalForwardedMessages || 0} detail={lastLabel(state.metrics.lastForwardedAt)} />
-          <Metric icon={Users} label="Grupos" value={state.metrics.selectedGroupCount || 0} detail={groupProgressText} />
-        </section>
-
-        <section className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
-          <Metric
-            icon={ShieldCheck}
-            label="Duplicados evitados"
-            value={deliveryStats.skippedDuplicates || 0}
-            detail="Mensagens repetidas ignoradas automaticamente"
-          />
-          <Metric
-            icon={Clock3}
-            label="Falhas transientes"
-            value={deliveryStats.transientFailures || 0}
-            detail="Falhas recuperaveis durante os envios"
-          />
-          <Metric
-            icon={AlertCircle}
-            label="Falhas fatais"
-            value={deliveryStats.fatalFailures || 0}
-            detail="Erros definitivos que exigem Atenção operacional"
-          />
-        </section>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <article className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Saúde dos fluxos</p>
-              <p className="mt-1 text-sm text-zinc-400">Visão rápida da Ponte e do Automatizador de Ofertas.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setView('flows')}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              Abrir Fluxos
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-3">
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-zinc-200">Ponte Telegram &rarr; WhatsApp</p>
-                <span
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-medium',
-                    bridgeHealth.label === 'Ativo'
-                      ? 'border border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
-                      : bridgeHealth.label === 'Pausado'
-                        ? 'border border-amber-500/20 bg-amber-500/10 text-amber-400'
-                        : 'border border-red-500/20 bg-red-500/10 text-red-400'
-                  )}
-                >
-                  {bridgeHealth.label}
-                </span>
+      {/* TAB CONTENT: TÉCNICO */}
+      {activeTab === 'tecnico' && (
+        <div className="grid gap-8">
+          <section className="grid gap-4 xl:grid-cols-3 max-xl:grid-cols-1">
+            <article className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-lg backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366]/10 text-[#25D366]">
+                  <TrendingUp size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Qualidade</p>
+                  <p className="text-lg font-bold text-white">{successRate}% Sucesso</p>
+                </div>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">{bridgeHealth.reason || 'Fluxo pronto e em Operação.'}</p>
-            </div>
+              <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+                Métrica baseada no volume atual, contra {errorRate}% de erros absolutos.
+              </p>
+            </article>
 
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-zinc-200">Automatizador de Ofertas</p>
-                <span
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-medium',
-                    affiliateHealth.label === 'Ativo'
-                      ? 'border border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
-                      : affiliateHealth.label === 'Pausado'
-                        ? 'border border-amber-500/20 bg-amber-500/10 text-amber-400'
-                        : 'border border-red-500/20 bg-red-500/10 text-red-400'
-                  )}
-                >
-                  {affiliateHealth.label}
-                </span>
+            <article className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-lg backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Estabilidade</p>
+                  <p className="text-lg font-bold text-white">{retriesShare}% Retentativas</p>
+                </div>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">{affiliateHealth.reason || 'Fluxo pronto e em Operação.'}</p>
-            </div>
-          </div>
-        </article>
+              <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+                Falhas transientes (recuperáveis) representam essa parcela do fluxo.
+              </p>
+            </article>
 
-        <article className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-3 max-md:flex-col">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Timeline operacional</p>
-              <p className="mt-1 text-sm text-zinc-400">Últimos eventos com filtro rápido para investigação.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'all' ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Todos</button>
-              <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'errors' ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Erros</button>
-              <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'delivery' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Entrega</button>
-              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'auth' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Autenticação</button>
-            </div>
-          </div>
+            <article className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-lg backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500">
+                  <Gauge size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Eficiência</p>
+                  <p className="text-lg font-bold text-white">{automationScore}/100 Score</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+                Saúde geral considerando tempo de resposta e fatalidades.
+              </p>
+            </article>
+          </section>
 
-          <div className="mt-5 grid gap-2">
-            {timelineEvents.length ? (
-              timelineEvents.map((event) => (
-                <div key={event.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 transition-colors hover:bg-white/[0.04]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2">
-                      {event.level === 'error' ? (
-                        <AlertCircle size={16} className="mt-0.5 text-red-400" />
-                      ) : (
-                        <CheckCircle2 size={16} className="mt-0.5 text-[#25D366]" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-200">{event.message}</p>
-                        <p className="mt-0.5 text-[11px] text-zinc-500">{humanize(event.type || 'atividade')}</p>
+          <section className="grid gap-6 xl:grid-cols-2">
+            <article className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm shadow-xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Diagnóstico de Fluxos</p>
+                  <p className="mt-1 text-xs text-zinc-400">Status interno da Ponte vs Automatizador.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setView('flows')}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  Abrir Fluxos
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4">
+                <div className="rounded-2xl border border-white/5 bg-black/20 p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-zinc-200">Ponte Direta</p>
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider', bridgeHealth.label === 'Ativo' ? 'bg-[#25D366]/10 text-[#25D366]' : bridgeHealth.label === 'Pausado' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400')}>
+                      {bridgeHealth.label}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">{bridgeHealth.reason || 'Operando normalmente.'}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/5 bg-black/20 p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-zinc-200">Automatizador Afiliados</p>
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider', affiliateHealth.label === 'Ativo' ? 'bg-[#25D366]/10 text-[#25D366]' : affiliateHealth.label === 'Pausado' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400')}>
+                      {affiliateHealth.label}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">{affiliateHealth.reason || 'Operando normalmente.'}</p>
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm shadow-xl">
+              <div className="flex items-start justify-between gap-3 max-md:flex-col">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Timeline Técnica</p>
+                  <p className="mt-1 text-xs text-zinc-400">Logs brutos do sistema para investigação.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors', timelineFilter === 'all' ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>All</button>
+                  <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors', timelineFilter === 'errors' ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Err</button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-2">
+                {timelineEvents.length ? (
+                  timelineEvents.map((event) => (
+                    <div key={event.id} className="rounded-xl border border-white/5 bg-black/20 p-3 transition-colors hover:bg-white/[0.04]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-2">
+                          {event.level === 'error' ? (
+                            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
+                          ) : (
+                            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#25D366]" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-zinc-300 font-mono">{event.message}</p>
+                          </div>
+                        </div>
+                        <p className="shrink-0 text-[10px] text-zinc-500">{formatDate(event.at)}</p>
                       </div>
                     </div>
-                    <p className="shrink-0 text-[11px] text-zinc-500">{formatDate(event.at)}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500 text-center">
-                Nenhum evento encontrado para esse filtro.
-              </p>
-            )}
-          </div>
-        </article>
-      </section>
+                  ))
+                ) : (
+                  <p className="rounded-xl border border-dashed border-white/10 p-6 text-sm text-zinc-500 text-center">
+                    Nenhum log encontrado.
+                  </p>
+                )}
+              </div>
+            </article>
+          </section>
 
-      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-3 max-md:flex-col">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Drill-down de falhas</p>
-            <p className="mt-1 text-sm text-zinc-400">Separação por tipo para acelerar correção operacional.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setView('activity')}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            Abrir Histórico completo
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-3 xl:grid-cols-2">
-          <article className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 transition-colors hover:bg-amber-500/15">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-amber-300">Falhas transientes</p>
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-200">
-                {transientFailures}
-              </span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-amber-200/80">
-              Geralmente ligadas a instabilidade de sessão/rede. Recomendado: revisar conexões e repetir sincronização.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setView('connections')}
-                className="rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/30 hover:text-white"
-              >
-                Revisar conexões
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('flows')}
-                className="rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/30 hover:text-white"
-              >
-                Validar fluxo
-              </button>
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 transition-colors hover:bg-red-500/15">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-red-400">Falhas fatais</p>
-              <span className="rounded-full border border-red-500/30 bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-200">
-                {fatalFailures}
-              </span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-red-200/80">
-              Erros que pedem ação imediata. Recomendado: checar Histórico detalhado e regras de envio/credenciais.
-            </p>
-            <div className="mt-4 flex gap-2">
+          <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm shadow-xl">
+            <div className="flex items-start justify-between gap-3 mb-6">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Drill-down de Erros</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setView('activity')}
-                className="rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/30 hover:text-white"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
               >
-                Investigar eventos
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('groups')}
-                className="rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/30 hover:text-white"
-              >
-                Revisar destinos
+                Abrir Histórico Completo
               </button>
             </div>
-          </article>
-        </div>
-      </section>
 
-      <section className="grid grid-cols-[1fr_360px] gap-5 max-xl:grid-cols-1">
-        <OffersPanel state={state} compact refresh={refresh} setNotice={setNotice} setBusy={setBusy} busy={busy} />
-        <ConnectionSummary state={state} />
-      </section>
+            <div className="grid gap-4 md:grid-cols-3">
+              <article className="rounded-2xl border border-white/5 bg-black/20 p-5">
+                <div className="flex items-center gap-3 text-sky-400 mb-2">
+                  <ShieldCheck size={20} />
+                  <p className="text-sm font-bold">Duplicados Evitados</p>
+                </div>
+                <p className="text-3xl font-black text-white">{deliveryStats.skippedDuplicates || 0}</p>
+                <p className="mt-2 text-xs text-zinc-500">Repetições ignoradas.</p>
+              </article>
+              
+              <article className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                <div className="flex items-center gap-3 text-amber-400 mb-2">
+                  <Clock3 size={20} />
+                  <p className="text-sm font-bold">Falhas Transientes</p>
+                </div>
+                <p className="text-3xl font-black text-white">{transientFailures}</p>
+                <p className="mt-2 text-xs text-zinc-500">Instabilidade de rede.</p>
+              </article>
+
+              <article className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+                <div className="flex items-center gap-3 text-red-400 mb-2">
+                  <AlertCircle size={20} />
+                  <p className="text-sm font-bold">Falhas Fatais</p>
+                </div>
+                <p className="text-3xl font-black text-white">{fatalFailures}</p>
+                <p className="mt-2 text-xs text-zinc-500">Exigem revisão manual.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* TAB CONTENT: PLANO */}
+      {activeTab === 'plano' && (
+        <div className="grid gap-6">
+          <PlanUsageCard
+            title="Uso e Limites"
+            planLabel={state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
+            description="Acompanhe o que está liberado no seu plano e quanto da estrutura atual já está em uso."
+            items={[
+              {
+                label: 'Destinos WhatsApp',
+                used: whatsappDestinationsUsed,
+                limit: state.planLimits?.whatsappDestinations || 0,
+                detail: `${whatsappDestinationsUsed} grupo(s) selecionado(s) em Fluxos`
+              },
+              {
+                label: 'Origens Telegram',
+                used: hasOperationalTelegramSource(state) ? 1 : 0,
+                limit: state.planLimits?.telegramSources || 0,
+                detail: hasOperationalTelegramSource(state) ? 'Uma origem ativa no fluxo atual' : 'Nenhuma origem salva no momento'
+              },
+              {
+                label: 'Automações de afiliados',
+                used: state.affiliate?.automations?.length || 0,
+                limit: state.planLimits?.affiliateAutomations || 0,
+                detail:
+                  (state.affiliate?.automations?.length || 0) > 0
+                    ? `${state.affiliate?.automations?.length || 0} regra(s) criada(s)`
+                    : 'Nenhuma automação criada ainda'
+              }
+            ]}
+            featureBadges={[
+              { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
+              { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
+              { label: 'Histórico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
+              { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
-
 
 function OffersPanel({
   state,
@@ -620,111 +561,83 @@ function OffersPanel({
   const canClearDashboard = Boolean(refresh && setNotice && setBusy);
 
   return (
-    <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 backdrop-blur-sm shadow-xl max-sm:p-6">
+      <div className="mb-8 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Entregas</p>
-          <h2 className="mt-1 text-xl font-semibold text-white">Ofertas captadas</h2>
-          <p className="mt-2 text-xs leading-relaxed text-zinc-400">
-            Isso limpa apenas a visualização do painel. Suas cotas, métricas reais e Histórico técnico continuam intactos.
-          </p>
-          {dashboardViewClearedAt ? (
-            <p className="mt-1 text-[11px] text-zinc-500">Última limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
-          ) : null}
+          <h2 className="text-2xl font-bold tracking-tight text-white">Últimos Envios</h2>
+          <p className="mt-2 text-sm text-zinc-400">Ofertas captadas e entregues pelo sistema.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300">
-            {formatNumber(state.offers?.length || 0)} recente(s)
+        <div className="flex items-center gap-3">
+          <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300">
+            {formatNumber(state.offers?.length || 0)} ofertas
           </span>
-          {canClearDashboard ? (
+          {canClearDashboard && !readOnlyAccount && (
             <button
               type="button"
-              disabled={readOnlyAccount || busy === 'clear-dashboard'}
+              disabled={busy === 'clear-dashboard'}
               onClick={async () => {
-                if (readOnlyAccount) {
-                  setNotice?.('Conta em teste: edições estão bloqueadas até liberação do administrador.');
-                  return;
-                }
-
-                const confirmed = window.confirm(
-                  'Isso vai limpar apenas a visualização de ofertas e atividade recente deste painel. Deseja continuar?'
-                );
-
-                if (!confirmed) {
-                  return;
-                }
-
-                try {
-                  setBusy?.('clear-dashboard');
-                  await postJsonWithOptions('/api/dashboard/clear-view', undefined, { timeoutMs: HTTP_TIMEOUT_MS.FAST });
-                  await refresh?.();
-                  setNotice?.('Painel visual limpo com sucesso.');
-                } catch (error) {
-                  setNotice?.(error instanceof Error ? error.message : 'Não foi possível limpar o painel.');
-                } finally {
-                  setBusy?.('');
+                if (window.confirm('Limpar visualização de envios? Isso não apaga histórico real.')) {
+                  try {
+                    setBusy?.('clear-dashboard');
+                    await postJsonWithOptions('/api/dashboard/clear-view', undefined, { timeoutMs: HTTP_TIMEOUT_MS.FAST });
+                    await refresh?.();
+                    setNotice?.('Painel limpo.');
+                  } finally {
+                    setBusy?.('');
+                  }
                 }
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
             >
-              <Trash2 size={14} />
-              Limpar painel
+              <Trash2 size={16} />
+              Limpar
             </button>
-          ) : null}
+          )}
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-4">
         {offers.length ? (
           offers.map((offer) => (
-            <article key={offer.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
+            <article key={offer.id} className="group rounded-2xl border border-white/5 bg-black/20 p-5 transition-colors hover:bg-white/[0.04]">
+              <div className="flex items-start justify-between gap-4 max-sm:flex-col">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     <StatusPill status={offer.status} />
-                    {offer.fromQueue ? (
-                      <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-400">
-                        Reprocessada
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                      {offer.sourceLabel}
+                    </span>
+                    {offer.fromQueue && (
+                      <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-sky-400">
+                        Fila
                       </span>
-                    ) : null}
+                    )}
                   </div>
-                  <p className="mt-3 text-sm font-medium leading-relaxed text-zinc-200">{offer.preview}</p>
+                  <p className="text-sm font-medium leading-relaxed text-zinc-200 line-clamp-2">{offer.preview}</p>
                 </div>
-                <div className="shrink-0 text-right text-xs text-zinc-500">
-                  <p>{formatDate(offer.lastUpdatedAt || offer.at)}</p>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-bold text-zinc-500">{formatDate(offer.lastUpdatedAt || offer.at)}</p>
+                  <p className="mt-2 text-xs font-semibold text-[#25D366]">{offer.groupCount} Grupo(s)</p>
                 </div>
               </div>
-
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-400">
-                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">{offer.sourceLabel}</span>
-                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
-                  {offer.messageCount} mensagem(ns)
-                </span>
-                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
-                  {offer.groupCount} grupo(s)
-                </span>
-                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
-                  {offer.deliveryCount} entrega(s)
-                </span>
-              </div>
-
-              {offer.reason ? (
-                <p className="mt-3 text-xs text-zinc-500">
-                  Motivo: <span className="text-zinc-300">{humanize(offer.reason)}</span>
-                </p>
-              ) : null}
+              {offer.reason && (
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                  <p className="text-xs text-amber-200/80">Motivo: {humanize(offer.reason)}</p>
+                </div>
+              )}
             </article>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-zinc-500 text-center">
-            Quando uma oferta entrar pelo Telegram, ela vai aparecer aqui com status, horário e alcance da entrega.
+          <div className="rounded-3xl border border-dashed border-white/10 p-12 text-center">
+             <MessageSquare className="mx-auto mb-4 text-zinc-600" size={32} />
+             <p className="text-base font-semibold text-zinc-300">Aguardando mensagens</p>
+             <p className="mt-2 text-sm text-zinc-500">As ofertas processadas aparecerão aqui.</p>
           </div>
         )}
       </div>
     </section>
   );
 }
-
 
 function StatusPill({ status }: { status: string }) {
   const label = formatOfferStatus(status);
@@ -739,19 +652,10 @@ function StatusPill({ status }: { status: string }) {
             ? 'border-zinc-600/20 bg-zinc-600/10 text-zinc-400'
             : 'border-sky-500/20 bg-sky-500/10 text-sky-400';
 
-  return <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-medium', className)}>{label}</span>;
+  return <span className={cn('rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider', className)}>{label}</span>;
 }
 
-
-function SystemPowerSwitch({
-  checked,
-  disabled,
-  onChange
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (nextValue: boolean) => Promise<void>;
-}) {
+function SystemPowerSwitch({ checked, disabled, onChange }: { checked: boolean; disabled?: boolean; onChange: (nextValue: boolean) => Promise<void>; }) {
   return (
     <button
       type="button"
@@ -760,217 +664,111 @@ function SystemPowerSwitch({
       disabled={disabled}
       onClick={() => void onChange(!checked)}
       className={cn(
-        'relative inline-flex h-9 w-[4.5rem] shrink-0 items-center rounded-full border px-1.5 transition-all duration-300',
-        checked
-          ? 'border-[#25D366]/30 bg-[#25D366]/20 shadow-[0_0_15px_rgba(37,211,102,0.15)]'
-          : 'border-white/10 bg-zinc-800',
+        'relative inline-flex h-10 w-20 shrink-0 items-center rounded-full border-2 transition-all duration-300',
+        checked ? 'border-[#25D366]/30 bg-[#25D366]/10 shadow-[0_0_20px_rgba(37,211,102,0.2)]' : 'border-white/10 bg-black/40',
         disabled && 'cursor-not-allowed opacity-50'
       )}
     >
       <span
         className={cn(
-          'absolute inset-y-1.5 w-6 rounded-full transition-all duration-300',
-          checked 
-            ? 'left-[calc(100%-1.85rem)] bg-[#25D366] shadow-[0_0_10px_rgba(37,211,102,0.5)]' 
-            : 'left-1.5 bg-zinc-400'
+          'absolute inset-y-1 w-7 rounded-full transition-all duration-300',
+          checked ? 'left-[calc(100%-2.2rem)] bg-[#25D366] shadow-[0_0_15px_rgba(37,211,102,0.6)]' : 'left-1.5 bg-zinc-500'
         )}
       />
-      <span className="relative z-10 flex w-full justify-between px-1.5 text-[10px] font-bold uppercase tracking-wider">
-        <span className={cn('transition-opacity duration-300', checked ? 'text-[#25D366] opacity-100' : 'opacity-0')}>On</span>
-        <span className={cn('transition-opacity duration-300', checked ? 'opacity-0' : 'text-zinc-500 opacity-100')}>Off</span>
-      </span>
     </button>
   );
 }
 
-
-function getFlowHealthStatus({
-  selected,
-  saved,
-  hasTelegramSession,
-  sourceId,
-  requiresPlan = true,
-  hasDestinations = true
-}: {
-  selected: boolean;
-  saved: boolean;
-  hasTelegramSession: boolean;
-  sourceId: string;
-  requiresPlan?: boolean;
-  hasDestinations?: boolean;
-}) {
-  if (!requiresPlan) {
-    return { label: 'Com erro', reason: 'Plano atual sem suporte' };
-  }
-  if (!hasTelegramSession) {
-    return { label: 'Incompleto', reason: 'Telegram desconectado' };
-  }
-  if (!String(sourceId || '').trim()) {
-    return { label: 'Incompleto', reason: 'Sem origem configurada' };
-  }
-  if (!hasDestinations) {
-    return { label: 'Incompleto', reason: 'Sem destino WhatsApp' };
-  }
-  if (selected && saved) {
-    return { label: 'Ativo', reason: '' };
-  }
-  if (!selected && saved) {
-    return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
-  }
+function getFlowHealthStatus({ selected, saved, hasTelegramSession, sourceId, requiresPlan = true, hasDestinations = true }: { selected: boolean; saved: boolean; hasTelegramSession: boolean; sourceId: string; requiresPlan?: boolean; hasDestinations?: boolean; }) {
+  if (!requiresPlan) return { label: 'Com erro', reason: 'Plano atual sem suporte' };
+  if (!hasTelegramSession) return { label: 'Incompleto', reason: 'Telegram desconectado' };
+  if (!String(sourceId || '').trim()) return { label: 'Incompleto', reason: 'Sem origem configurada' };
+  if (!hasDestinations) return { label: 'Incompleto', reason: 'Sem destino WhatsApp' };
+  if (selected && saved) return { label: 'Ativo', reason: '' };
+  if (!selected && saved) return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
   return { label: 'Incompleto', reason: 'Não salvo' };
 }
 
-function getActiveAffiliateAutomation(state: AppState) {
-  return (state.affiliate?.automations || []).find((automation) => automation.isActive) || null;
-}
+function getActiveAffiliateAutomation(state: AppState) { return (state.affiliate?.automations || []).find((a) => a.isActive) || null; }
 
 function getOperationalTelegramSource(state: AppState) {
-  if (state.telegramStatus !== 'listening') {
-    return '';
-  }
-
-  const activeAffiliateAutomation = getActiveAffiliateAutomation(state);
-
-  return normalizeRouteSourceId(
-    activeAffiliateAutomation?.telegramSourceGroupId ||
-      state.config.telegramChannel
-  );
+  if (state.telegramStatus !== 'listening') return '';
+  return normalizeRouteSourceId(getActiveAffiliateAutomation(state)?.telegramSourceGroupId || state.config.telegramChannel);
 }
 
-function hasOperationalTelegramSource(state: AppState) {
-  return Boolean(getOperationalTelegramSource(state));
-}
+function hasOperationalTelegramSource(state: AppState) { return Boolean(getOperationalTelegramSource(state)); }
 
-function hasOperationalWhatsAppDestination(state: AppState) {
-  return (state.config.selectedGroupIds?.length || 0) > 0;
-}
+function hasOperationalWhatsAppDestination(state: AppState) { return (state.config.selectedGroupIds?.length || 0) > 0; }
 
 function canEnableAutomationState(state: AppState) {
-  return (
-    state.telegramStatus === 'listening' &&
-    isWhatsAppConnectedStatus(state.whatsAppStatus) &&
-    hasOperationalTelegramSource(state) &&
-    hasOperationalWhatsAppDestination(state)
-  );
+  return state.telegramStatus === 'listening' && isWhatsAppConnectedStatus(state.whatsAppStatus) && hasOperationalTelegramSource(state) && hasOperationalWhatsAppDestination(state);
 }
 
 function getAutomationLockReason(state: AppState) {
-  if (state.telegramStatus !== 'listening') {
-    return 'Conecte e conclua o login no Telegram para liberar a automação.';
-  }
-  if (!isWhatsAppConnectedStatus(state.whatsAppStatus)) {
-    return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automação.';
-  }
-  if (!hasOperationalTelegramSource(state)) {
-    return 'Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.';
-  }
-  if (!hasOperationalWhatsAppDestination(state)) {
-    return 'Escolha ao menos um destino do WhatsApp antes de ligar o sistema.';
-  }
+  if (state.telegramStatus !== 'listening') return 'Conecte e conclua o login no Telegram para liberar a automação.';
+  if (!isWhatsAppConnectedStatus(state.whatsAppStatus)) return 'Conecte o WhatsApp e aguarde o status ficar pronto para liberar a automação.';
+  if (!hasOperationalTelegramSource(state)) return 'Escolha e salve uma origem no fluxo ativo antes de ligar o sistema.';
+  if (!hasOperationalWhatsAppDestination(state)) return 'Escolha ao menos um destino do WhatsApp antes de ligar o sistema.';
   return '';
 }
 
-
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail
-}: {
-  icon: typeof Gauge;
-  label: string;
-  value: number;
-  detail: string;
-}) {
+function Metric({ icon: Icon, label, value, detail }: { icon: typeof Gauge; label: string; value: number; detail: string; }) {
   return (
-    <article className="group rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/10 hover:bg-white/[0.04]">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{label}</span>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/50 text-[#25D366] transition-colors group-hover:bg-[#25D366]/10">
-          <Icon size={16} />
+    <article className="group rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/10 hover:bg-white/[0.04]">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366]/10 text-[#25D366] transition-colors group-hover:bg-[#25D366]/20">
+          <Icon size={24} />
+        </div>
+        <div>
+          <p className="text-3xl font-black tracking-tight text-white">{formatNumber(value)}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mt-1">{label}</p>
         </div>
       </div>
-      <strong className="mt-5 block text-4xl font-semibold tracking-tight text-white">{formatNumber(value)}</strong>
-      <p className="mt-2 text-xs leading-relaxed text-zinc-400">{detail}</p>
+      <p className="mt-4 text-xs font-medium text-zinc-400">{detail}</p>
     </article>
   );
 }
 
-
-function PlanUsageCard({
-  title,
-  planLabel,
-  description,
-  items,
-  featureBadges
-}: {
-  title: string;
-  planLabel: string;
-  description: string;
-  items: Array<{
-    label: string;
-    used: number;
-    limit: number;
-    detail: string;
-  }>;
-  featureBadges: Array<{
-    label: string;
-    enabled: boolean;
-    value?: string;
-  }>;
-}) {
+function PlanUsageCard({ title, planLabel, description, items, featureBadges }: { title: string; planLabel: string; description: string; items: Array<{ label: string; used: number; limit: number; detail: string; }>; featureBadges: Array<{ label: string; enabled: boolean; value?: string; }>; }) {
   return (
-    <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
+    <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-sm max-sm:p-6">
       <div className="flex items-start justify-between gap-4 max-md:flex-col">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{title}</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">{planLabel}</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard size={18} className="text-[#25D366]" />
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{title}</p>
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-white">{planLabel}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{description}</p>
         </div>
-        <span className="rounded-full border border-[#25D366]/20 bg-[#25D366]/10 px-3 py-1.5 text-xs font-medium text-[#25D366]">
-          Plano ativo
-        </span>
+        <span className="rounded-full border border-[#25D366]/30 bg-[#25D366]/10 px-4 py-2 text-sm font-bold text-[#25D366]">Plano Ativo</span>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="mt-8 grid gap-6 md:grid-cols-3">
         {items.map((item) => {
           const safeLimit = Math.max(1, item.limit || 0);
           const percent = Math.max(0, Math.min(100, Math.round((item.used / safeLimit) * 100)));
-
           return (
-            <article key={item.label} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-colors hover:bg-white/[0.04]">
+            <article key={item.label} className="rounded-2xl border border-white/5 bg-black/20 p-6 transition-colors hover:bg-white/[0.02]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-zinc-200">{item.label}</p>
-                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-400">
-                  {item.used}/{item.limit}
-                </span>
+                <p className="text-sm font-bold text-zinc-200">{item.label}</p>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-zinc-400">{item.used}/{item.limit}</span>
               </div>
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-[#25D366] transition-all"
-                  style={{ width: `${percent}%` }}
-                />
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-800">
+                <div className="h-full rounded-full bg-[#25D366] transition-all" style={{ width: `${percent}%` }} />
               </div>
-              <p className="mt-4 text-xs leading-relaxed text-zinc-500">{item.detail}</p>
+              <p className="mt-5 text-xs font-medium leading-relaxed text-zinc-500">{item.detail}</p>
             </article>
           );
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      <div className="mt-8 pt-6 border-t border-white/5 flex flex-wrap gap-3">
         {featureBadges.map((feature) => (
-          <span
-            key={feature.label}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium',
-              feature.enabled
-                ? 'border-[#25D366]/20 bg-[#25D366]/10 text-zinc-200'
-                : 'border-white/5 bg-white/[0.02] text-zinc-500'
-            )}
-          >
-            <span className={cn('h-1.5 w-1.5 rounded-full', feature.enabled ? 'bg-[#25D366]' : 'bg-zinc-600')} />
+          <span key={feature.label} className={cn('inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold uppercase tracking-wider', feature.enabled ? 'border-[#25D366]/20 bg-[#25D366]/5 text-zinc-200' : 'border-white/5 bg-black/20 text-zinc-500')}>
+            <span className={cn('h-2 w-2 rounded-full shadow-[0_0_10px_rgba(0,0,0,0)]', feature.enabled ? 'bg-[#25D366] shadow-[#25D366]/50' : 'bg-zinc-600')} />
             {feature.label}
-            {feature.value ? `: ${feature.value}` : feature.enabled ? ' liberado' : ' bloqueado'}
+            {feature.value ? `: ${feature.value}` : feature.enabled ? ' Liberado' : ' Bloqueado'}
           </span>
         ))}
       </div>
