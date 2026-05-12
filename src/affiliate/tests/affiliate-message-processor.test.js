@@ -223,6 +223,82 @@ test('processAffiliateMessage converts Shopee coupon and product links in the sa
   assert.equal(result.convertedUrls.filter((item) => item.status === 'converted').length, 2);
 });
 
+test('processAffiliateMessage accepts marketplace provider override for extensibility', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta https://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    marketplaceProviders: {
+      amazon: async ({ originalUrl, expandedUrl }) => ({
+        originalUrl,
+        expandedUrl,
+        marketplace: 'amazon',
+        status: 'converted',
+        affiliateUrl: 'https://short.example/amz'
+      })
+    }
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.processedMessage, 'Oferta https://short.example/amz');
+  assert.equal(result.convertedUrls[0].affiliateUrl, 'https://short.example/amz');
+});
+
+test('processAffiliateMessage shortens converted Amazon link when shortener is available', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta https://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    shortenUrlFn: async () => 'https://is.gd/abc123'
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.processedMessage, 'Oferta https://is.gd/abc123');
+  assert.equal(result.convertedUrls[0].affiliateUrl, 'https://is.gd/abc123');
+});
+
+test('processAffiliateMessage keeps Amazon affiliate link when shortener fails', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account,
+    dryRun: true,
+    message: 'Oferta https://amzn.to/abc',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://www.amazon.com.br/produto/dp/B0ABC12345?tag=old-20',
+      success: true
+    }),
+    shortenUrlFn: async () => {
+      throw new Error('shortener unavailable');
+    }
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.equal(
+    result.convertedUrls[0].affiliateUrl,
+    'https://www.amazon.com.br/dp/B0ABC12345?tag=tagdocliente-20'
+  );
+});
+
 test('processAffiliateMessage removes unsupported marketplace blocks when preserve mode is enabled', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

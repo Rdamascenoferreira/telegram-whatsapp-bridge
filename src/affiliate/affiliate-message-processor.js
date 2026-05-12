@@ -1,8 +1,7 @@
-import { convertAmazonLink } from './converters/amazon-affiliate-converter.js';
-import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
 import { createAffiliateConversionLog, createAffiliateMessageLog, getAffiliateAccountForProcessing, getAffiliateAutomationById, updateAffiliateMessageLog } from './affiliate-store.js';
 import { rewriteAffiliateMessageWithGroq } from './groq-rewriter.js';
 import { detectMarketplace } from './marketplace-detector.js';
+import { createMarketplaceProviders } from './marketplace-providers.js';
 import { beautifyAffiliateMessage, hasMultipleOfferSections } from './message-beautifier.js';
 import { extractMessageUrlMatches, rebuildMessageWithUrlReplacements } from './telegram-message-links.js';
 import { expandUrl } from './url-expander.js';
@@ -18,8 +17,16 @@ export async function processAffiliateMessage(params = {}) {
   const account = params.account || (userId ? await getAffiliateAccountForProcessing(userId) : null);
   const dryRun = Boolean(params.dryRun);
   const expandUrlFn = params.expandUrlFn || expandUrl;
-  const convertAmazonLinkFn = params.convertAmazonLinkFn || convertAmazonLink;
-  const convertShopeeLinkFn = params.convertShopeeLinkFn || convertShopeeLink;
+  const marketplaceProviders = {
+    ...createMarketplaceProviders({
+      convertAmazonLinkFn: params.convertAmazonLinkFn,
+      convertShopeeLinkFn: params.convertShopeeLinkFn,
+      shortenUrlFn: params.shortenUrlFn
+    }),
+    ...(params.marketplaceProviders && typeof params.marketplaceProviders === 'object'
+      ? params.marketplaceProviders
+      : {})
+  };
   const rewriteAffiliateMessageFn = params.rewriteAffiliateMessageFn || rewriteAffiliateMessageWithGroq;
   const logEnabled = !dryRun;
   let messageLogId = '';
@@ -95,44 +102,20 @@ export async function processAffiliateMessage(params = {}) {
         status: 'ignored'
       };
 
-      if (marketplace === 'amazon' && isCouponOrPromoLink(originalMessage, urlMatch)) {
-        conversion = {
-          ...conversion,
-          marketplace,
-          status: 'ignored',
-          error: marketplace === 'unknown' ? '' : 'Coupon/promo link kept without affiliate conversion'
-        };
-      } else if (marketplace === 'amazon' && account?.amazonEnabled) {
-        const amazonResult = convertAmazonLinkFn(expandedUrl, account.amazonTag);
-        conversion = {
-          ...conversion,
-          affiliateUrl: amazonResult.affiliateUrl,
-          status: amazonResult.success ? 'converted' : 'error',
-          error: amazonResult.error
-        };
-      } else if (marketplace === 'shopee' && account?.shopeeEnabled) {
-        const shopeeResult = await convertShopeeLinkFn(expandedUrl, {
-          affiliateId: account.shopeeAffiliateId,
-          appId: account.shopeeAppId,
-          secret: account.shopeeSecret || params.shopeeSecret,
+      const provider = marketplaceProviders[marketplace];
+      if (provider) {
+        conversion = await provider({
+          params,
           userId,
-          sourceChannel: 'telegram',
-          sourceGroupId: automation.telegramSourceGroupId,
-          sourceGroupName: automation.telegramSourceGroupName,
-          destinationGroupId: automation.destinations?.[0]?.whatsappGroupId,
-          destinationGroupName: automation.destinations?.[0]?.whatsappGroupName,
-          destinationCount: automation.destinations?.length || 0,
-          campaign: account.defaultSubId
+          automation,
+          account,
+          urlMatch,
+          originalMessage,
+          originalUrl,
+          expandedUrl,
+          marketplace,
+          isCouponOrPromoLink: marketplace === 'amazon' && isCouponOrPromoLink(originalMessage, urlMatch)
         });
-        conversion = {
-          ...conversion,
-          affiliateUrl: shopeeResult.affiliateUrl,
-          affiliateId: shopeeResult.affiliateId,
-          subIds: shopeeResult.subIds,
-          utmContent: shopeeResult.utmContent,
-          status: shopeeResult.success ? 'converted' : 'error',
-          error: shopeeResult.error
-        };
       } else if (marketplace === 'unknown') {
         if (automation.unknownLinkBehavior === 'remove') {
           addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
