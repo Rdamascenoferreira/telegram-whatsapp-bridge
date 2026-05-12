@@ -90,7 +90,7 @@ export default function Home() {
     fetcher: async () =>
       await requestJson<AppState>(view === 'admin' ? '/api/state?includeAdmin=1' : '/api/state'),
     normalize: normalizeAppState,
-    defaultErrorMessage: 'não foi possível carregar o painel agora. Tente novamente.',
+    defaultErrorMessage: 'Não foi possível carregar o painel agora. Tente novamente.',
     pausePolling: view === 'flows' && affiliateAutomationEditing,
     pollIntervalMs: 5000
   });
@@ -209,14 +209,14 @@ export default function Home() {
   ];
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="grid min-h-screen grid-cols-[260px_1fr] max-lg:grid-cols-1">
-        <aside className="border-r border-[var(--border)] bg-black/15 px-4 py-5 max-lg:border-b max-lg:border-r-0">
-          <div className="mb-7 flex items-center gap-3 px-2">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+      <div className="grid min-h-screen grid-cols-[280px_1fr] max-lg:grid-cols-1">
+        <aside className="border-r border-white/5 bg-zinc-950 px-5 py-6 max-lg:border-b max-lg:border-r-0">
+          <div className="mb-8 flex items-center gap-3 px-3">
             <AvatarBadge user={state.auth.user} size="md" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold">Portal do Afiliado</p>
-              <p className="truncate text-xs text-[var(--muted)]">
+              <p className="text-sm font-semibold text-zinc-200">Portal do Afiliado</p>
+              <p className="truncate text-xs text-zinc-500">
                 {state.auth.user?.name || panelVersion}
               </p>
             </div>
@@ -227,19 +227,20 @@ export default function Home() {
               .filter((item) => item.key !== 'admin' || isAdmin)
               .map((item) => {
                 const Icon = item.icon;
+                const isActive = view === item.key;
                 return (
                   <button
                     key={item.key}
                     type="button"
                     onClick={() => setView(item.key)}
                     className={cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-[var(--muted)] transition',
-                      view === item.key
-                        ? 'bg-[var(--panel-strong)] text-[var(--foreground)]'
-                        : 'hover:bg-white/5 hover:text-[var(--foreground)]'
+                      'flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all',
+                      isActive
+                        ? 'bg-[#25D366]/10 text-[#25D366]'
+                        : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
                     )}
                   >
-                    <Icon size={18} />
+                    <Icon size={18} className={cn('transition-colors', isActive ? 'text-[#25D366]' : 'text-zinc-500')} />
                     {item.label}
                   </button>
                 );
@@ -247,7 +248,7 @@ export default function Home() {
           </nav>
         </aside>
 
-        <section className="min-w-0 px-6 py-5 max-sm:px-4">
+        <section className="min-w-0 px-10 py-8 max-sm:px-5">
           <Topbar
             telegramStatus={state.telegramStatus}
             whatsAppStatus={state.whatsAppStatus}
@@ -263,7 +264,8 @@ export default function Home() {
           />
 
           {notice ? (
-            <div className="mb-4 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+            <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-5 py-4 text-sm font-medium text-[#25D366]">
+              <CheckCircle2 size={18} />
               {notice}
             </div>
           ) : null}
@@ -331,13 +333,13 @@ export default function Home() {
 }
 
 const inputClass =
-  'h-[58px] w-full rounded-[18px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 text-base text-[#F8FAFC] outline-none transition placeholder:text-[#6D7C75] hover:border-[rgba(255,255,255,0.14)] focus:border-[#25D366] focus:bg-[rgba(255,255,255,0.05)] focus:ring-2 focus:ring-[rgba(37,211,102,0.14)]';
+  'h-12 w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 text-sm text-zinc-200 outline-none transition-all placeholder:text-zinc-500 hover:border-white/20 focus:border-[#25D366] focus:bg-white/[0.04] focus:ring-4 focus:ring-[#25D366]/10';
 
 const primaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
+  'inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 text-sm font-bold text-zinc-950 transition-all hover:bg-[#25D366]/90 hover:shadow-[0_0_15px_rgba(37,211,102,0.2)] disabled:opacity-50 disabled:hover:shadow-none';
 
 const secondaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60';
+  'inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 text-sm font-semibold text-zinc-300 transition-all hover:bg-white/10 hover:text-white disabled:opacity-50';
 
 async function readFileAsDataUrl(file: File) {
   return await new Promise<string>((resolve, reject) => {
@@ -361,7 +363,3 @@ async function readFileAsDataUrl(file: File) {
     reader.readAsDataURL(file);
   });
 }
-
-
-
-

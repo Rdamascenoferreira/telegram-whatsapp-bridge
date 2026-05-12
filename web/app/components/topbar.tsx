@@ -22,21 +22,22 @@ export function Topbar({
   onLogout: () => Promise<void>;
 }) {
   return (
-    <header className="mb-5 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
+    <header className="mb-8 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
       <div className="min-w-0">
-        <p className="text-sm text-[var(--muted)]">Central operacional</p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="text-2xl font-semibold">Portal do Afiliado</h1>
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Central operacional</p>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3">
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Portal do Afiliado</h1>
           <CompactSetupChecklist steps={steps} />
         </div>
       </div>
-      <div className="flex items-center gap-2 max-sm:flex-wrap">
+      <div className="flex items-center gap-3 max-sm:flex-wrap">
         <StatusBadge label="Telegram" value={telegramStatus} />
         <StatusBadge label="WhatsApp" value={whatsAppStatus} />
+        <div className="h-6 w-px bg-white/10 max-sm:hidden"></div>
         <button
           type="button"
           onClick={() => void onLogout()}
-          className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-semibold hover:bg-white/5"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
         >
           <LogOut size={16} />
           Sair
@@ -54,38 +55,40 @@ function CompactSetupChecklist({
   const doneCount = steps.filter((step) => step.done).length;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-[var(--border)] bg-black/10 px-2 py-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] px-2 py-1.5 backdrop-blur-sm">
       {steps.map((step, index) => (
         <span
           key={step.label}
           className={cn(
-            'inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-semibold transition',
+            'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all',
             step.done
-              ? 'bg-emerald-400/12 text-emerald-100'
+              ? 'bg-[#25D366]/10 text-[#25D366]'
               : step.ready
-                ? 'bg-sky-400/12 text-sky-100'
-                : 'text-[var(--muted)]'
+                ? 'bg-sky-500/10 text-sky-400'
+                : 'text-zinc-500'
           )}
           title={step.done ? `${step.label}: concluído` : step.ready ? `${step.label}: pronto` : `${step.label}: pendente`}
         >
           <span
             className={cn(
-              'flex h-4 w-4 items-center justify-center rounded-full border text-[10px]',
+              'flex h-4 w-4 items-center justify-center rounded-full text-[10px] transition-colors',
               step.done
-                ? 'border-emerald-400/30 bg-emerald-400/15 text-emerald-100'
+                ? 'bg-[#25D366] text-zinc-950'
                 : step.ready
-                  ? 'border-sky-400/30 bg-sky-400/15 text-sky-100'
-                  : 'border-white/15 bg-white/5 text-[var(--muted)]'
+                  ? 'bg-sky-500/20 text-sky-400'
+                  : 'bg-zinc-800 text-zinc-500'
             )}
           >
-            {step.done ? <CheckCircle2 size={11} /> : index + 1}
+            {step.done ? <CheckCircle2 size={10} className="text-zinc-950" /> : index + 1}
           </span>
           <span className="max-sm:hidden">{step.label}</span>
         </span>
       ))}
-      <span className="ml-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-100">
-        {doneCount}/5
-      </span>
+      <div className="ml-1 pl-2 border-l border-white/5">
+        <span className="rounded-md bg-[#25D366]/10 px-2 py-1 text-xs font-semibold text-[#25D366]">
+          {doneCount}/{steps.length}
+        </span>
+      </div>
     </div>
   );
 }
