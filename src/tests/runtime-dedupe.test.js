@@ -31,3 +31,29 @@ test('runtime delivery dedupe persists and reloads recent receipts', async () =>
 
   assert.equal(runtimeB.hasRecentDelivery(deliveryKey), true);
 });
+
+test('runtime ignores stale WhatsApp clients by token', () => {
+  const runtime = new UserBridgeRuntime({ userId: 'user-a' });
+  const oldClient = {};
+  const activeClient = {};
+
+  runtime.whatsAppClient = activeClient;
+  runtime.whatsAppSessionToken = 2;
+
+  assert.equal(runtime.isCurrentWhatsAppClient(oldClient, 1), false);
+  assert.equal(runtime.isCurrentWhatsAppClient(activeClient, 1), false);
+  assert.equal(runtime.isCurrentWhatsAppClient(activeClient, 2), true);
+});
+
+test('stopping WhatsApp invalidates pending startup even without an active client', async () => {
+  const runtime = new UserBridgeRuntime({ userId: 'user-a' });
+  const pendingStart = Promise.resolve();
+
+  runtime.whatsAppSessionToken = 3;
+  runtime.whatsAppStartPromise = pendingStart;
+
+  await runtime.stopWhatsAppClient();
+
+  assert.equal(runtime.whatsAppSessionToken, 4);
+  assert.equal(runtime.whatsAppStartPromise, null);
+});

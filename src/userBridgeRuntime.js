@@ -48,13 +48,37 @@ const defaultWhatsAppProtocolTimeoutMs = parseProtocolTimeout(
   process.env.WHATSAPP_PROTOCOL_TIMEOUT_MS,
   10 * 60 * 1000
 );
+const whatsAppAuthTimeoutMs = parseBoundedTimeout(
+  process.env.WHATSAPP_AUTH_TIMEOUT_MS,
+  45 * 1000,
+  15 * 1000,
+  5 * 60 * 1000
+);
+const whatsAppQrMaxRetries = parseBoundedInteger(process.env.WHATSAPP_QR_MAX_RETRIES, 8, 0, 50);
+const whatsAppTakeoverOnConflict = !['0', 'false', 'no', 'off'].includes(
+  String(process.env.WHATSAPP_TAKEOVER_ON_CONFLICT ?? 'true').trim().toLowerCase()
+);
+const whatsAppTakeoverTimeoutMs = parseBoundedTimeout(
+  process.env.WHATSAPP_TAKEOVER_TIMEOUT_MS,
+  5 * 1000,
+  0,
+  60 * 1000
+);
 const whatsAppStartupWatchdogMs = parseProtocolTimeout(
   process.env.WHATSAPP_STARTUP_WATCHDOG_MS,
   75 * 1000
 );
-const whatsAppDestroyTimeoutMs = parseProtocolTimeout(
+const whatsAppDestroyTimeoutMs = parseBoundedTimeout(
   process.env.WHATSAPP_DESTROY_TIMEOUT_MS,
-  60 * 1000
+  15 * 1000,
+  5 * 1000,
+  2 * 60 * 1000
+);
+const whatsAppForceCloseTimeoutMs = parseBoundedTimeout(
+  process.env.WHATSAPP_FORCE_CLOSE_TIMEOUT_MS,
+  3500,
+  1000,
+  30 * 1000
 );
 const backgroundBrowserArgs = defaultWhatsAppHeadless
   ? ['--disable-gpu', '--mute-audio', '--hide-scrollbars', '--window-size=1280,900']
@@ -103,6 +127,8 @@ export class UserBridgeRuntime {
     this.whatsAppStartupWatchdogTimeout = null;
     this.whatsAppRestartAttempts = 0;
     this.whatsAppRestartTimeout = null;
+    this.whatsAppSessionToken = 0;
+    this.whatsAppStartPromise = null;
     this.groupDiagnostics = {
       totalGroupsSeen: 0,
       groupsWithAdminMatch: 0,
@@ -577,16 +603,43 @@ export class UserBridgeRuntime {
   }
 
   async startWhatsApp() {
-    await this.stopWhatsAppClient();
+    if (this.whatsAppStartPromise) {
+      return this.whatsAppStartPromise;
+    }
+
+    const startPromise = this.createWhatsAppClient();
+    this.whatsAppStartPromise = startPromise;
+
+    try {
+      await startPromise;
+    } finally {
+      if (this.whatsAppStartPromise === startPromise) {
+        this.whatsAppStartPromise = null;
+      }
+    }
+  }
+
+  async createWhatsAppClient() {
+    const sessionToken = this.whatsAppSessionToken + 1;
+    this.whatsAppSessionToken = sessionToken;
+    await this.stopWhatsAppClient({ invalidatePending: false });
+
+    if (this.whatsAppSessionToken !== sessionToken) {
+      return;
+    }
 
     this.whatsAppStatus = 'connecting';
     this.whatsAppIssue = null;
     this.scheduleWhatsAppStartupWatchdog('inicializacao');
-    this.whatsAppClient = new Client({
+    const client = new Client({
       authStrategy: new LocalAuth({
         clientId: this.paths.authClientId,
         dataPath: this.paths.authRootDir
       }),
+      authTimeoutMs: whatsAppAuthTimeoutMs,
+      qrMaxRetries: whatsAppQrMaxRetries,
+      takeoverOnConflict: whatsAppTakeoverOnConflict,
+      takeoverTimeoutMs: whatsAppTakeoverTimeoutMs,
       userAgent: modernChromeUserAgent,
       puppeteer: {
         headless: defaultWhatsAppHeadless,
@@ -599,8 +652,29 @@ export class UserBridgeRuntime {
       }
     });
 
-    this.whatsAppClient.on('qr', async (qr) => {
-      this.qrDataUrl = await QRCode.toDataURL(qr);
+    this.whatsAppClient = client;
+    const isCurrent = () => this.isCurrentWhatsAppClient(client, sessionToken);
+
+    client.on('qr', async (qr) => {
+      let qrDataUrl;
+      try {
+        qrDataUrl = await QRCode.toDataURL(qr);
+      } catch (error) {
+        if (isCurrent()) {
+          this.log(`Falha ao gerar QR Code do WhatsApp: ${error.message}`, {
+            level: 'error',
+            type: 'whatsapp_qr_error',
+            increments: { errors: 1 }
+          });
+        }
+        return;
+      }
+
+      if (!isCurrent()) {
+        return;
+      }
+
+      this.qrDataUrl = qrDataUrl;
       this.whatsAppStatus = 'qr_required';
       this.whatsAppIssue = null;
       this.clearWhatsAppStartupWatchdog();
@@ -610,17 +684,25 @@ export class UserBridgeRuntime {
       });
     });
 
-    this.whatsAppClient.on('authenticated', () => {
+    client.on('authenticated', () => {
+      if (!isCurrent()) {
+        return;
+      }
+
       this.whatsAppStatus = 'authenticated';
       this.whatsAppRestartAttempts = 0;
       this.whatsAppIssue = null;
-      this.attachWhatsAppBrowserLifecycle();
+      this.attachWhatsAppBrowserLifecycle(client, sessionToken);
       this.log('WhatsApp autenticado.', {
         type: 'whatsapp_authenticated'
       });
     });
 
-    this.whatsAppClient.on('ready', async () => {
+    client.on('ready', async () => {
+      if (!isCurrent()) {
+        return;
+      }
+
       this.qrDataUrl = null;
       this.whatsAppStatus = 'ready';
       this.whatsAppRestartAttempts = 0;
@@ -628,8 +710,8 @@ export class UserBridgeRuntime {
       this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.clearWhatsAppAutoReconnect();
-      this.attachWhatsAppBrowserLifecycle();
-      this.whatsAppPhone = serializeWid(this.whatsAppClient.info?.wid);
+      this.attachWhatsAppBrowserLifecycle(client, sessionToken);
+      this.whatsAppPhone = serializeWid(client.info?.wid);
       this.log(`WhatsApp pronto (${this.whatsAppPhone ?? 'sessão ativa'}).`, {
         type: 'whatsapp_ready'
       });
@@ -641,6 +723,10 @@ export class UserBridgeRuntime {
         });
       });
       setTimeout(() => {
+        if (!isCurrent()) {
+          return;
+        }
+
         this.refreshAvailableGroups().catch((error) => {
           this.log(`Falha ao atualizar grupos apos login: ${error.message}`, {
             level: 'error',
@@ -648,12 +734,25 @@ export class UserBridgeRuntime {
             increments: { errors: 1 }
           });
         });
-      }, 4000);
+      }, 1500);
     });
 
-    this.whatsAppClient.on('auth_failure', (message) => {
+    client.on('auth_failure', (message) => {
+      if (!isCurrent()) {
+        return;
+      }
+
       this.whatsAppStatus = 'auth_failure';
-      this.whatsAppIssue = null;
+      this.whatsAppIssue = {
+        status: 'auth_failure',
+        canResetSession: true,
+        type: 'whatsapp_auth_failure',
+        message:
+          'A sessão salva do WhatsApp falhou na autenticação. Use "Resetar sessão do WhatsApp" para gerar um novo QR Code.',
+        metadata: {
+          originalError: String(message ?? '')
+        }
+      };
       this.clearWhatsAppStartupWatchdog();
       this.clearWhatsAppRestart();
       this.clearWhatsAppAutoReconnect();
@@ -662,9 +761,18 @@ export class UserBridgeRuntime {
         type: 'whatsapp_auth_failure',
         increments: { errors: 1 }
       });
+      void this.stopWhatsAppClient({
+        client,
+        invalidatePending: false,
+        settleDelayMs: 0
+      }).catch(() => {});
     });
 
-    this.whatsAppClient.on('disconnected', (reason) => {
+    client.on('disconnected', (reason) => {
+      if (!isCurrent()) {
+        return;
+      }
+
       this.whatsAppStatus = 'disconnected';
       this.whatsAppIssue = null;
       this.clearWhatsAppStartupWatchdog();
@@ -674,13 +782,29 @@ export class UserBridgeRuntime {
       this.scheduleWhatsAppRestart(`desconexao: ${reason}`);
     });
 
-    this.whatsAppClient.initialize().catch((error) => {
-      void this.handleWhatsAppInitFailure(error);
+    client.initialize().catch((error) => {
+      if (!isCurrent()) {
+        return;
+      }
+
+      void this.handleWhatsAppInitFailure(error, client, sessionToken);
     });
   }
 
-  async handleWhatsAppInitFailure(error) {
-    const issue = await this.inspectWhatsAppIssue(error);
+  isCurrentWhatsAppClient(client, sessionToken = this.whatsAppSessionToken) {
+    return this.whatsAppClient === client && this.whatsAppSessionToken === sessionToken;
+  }
+
+  async handleWhatsAppInitFailure(error, client = this.whatsAppClient, sessionToken = this.whatsAppSessionToken) {
+    if (!this.isCurrentWhatsAppClient(client, sessionToken)) {
+      return;
+    }
+
+    const issue = await this.inspectWhatsAppIssue(error, client, sessionToken);
+
+    if (!this.isCurrentWhatsAppClient(client, sessionToken)) {
+      return;
+    }
 
     if (issue) {
       this.whatsAppStatus = issue.status;
@@ -699,12 +823,13 @@ export class UserBridgeRuntime {
     this.whatsAppStatus = 'error';
     this.whatsAppIssue = null;
     this.clearWhatsAppStartupWatchdog();
-    this.log(`Falha na inicializacao do WhatsApp: ${error.message}`, {
+    const errorMessage = getErrorMessage(error);
+    this.log(`Falha na inicializacao do WhatsApp: ${errorMessage}`, {
       level: 'error',
       type: 'whatsapp_init_error',
       increments: { errors: 1 }
     });
-    this.scheduleWhatsAppRestart(error.message);
+    this.scheduleWhatsAppRestart(errorMessage);
   }
 
   async resetWhatsAppSession() {
@@ -752,16 +877,40 @@ export class UserBridgeRuntime {
     }
   }
 
-  async stopWhatsAppClient() {
-    if (!this.whatsAppClient) {
+  async stopWhatsAppClient(options = {}) {
+    const {
+      client: requestedClient = null,
+      invalidatePending = true,
+      settleDelayMs = 500
+    } = options;
+
+    if (invalidatePending) {
+      this.whatsAppSessionToken += 1;
+      this.whatsAppStartPromise = null;
+    }
+
+    const client = requestedClient ?? this.whatsAppClient;
+    this.clearWhatsAppStartupWatchdog();
+
+    if (!client) {
       return;
     }
 
-    const client = this.whatsAppClient;
-    this.whatsAppClient = null;
-    this.clearWhatsAppStartupWatchdog();
+    if (this.whatsAppClient === client) {
+      this.whatsAppClient = null;
+    }
     client.removeAllListeners();
-    await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch((error) => {
+    await this.destroyWhatsAppClient(client);
+
+    if (settleDelayMs > 0) {
+      await wait(settleDelayMs);
+    }
+  }
+
+  async destroyWhatsAppClient(client) {
+    const browser = client?.pupBrowser;
+
+    await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch(async (error) => {
       this.log(
         `Timeout ao encerrar a sessão travada do WhatsApp (${Math.round(
           whatsAppDestroyTimeoutMs / 1000
@@ -776,12 +925,44 @@ export class UserBridgeRuntime {
           }
         }
       );
+      await this.forceCloseWhatsAppBrowser(client, browser);
     });
-    await wait(1200);
+
+    client.pupPage = null;
+    client.pupBrowser = null;
   }
 
-  async inspectWhatsAppIssue(error) {
-    const page = this.whatsAppClient?.pupPage;
+  async forceCloseWhatsAppBrowser(client, browser = client?.pupBrowser) {
+    const page = client?.pupPage;
+
+    if (page && !page.isClosed?.()) {
+      await withTimeout(page.close({ runBeforeUnload: false }), whatsAppForceCloseTimeoutMs).catch(() => {});
+    }
+
+    if (browser?.isConnected?.()) {
+      await withTimeout(browser.close(), whatsAppForceCloseTimeoutMs).catch(() => {});
+    }
+
+    const browserProcess = browser?.process?.();
+    if (browserProcess && !browserProcess.killed && browser?.isConnected?.()) {
+      try {
+        browserProcess.kill('SIGKILL');
+      } catch {
+        try {
+          browserProcess.kill();
+        } catch {
+          // Ignore process kill errors; the next connection will use a fresh browser.
+        }
+      }
+    }
+  }
+
+  async inspectWhatsAppIssue(error, client = this.whatsAppClient, sessionToken = this.whatsAppSessionToken) {
+    if (!this.isCurrentWhatsAppClient(client, sessionToken)) {
+      return null;
+    }
+
+    const page = client?.pupPage;
 
     if (!page || page.isClosed?.()) {
       return null;
@@ -986,7 +1167,18 @@ export class UserBridgeRuntime {
     }
 
     const normalizedStatus = String(this.whatsAppStatus || '').trim().toLowerCase();
-    if (['ready', 'authenticated', 'connecting', 'qr_required', 'reconnecting', 'resetting'].includes(normalizedStatus)) {
+    if (
+      [
+        'ready',
+        'authenticated',
+        'connecting',
+        'qr_required',
+        'reconnecting',
+        'resetting',
+        'auth_failure',
+        'session_error'
+      ].includes(normalizedStatus)
+    ) {
       return;
     }
 
@@ -2446,7 +2638,7 @@ export class UserBridgeRuntime {
     return this.persistActivityPromise;
   }
 
-  scheduleWhatsAppRestart(reason) {
+  scheduleWhatsAppRestart(reason, options = {}) {
     if (
       this.whatsAppResetInProgress ||
       this.whatsAppStatus === 'session_error' ||
@@ -2470,7 +2662,10 @@ export class UserBridgeRuntime {
     }
 
     const nextAttempt = this.whatsAppRestartAttempts + 1;
-    const delayMs = Math.min(20000, 4000 + this.whatsAppRestartAttempts * 3000);
+    const requestedDelayMs = Number(options.delayMs);
+    const delayMs = Number.isFinite(requestedDelayMs)
+      ? Math.max(0, requestedDelayMs)
+      : Math.min(15000, 2000 + this.whatsAppRestartAttempts * 2500);
     this.whatsAppRestartAttempts = nextAttempt;
     this.log(
       `Tentando reconectar o WhatsApp automaticamente em ${Math.round(delayMs / 1000)}s (${nextAttempt}/5).`,
@@ -2516,7 +2711,7 @@ export class UserBridgeRuntime {
       return;
     }
 
-    const delayMs = 2500;
+    const delayMs = 1500;
     this.log(
       `A janela do WhatsApp foi fechada. Tentando reabrir automaticamente em ${Math.round(
         delayMs / 1000
@@ -2570,7 +2765,7 @@ export class UserBridgeRuntime {
         }
       });
 
-      this.scheduleWhatsAppRestart(`watchdog: ${this.whatsAppStatus}`);
+      this.scheduleWhatsAppRestart(`watchdog: ${this.whatsAppStatus}`, { delayMs: 0 });
     }, whatsAppStartupWatchdogMs);
   }
 
@@ -2583,8 +2778,8 @@ export class UserBridgeRuntime {
     this.whatsAppStartupWatchdogTimeout = null;
   }
 
-  attachWhatsAppBrowserLifecycle() {
-    const browser = this.whatsAppClient?.pupBrowser;
+  attachWhatsAppBrowserLifecycle(client = this.whatsAppClient, sessionToken = this.whatsAppSessionToken) {
+    const browser = client?.pupBrowser;
 
     if (!browser || browser.__bridgeLifecycleAttached) {
       return;
@@ -2592,7 +2787,7 @@ export class UserBridgeRuntime {
 
     browser.__bridgeLifecycleAttached = true;
     browser.on('disconnected', () => {
-      if (this.whatsAppClient?.pupBrowser !== browser) {
+      if (!this.isCurrentWhatsAppClient(client, sessionToken) || client?.pupBrowser !== browser) {
         return;
       }
 
@@ -3137,6 +3332,10 @@ function isLikelyBrowserDatabaseError(bodyText) {
   );
 }
 
+function getErrorMessage(error, fallback = 'erro desconhecido') {
+  return String(error?.message ?? error ?? fallback).trim() || fallback;
+}
+
 function wait(delayMs) {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
@@ -3144,24 +3343,46 @@ function wait(delayMs) {
 }
 
 function withTimeout(promise, timeoutMs) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`timeout_after_${timeoutMs}ms`));
-      }, timeoutMs);
-    })
-  ]);
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`timeout_after_${timeoutMs}ms`));
+    }, timeoutMs);
+
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
 }
 
 function parseProtocolTimeout(value, fallbackMs) {
+  return parseBoundedTimeout(value, fallbackMs, 60_000, 30 * 60 * 1000);
+}
+
+function parseBoundedTimeout(value, fallbackMs, minMs, maxMs) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
 
-  if (!Number.isFinite(parsed) || parsed < 60_000) {
+  if (!Number.isFinite(parsed) || parsed < minMs) {
     return fallbackMs;
   }
 
-  return Math.min(parsed, 30 * 60 * 1000);
+  return Math.min(parsed, maxMs);
+}
+
+function parseBoundedInteger(value, fallbackValue, minValue, maxValue) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isFinite(parsed) || parsed < minValue) {
+    return fallbackValue;
+  }
+
+  return Math.min(parsed, maxValue);
 }
 
 function isRecoverableWhatsAppTargetError(error) {
