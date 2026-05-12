@@ -221,7 +221,7 @@ export function AffiliateAutomationPanel({
   const affiliateTermsAccepted = Boolean(affiliate.termsAccepted);
   const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
   const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || affiliateAccountLocked || busy === 'affiliate-account';
-  const amazonShortenerGloballyEnabled = Boolean(affiliate.shortener?.amazonEnabled);
+  const amazonShortenerGloballyEnabled = Boolean(state.affiliate?.shortener?.amazonEnabled);
   const testLinks = testResult?.convertedUrls || [];
   const testConvertedLinks = testLinks.filter((url) => url.status === 'converted' && url.affiliateUrl);
   const testConvertedCount = testLinks.filter((url) => url.status === 'converted').length;
