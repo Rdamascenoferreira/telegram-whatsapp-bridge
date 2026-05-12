@@ -678,6 +678,14 @@ function WhatsAppDestinationSelector({
   const overPlanLimit = selectedCount > whatsappDestinationLimit;
   const staleSelectedIds = useMemo(() => [...selected].filter((groupId) => !state.groups.some((group) => group.id === groupId)), [selected, state.groups]);
   const hasStaleSelections = staleSelectedIds.length > 0;
+  const noAdminSelectedCount = useMemo(
+    () => selectedGroups.filter((group) => group.hasAdminAccess === false).length,
+    [selectedGroups]
+  );
+  const pendingAdminCheckCount = useMemo(
+    () => state.groups.filter((group) => group.hasAdminAccess === null || group.hasAdminAccess === undefined).length,
+    [state.groups]
+  );
   
   const filteredGroups = useMemo(() => {
     const normalized = normalizeText(filter);
@@ -708,6 +716,9 @@ function WhatsAppDestinationSelector({
           <h2 className="mt-1 text-2xl font-bold text-white">Grupos que recebem os fluxos</h2>
           <p className="mt-2 text-sm leading-relaxed text-zinc-400">
             Esta seleção vale para a ponte comum e para o Automatizador.
+          </p>
+          <p className="mt-2 text-xs text-zinc-500">
+            Grupos vistos: {state.metrics.availableGroupCount || state.groups.length || 0} | Admin confirmado: {state.metrics.availableAdminGroupCount || 0} | Verificando: {pendingAdminCheckCount}
           </p>
         </div>
         <button
@@ -867,6 +878,7 @@ function WhatsAppDestinationSelector({
                 className="group flex max-w-full items-center gap-2 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 px-3 py-2 text-xs font-bold text-white transition-all hover:bg-[#25D366]/20 hover:border-[#25D366]/50"
               >
                 <span className="truncate">{group.name}</span>
+                <AdminAccessBadge group={group} />
                 <GroupKindBadge group={group} />
                 <div className="rounded-full bg-black/20 p-0.5 text-[#25D366] group-hover:bg-red-500 group-hover:text-white transition-colors">
                   <X size={12} />
@@ -906,6 +918,7 @@ function WhatsAppDestinationSelector({
                   <CheckCircle2 size={14} className="absolute pointer-events-none text-black opacity-0 peer-checked:opacity-100" />
                 </div>
                 <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", checked ? "text-white" : "text-zinc-300")}>{group.name}</span>
+                <AdminAccessBadge group={group} />
                 <GroupKindBadge group={group} />
               </label>
             );
@@ -933,6 +946,11 @@ function WhatsAppDestinationSelector({
           </div>
           {overPlanLimit && <p className="mt-3 text-xs font-bold text-red-400">A seleção atual ultrapassa o limite do plano.</p>}
           {hasStaleSelections && <p className="mt-3 text-xs font-bold text-amber-400">{staleSelectedIds.length} destino(s) não aparecem na lista e serão removidos ao salvar.</p>}
+          {noAdminSelectedCount > 0 && (
+            <p className="mt-3 text-xs font-bold text-amber-400">
+              {noAdminSelectedCount} destino(s) selecionado(s) sem admin confirmado. O envio pode variar por tipo de grupo ou política do WhatsApp.
+            </p>
+          )}
         </div>
         
         <div className="flex items-center gap-4 max-sm:flex-col max-sm:items-stretch">
@@ -968,6 +986,30 @@ function StatusPill({ status }: { status: string }) {
       : 'border-sky-500/30 bg-sky-500/10 text-sky-400';
 
   return <span className={cn('rounded-xl border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', className)}>{label}</span>;
+}
+
+function AdminAccessBadge({ group }: { group: WhatsAppGroup }) {
+  if (group.hasAdminAccess === true) {
+    return (
+      <span className="shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+        Admin
+      </span>
+    );
+  }
+
+  if (group.hasAdminAccess === false) {
+    return (
+      <span className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+        Nao admin
+      </span>
+    );
+  }
+
+  return (
+    <span className="shrink-0 rounded-xl border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+      Verificando
+    </span>
+  );
 }
 
 function GroupKindBadge({ group }: { group: WhatsAppGroup }) {

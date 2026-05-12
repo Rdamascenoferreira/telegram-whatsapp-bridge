@@ -34,6 +34,7 @@ const { Client, LocalAuth, MessageMedia } = pkg;
 const albumFlushDelayMs = 1800;
 const pendingTelegramMessageLimit = 60;
 const pendingTelegramMessageTtlMs = 5 * 60 * 1000;
+const groupAdminCheckBatchSize = parseBoundedInteger(process.env.WHATSAPP_GROUP_ADMIN_CHECK_BATCH_SIZE, 12, 1, 100);
 const deliveryReceiptTtlMs = 6 * 60 * 60 * 1000;
 const maxRecentDeliveryReceipts = 4000;
 const deliveryReceiptsFilename = 'delivery-receipts.json';
@@ -2541,6 +2542,7 @@ export class UserBridgeRuntime {
       const myCanonicalIds = buildCanonicalIds(myId);
       const groupsWithAdminFlag = [];
       const diagnosticSample = [];
+      let foundAdmins = 0;
 
       for (let index = 0; index < groups.length; index += 1) {
         const chat = groups[index];
@@ -2583,6 +2585,9 @@ export class UserBridgeRuntime {
           parentGroupId: chat.parentGroupId,
           hasAdminAccess: Boolean(adminParticipant)
         });
+        if (adminParticipant) {
+          foundAdmins += 1;
+        }
 
         if (shouldUpdateProgress) {
           this.groupRefreshProgress = {
@@ -2592,8 +2597,12 @@ export class UserBridgeRuntime {
             percent: groups.length
               ? Math.max(10, Math.min(99, Math.round((processed / groups.length) * 100)))
               : 100,
-            foundAdmins: groupsWithAdminFlag.filter((group) => group.hasAdminAccess).length
+            foundAdmins
           };
+        }
+
+        if ((index + 1) % groupAdminCheckBatchSize === 0 && index + 1 < groups.length) {
+          await wait(0);
         }
       }
 
