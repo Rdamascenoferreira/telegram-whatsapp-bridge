@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, Power, RefreshCcw, Search, Shield, Smartphone, Users, X } from 'lucide-react';
+import { Bot, CheckCircle2, Power, RefreshCcw, Search, Shield, Smartphone, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { InternalSetupChecklist } from '../connections-panel';
 import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
