@@ -269,6 +269,9 @@ export type AppState = {
     logs: AffiliateLog[];
     termsAccepted?: boolean;
     termsVersion?: string;
+    shortener?: {
+      amazonEnabled?: boolean;
+    };
     error?: string;
   };
   issue?: {
