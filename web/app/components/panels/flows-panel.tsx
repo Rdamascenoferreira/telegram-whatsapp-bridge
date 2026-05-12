@@ -744,16 +744,16 @@ function WhatsAppDestinationSelector({
                 </span>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                {groupsTotal ? 'Analisando grupos válidos para envio.' : 'Aguardando lista inicial do WhatsApp...'}
+                {groupsPhase === 'loading_groups' ? 'Baixando histórico de conversas e grupos do WhatsApp. Isso pode demorar um pouco...' : 'Analisando grupos válidos e checando permissões de administrador.'}
               </p>
             </div>
-            <span className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/20 px-4 py-2 text-sm font-black text-[#25D366]">
-              {groupsTotal ? `${groupsPercent}%` : 'Preparando'}
+            <span className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/20 px-4 py-2 text-sm font-black text-[#25D366] whitespace-nowrap">
+              {groupsPercent}%
             </span>
           </div>
           
           <div className="mt-6 h-2 overflow-hidden rounded-full bg-black/40">
-            <div className="h-full rounded-full bg-[#25D366] transition-all duration-700 ease-out" style={{ width: `${groupsTotal ? Math.max(5, groupsPercent) : 10}%` }} />
+            <div className="h-full rounded-full bg-[#25D366] transition-all duration-700 ease-out" style={{ width: `${groupsPercent}%` }} />
           </div>
         </div>
       )}
