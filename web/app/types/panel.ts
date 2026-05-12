@@ -54,6 +54,7 @@ export type WhatsAppGroup = {
   id: string;
   name: string;
   selected?: boolean;
+  hasAdminAccess?: boolean | null;
   kind?: 'group' | 'announcement' | 'community_group';
   isAnnouncement?: boolean;
   isCommunityLinked?: boolean;
@@ -224,6 +225,7 @@ export type AppState = {
     totalWhatsAppDeliveries?: number;
     totalErrors?: number;
     selectedGroupCount?: number;
+    availableGroupCount?: number;
     availableAdminGroupCount?: number;
     pendingTelegramCount?: number;
     deliveryStats?: {

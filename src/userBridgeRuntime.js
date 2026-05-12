@@ -142,6 +142,7 @@ export class UserBridgeRuntime {
       foundAdmins: 0
     };
     this.groupCacheRefreshedAt = '';
+    this.groupRefreshPromise = null;
     this.persistActivityPromise = Promise.resolve();
     this.recentDeliveryReceipts = new Map();
     this.deliveryStats = {
@@ -204,7 +205,8 @@ export class UserBridgeRuntime {
       metrics: {
         ...this.activity.metrics,
         selectedGroupCount: this.resolveWhatsAppTargetGroupIds().length,
-        availableAdminGroupCount: this.availableGroups.length,
+        availableAdminGroupCount: countAdminGroups(this.availableGroups),
+        availableGroupCount: this.availableGroups.length,
         whatsAppStatus: this.whatsAppStatus,
         telegramStatus: this.telegramStatus,
         groupsRefreshing: this.isRefreshingGroups,
@@ -2470,10 +2472,29 @@ export class UserBridgeRuntime {
     };
   }
 
-  async refreshAvailableGroups() {
-    if (this.isRefreshingGroups) {
+  async refreshAvailableGroups(options = {}) {
+    const waitForCompletion = options.waitForCompletion !== false;
+
+    if (this.groupRefreshPromise) {
+      if (waitForCompletion) {
+        await this.groupRefreshPromise;
+      }
       return;
     }
+
+    const refreshPromise = this.performAvailableGroupsRefresh().finally(() => {
+      if (this.groupRefreshPromise === refreshPromise) {
+        this.groupRefreshPromise = null;
+      }
+    });
+    this.groupRefreshPromise = refreshPromise;
+
+    if (waitForCompletion) {
+      await refreshPromise;
+    }
+  }
+
+  async performAvailableGroupsRefresh() {
     if (!this.whatsAppClient || this.whatsAppStatus !== 'ready') {
       throw new Error('O WhatsApp ainda está finalizando a conexão. Aguarde o status "Pronto" e tente atualizar os grupos novamente.');
     }
@@ -2497,6 +2518,18 @@ export class UserBridgeRuntime {
         type: 'groups_refresh_started'
       });
       const groups = await this.fetchGroupSummaries();
+      const provisionalGroups = groups
+        .map((chat) => ({
+          id: chat.id,
+          name: chat.name || 'Grupo sem nome',
+          kind: chat.kind,
+          isAnnouncement: chat.isAnnouncement,
+          isCommunityLinked: chat.isCommunityLinked,
+          parentGroupId: chat.parentGroupId,
+          hasAdminAccess: null
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+      this.availableGroups = provisionalGroups;
       this.groupRefreshProgress = {
         phase: 'checking_admins',
         total: groups.length,
@@ -2506,7 +2539,7 @@ export class UserBridgeRuntime {
       };
       const myId = this.whatsAppClient.info?.wid;
       const myCanonicalIds = buildCanonicalIds(myId);
-      const availableGroups = [];
+      const groupsWithAdminFlag = [];
       const diagnosticSample = [];
 
       for (let index = 0; index < groups.length; index += 1) {
@@ -2541,16 +2574,15 @@ export class UserBridgeRuntime {
           processed === 1 ||
           processed % 5 === 0;
 
-        if (adminParticipant) {
-          availableGroups.push({
-            id: chat.id,
-            name: chat.name || 'Grupo sem nome',
-            kind: chat.kind,
-            isAnnouncement: chat.isAnnouncement,
-            isCommunityLinked: chat.isCommunityLinked,
-            parentGroupId: chat.parentGroupId
-          });
-        }
+        groupsWithAdminFlag.push({
+          id: chat.id,
+          name: chat.name || 'Grupo sem nome',
+          kind: chat.kind,
+          isAnnouncement: chat.isAnnouncement,
+          isCommunityLinked: chat.isCommunityLinked,
+          parentGroupId: chat.parentGroupId,
+          hasAdminAccess: Boolean(adminParticipant)
+        });
 
         if (shouldUpdateProgress) {
           this.groupRefreshProgress = {
@@ -2560,38 +2592,39 @@ export class UserBridgeRuntime {
             percent: groups.length
               ? Math.max(10, Math.min(99, Math.round((processed / groups.length) * 100)))
               : 100,
-            foundAdmins: availableGroups.length
+            foundAdmins: groupsWithAdminFlag.filter((group) => group.hasAdminAccess).length
           };
         }
       }
 
-      this.availableGroups = availableGroups.sort((left, right) =>
+      this.availableGroups = groupsWithAdminFlag.sort((left, right) =>
         left.name.localeCompare(right.name, 'pt-BR')
       );
+      const groupsWithAdminMatch = countAdminGroups(this.availableGroups);
       this.groupCacheRefreshedAt = new Date().toISOString();
       this.groupRefreshProgress = {
         phase: 'done',
         total: groups.length,
         processed: groups.length,
         percent: 100,
-        foundAdmins: this.availableGroups.length
+        foundAdmins: groupsWithAdminMatch
       };
       this.groupDiagnostics = {
         totalGroupsSeen: groups.length,
-        groupsWithAdminMatch: this.availableGroups.length,
+        groupsWithAdminMatch,
         myCanonicalIds: [...myCanonicalIds],
         sample: diagnosticSample
       };
       await this.persistGroupCache(this.availableGroups, this.groupDiagnostics, this.groupCacheRefreshedAt);
 
       this.log(
-        `Lista de grupos atualizada. Total vistos: ${groups.length}. Grupos com admin detectado: ${this.availableGroups.length}.`,
+        `Lista de grupos atualizada. Total vistos: ${groups.length}. Grupos com admin detectado: ${groupsWithAdminMatch}.`,
         {
           type: 'groups_refresh_success',
           increments: { groupRefreshes: 1 },
           metadata: {
             totalGroupsSeen: groups.length,
-            groupsWithAdminMatch: this.availableGroups.length
+            groupsWithAdminMatch
           }
         }
       );
@@ -2672,7 +2705,11 @@ export class UserBridgeRuntime {
         kind: group.kind ?? 'group',
         isAnnouncement: Boolean(group.isAnnouncement),
         isCommunityLinked: Boolean(group.isCommunityLinked),
-        parentGroupId: group.parentGroupId ? String(group.parentGroupId) : null
+        parentGroupId: group.parentGroupId ? String(group.parentGroupId) : null,
+        hasAdminAccess:
+          group.hasAdminAccess === null || group.hasAdminAccess === undefined
+            ? null
+            : Boolean(group.hasAdminAccess)
       }))
       .filter((group) => group.id)
       .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
@@ -3097,6 +3134,14 @@ function buildOfferSnapshot(messages, options = {}) {
       })
     }
   };
+}
+
+function countAdminGroups(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) {
+    return 0;
+  }
+
+  return groups.reduce((total, group) => total + (group?.hasAdminAccess ? 1 : 0), 0);
 }
 
 function buildOfferChannelStatus(offer) {

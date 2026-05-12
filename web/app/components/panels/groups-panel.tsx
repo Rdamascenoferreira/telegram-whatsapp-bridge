@@ -541,6 +541,7 @@ export function GroupsPanel({
                   title="Remover dos selecionados"
                 >
                   <span className="truncate">{group.name}</span>
+                  <AdminAccessBadge group={group} />
                   <GroupKindBadge group={group} />
                   <X size={13} className="text-emerald-100/70" />
                 </button>
@@ -577,6 +578,7 @@ export function GroupsPanel({
                     }}
                   />
                   <span className="min-w-0 flex-1 truncate text-sm">{group.name}</span>
+                  <AdminAccessBadge group={group} />
                   <GroupKindBadge group={group} />
                 </label>
               );
@@ -614,6 +616,30 @@ export function GroupsPanel({
         </div>
       </section>
     </div>
+  );
+}
+
+function AdminAccessBadge({ group }: { group: WhatsAppGroup }) {
+  if (group.hasAdminAccess === true) {
+    return (
+      <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+        Admin
+      </span>
+    );
+  }
+
+  if (group.hasAdminAccess === false) {
+    return (
+      <span className="shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-100">
+        Nao admin
+      </span>
+    );
+  }
+
+  return (
+    <span className="shrink-0 rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-100">
+      Verificando
+    </span>
   );
 }
 

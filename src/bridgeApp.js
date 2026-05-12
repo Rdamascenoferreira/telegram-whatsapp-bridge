@@ -247,7 +247,7 @@ export class BridgeApp {
     app.post('/api/refresh-groups', requireWriteAccess, async (request, response) => {
       await runUserOperation(request, 'whatsapp:refresh-groups', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
-        await runtime.refreshAvailableGroups();
+        await runtime.refreshAvailableGroups({ waitForCompletion: false });
       });
       await respondWithState(request, response);
     });
@@ -597,13 +597,22 @@ export class BridgeApp {
 
   async buildAffiliateState(userId) {
     try {
-      return await getAffiliateState(userId);
+      const affiliateState = await getAffiliateState(userId);
+      return {
+        ...affiliateState,
+        shortener: {
+          amazonEnabled: isAmazonShortenerGloballyEnabled()
+        }
+      };
     } catch (error) {
       return {
         account: null,
         automations: [],
         logs: [],
         termsAccepted: false,
+        shortener: {
+          amazonEnabled: isAmazonShortenerGloballyEnabled()
+        },
         error: error.message
       };
     }
@@ -772,6 +781,12 @@ function ensureAffiliateAutomationPlan(plan, payload = {}, automations = []) {
     count: destinations.length,
     label: 'Os destinos WhatsApp desta automação'
   });
+}
+
+function isAmazonShortenerGloballyEnabled() {
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.URL_SHORTENER_ENABLED ?? '').trim().toLowerCase()
+  );
 }
 
 function normalizeAffiliateAutomationDraft(userId, payload = {}) {
