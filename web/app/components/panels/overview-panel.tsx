@@ -6,7 +6,7 @@ import { ConnectionSummary } from '../connections-panel';
 import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
 import { formatDate, formatNumber, formatOfferStatus, humanize, isWhatsAppConnectedStatus, lastLabel, normalizeRouteSourceId } from '../../../lib/panel-utils';
 import { cn } from '../../../lib/utils';
-import type { AppState, ViewKey } from '../../types/panel';
+import type { ActivityOffer, AppState, ViewKey } from '../../types/panel';
 
 const panelVersion = 'Versão 2.01';
 
@@ -607,18 +607,25 @@ function OffersPanel({
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
                       {offer.sourceLabel}
                     </span>
+                    <ChannelStatusPill channel="Telegram" status={String(offer.metadata?.channels?.telegram?.status || 'received')} />
+                    <ChannelStatusPill channel="WhatsApp" status={String(offer.metadata?.channels?.whatsapp?.status || 'captured')} />
                     {offer.fromQueue && (
                       <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-sky-400">
                         Fila
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-medium leading-relaxed text-zinc-200 line-clamp-2">{offer.preview}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Mensagem de saida</p>
+                  <p className="mt-1 text-sm font-medium leading-relaxed text-zinc-200 whitespace-pre-wrap break-words">{offer.preview}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-xs font-bold text-zinc-500">{formatDate(offer.lastUpdatedAt || offer.at)}</p>
                   <p className="mt-2 text-xs font-semibold text-[#25D366]">{offer.groupCount} Grupo(s)</p>
                 </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+                <span>WhatsApp: {formatOfferDeliverySummary(offer)}</span>
+                <span>Telegram: {formatOfferTelegramSummary(offer)}</span>
               </div>
               {offer.reason && (
                 <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
@@ -631,12 +638,61 @@ function OffersPanel({
           <div className="rounded-3xl border border-dashed border-white/10 p-12 text-center">
              <MessageSquare className="mx-auto mb-4 text-zinc-600" size={32} />
              <p className="text-base font-semibold text-zinc-300">Aguardando mensagens</p>
-             <p className="mt-2 text-sm text-zinc-500">As ofertas processadas aparecerão aqui.</p>
+             <p className="mt-2 text-sm text-zinc-500">As ofertas processadas aparecerao aqui.</p>
+             {dashboardViewClearedAt ? (
+               <p className="mt-2 text-xs text-zinc-500">
+                 Visualizacao filtrada desde {formatDate(dashboardViewClearedAt)}. Novos envios aparecerao apos essa data.
+               </p>
+             ) : null}
           </div>
         )}
       </div>
     </section>
   );
+}
+
+function ChannelStatusPill({ channel, status }: { channel: string; status: string }) {
+  const normalized = String(status || '').toLowerCase();
+  const color =
+    normalized === 'sent' || normalized === 'received'
+      ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
+      : normalized === 'partial'
+        ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+        : normalized === 'queued' || normalized === 'captured'
+          ? 'border-sky-500/20 bg-sky-500/10 text-sky-400'
+          : 'border-red-500/20 bg-red-500/10 text-red-400';
+
+  return (
+    <span className={cn('rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest', color)}>
+      {channel} {humanize(normalized || 'unknown')}
+    </span>
+  );
+}
+
+function formatOfferDeliverySummary(offer: ActivityOffer) {
+  const summary = offer.metadata?.channels?.whatsapp;
+  if (!summary) {
+    return `${offer.deliveryCount || 0} entregue(s)`;
+  }
+
+  const delivered = Number(summary.delivered || offer.deliveryCount || 0);
+  const failed = Number(summary.failed || 0);
+  const skipped = Number(summary.skipped || 0);
+  const parts = [`${delivered} entregue(s)`];
+  if (failed > 0) parts.push(`${failed} falha(s)`);
+  if (skipped > 0) parts.push(`${skipped} duplicado(s)`);
+  return parts.join(' | ');
+}
+
+function formatOfferTelegramSummary(offer: ActivityOffer) {
+  const telegram = offer.metadata?.channels?.telegram;
+  if (!telegram) {
+    return 'Recebido';
+  }
+
+  const status = humanize(String(telegram.status || 'received'));
+  const detail = String(telegram.detail || '').trim();
+  return detail ? `${status} (${detail})` : status;
 }
 
 function StatusPill({ status }: { status: string }) {

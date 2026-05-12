@@ -592,12 +592,26 @@ export class UserBridgeRuntime {
   }
 
   upsertOffer(messages, offer = {}) {
-    this.activity = upsertActivityOffer(this.activity, {
-      ...buildOfferSnapshot(messages, {
-        groupCount: this.resolveWhatsAppTargetGroupIds().length
-      }),
+    const baseOffer = buildOfferSnapshot(messages, {
+      groupCount: this.resolveWhatsAppTargetGroupIds().length
+    });
+    const nextOffer = {
+      ...baseOffer,
       ...offer,
       lastUpdatedAt: offer.lastUpdatedAt || new Date().toISOString()
+    };
+    const offerMetadata = {
+      ...(baseOffer.metadata && typeof baseOffer.metadata === 'object' ? baseOffer.metadata : {}),
+      ...(offer.metadata && typeof offer.metadata === 'object' ? offer.metadata : {})
+    };
+
+    if (!offerMetadata.channels) {
+      offerMetadata.channels = buildOfferChannelStatus(nextOffer);
+    }
+
+    this.activity = upsertActivityOffer(this.activity, {
+      ...nextOffer,
+      metadata: offerMetadata
     });
     this.syncActivityArtifacts();
   }
@@ -1576,6 +1590,41 @@ export class UserBridgeRuntime {
         errorMessage: errorMessages.join(' | '),
         sentAt: delivery.sent.length || telegramForwardResult.sent ? new Date().toISOString() : null
       });
+      this.upsertOffer([telegramMessage || { text: originalMessageText, chatId: sourceGroupId }], {
+        id: `affiliate:${automation.id}:${String(telegramMessageId || Date.now())}`,
+        status: errorMessages.length ? 'failed' : 'sent',
+        sourceLabel: `${sourceGroupName || sourceGroupId || 'Telegram'} [Afiliados]`,
+        preview: originalMessageText || 'Mensagem processada pela automacao de afiliados.',
+        messageCount: 1,
+        groupCount: targetGroupIds.length,
+        deliveryCount: delivery.sent.length,
+        reason: errorMessages.join(' | '),
+        metadata: {
+          channels: {
+            telegram: {
+              status: telegramForwardResult.enabled
+                ? (telegramForwardResult.sent ? 'sent' : telegramForwardResult.error ? 'failed' : 'pending')
+                : 'not_enabled',
+              detail: telegramForwardResult.enabled
+                ? (
+                    telegramForwardResult.sent
+                      ? `Enviado para ${automation.telegramDestinationGroupName || automation.telegramDestinationGroupId || 'destino Telegram'}.`
+                      : `Falha: ${telegramForwardResult.error || 'nao enviado'}`
+                  )
+                : 'Sem encaminhamento para Telegram nesta automacao.'
+            },
+            whatsapp: {
+              status: delivery.failed.length > 0 ? 'partial' : 'sent',
+              delivered: delivery.sent.length,
+              failed: delivery.failed.length,
+              skipped: delivery.skipped?.length || 0,
+              targetGroups: targetGroupIds.length
+            }
+          },
+          automationId: automation.id,
+          automationName: automation.name
+        }
+      });
 
       this.log(`Automação de afiliados "${automation.name}" enviada para ${delivery.sent.length}/${targetGroupIds.length} destino(s) do WhatsApp${telegramForwardResult.sent ? ' e tambem para Telegram' : ''}${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
         type: errorMessages.length ? 'affiliate_partial_error' : 'affiliate_sent',
@@ -2260,7 +2309,22 @@ export class UserBridgeRuntime {
       groupCount,
       deliveryCount: delivery.sent.length,
       fromQueue: Boolean(options.fromQueue),
-      reason: ''
+      reason: '',
+      metadata: {
+        channels: {
+          telegram: {
+            status: 'received',
+            detail: 'Mensagem captada no Telegram.'
+          },
+          whatsapp: {
+            status: delivery.failed.length > 0 ? 'partial' : 'sent',
+            delivered: delivery.sent.length,
+            failed: delivery.failed.length,
+            skipped: delivery.skipped?.length || 0,
+            targetGroups: groupCount
+          }
+        }
+      }
     });
     this.log(`Mensagem do Telegram encaminhada para ${groupCount} grupo(s)${delivery.skipped?.length ? ` (${delivery.skipped.length} duplicado(s) ignorado(s))` : ''}.`, {
       type: 'forward_success',
@@ -3024,7 +3088,46 @@ function buildOfferSnapshot(messages, options = {}) {
     deliveryCount: Math.max(0, Number(options.deliveryCount || 0)),
     fromQueue: Boolean(options.fromQueue),
     reason: String(options.reason || ''),
-    metadata: options.metadata && typeof options.metadata === 'object' ? options.metadata : {}
+    metadata: {
+      ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {}),
+      channels: buildOfferChannelStatus({
+        status: 'captured',
+        reason: String(options.reason || ''),
+        fromQueue: Boolean(options.fromQueue)
+      })
+    }
+  };
+}
+
+function buildOfferChannelStatus(offer) {
+  const normalizedStatus = String(offer?.status || '').trim().toLowerCase();
+  const reason = String(offer?.reason || '').trim().toLowerCase();
+
+  let whatsappStatus = 'captured';
+
+  if (normalizedStatus === 'sent') {
+    whatsappStatus = 'sent';
+  } else if (normalizedStatus === 'failed') {
+    whatsappStatus = 'failed';
+  } else if (normalizedStatus === 'queued') {
+    whatsappStatus = 'queued';
+  } else if (normalizedStatus === 'ignored') {
+    if (reason === 'bridge_disabled') {
+      whatsappStatus = 'skipped';
+    } else if (reason === 'no_groups_selected') {
+      whatsappStatus = 'no_destination';
+    } else {
+      whatsappStatus = 'blocked';
+    }
+  }
+
+  return {
+    telegram: {
+      status: 'received'
+    },
+    whatsapp: {
+      status: whatsappStatus
+    }
   };
 }
 

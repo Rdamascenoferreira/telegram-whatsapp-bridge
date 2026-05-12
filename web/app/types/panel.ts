@@ -32,6 +32,22 @@ export type ActivityOffer = {
   deliveryCount: number;
   fromQueue?: boolean;
   reason?: string;
+  metadata?: {
+    channels?: {
+      telegram?: {
+        status?: string;
+        detail?: string;
+        destination?: string;
+      };
+      whatsapp?: {
+        status?: string;
+        delivered?: number;
+        failed?: number;
+        skipped?: number;
+        targetGroups?: number;
+      };
+    };
+  };
 };
 
 export type WhatsAppGroup = {
