@@ -11,10 +11,10 @@ import type { AppState, ViewKey } from '../../types/panel';
 const panelVersion = 'Versão 2.01';
 
 const primaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[var(--accent-strong)] disabled:opacity-60';
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-[#25D366]/90 disabled:opacity-60';
 
 const secondaryButton =
-  'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60';
+  'inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:bg-white/10 hover:text-white disabled:opacity-60';
 
 function isReadOnlyAccount(state: AppState) {
   return state.auth.user?.accountStatus === 'trial' && !state.auth.user?.isAdmin;
@@ -153,30 +153,30 @@ export function OverviewPanel({
 
   return (
     <div className="grid gap-6">
-      <section className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(8,20,16,0.99),rgba(8,20,16,0.95))] p-6 shadow-[0_16px_44px_rgba(0,0,0,0.24)]">
+      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-md">
         <div className="flex items-start justify-between gap-4 max-md:flex-col">
           <div>
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100">
+              <span className="rounded-full border border-[#25D366]/20 bg-[#25D366]/10 px-2.5 py-1 text-xs font-medium text-[#25D366]">
                 {panelVersion}
               </span>
-              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300">
                 Plano {state.planLimits?.label || humanize(state.auth.user?.plan || 'starter')}
               </span>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.01em]">Operação da ponte</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">
-              Acompanhe a saúde das conexões, controle a automação e valide se as mensagens estão fluindo.
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">Operação da ponte</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+              Acompanhe a saúde das conexões, controle a automação e valide se as mensagens estão fluindo de forma eficiente.
             </p>
           </div>
-          <div className="grid min-w-[300px] gap-3 rounded-xl border border-[var(--border)] bg-black/25 p-4">
+          <div className="grid min-w-[300px] gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-5 shadow-inner">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Status da automação</p>
-                <p className="mt-1 text-sm font-semibold">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Status da automação</p>
+                <p className="mt-1 text-sm font-medium text-white">
                   {effectiveBridgeEnabled ? 'Automação ativa' : 'Automação pausada'}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
+                <p className="mt-1 text-xs leading-relaxed text-zinc-400">
                   {effectiveBridgeEnabled
                     ? 'A ponte pode encaminhar mensagens normalmente.'
                     : state.config.bridgeEnabled
@@ -210,11 +210,11 @@ export function OverviewPanel({
             </div>
 
             {readOnlyAccount ? (
-              <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+              <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
                 Conta em teste: a automação fica somente para visualização até o administrador liberar.
               </p>
               ) : !canEnableAutomation ? (
-                <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90">
                   O interruptor será liberado assim que Telegram, WhatsApp, origem e destino estiverem prontos.
                 </p>
               ) : null}
@@ -235,13 +235,13 @@ export function OverviewPanel({
                   setBusy('reset-all');
                   await postJsonWithOptions('/api/connections/reset-all', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
                   await refresh();
-                  setNotice('conexões resetadas. Agora você pode configurar tudo de novo.');
+                  setNotice('Conexões resetadas. Agora você pode configurar tudo de novo.');
                   setBusy('');
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm font-semibold text-red-100 transition hover:bg-red-400/15 disabled:opacity-60"
+                className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 disabled:opacity-60"
               >
                 <Power size={16} />
-                Comecar do zero
+                Começar do zero
               </button>
             ) : null}
           </div>
@@ -276,34 +276,34 @@ export function OverviewPanel({
       </section>
 
       <section className="grid gap-3 xl:grid-cols-3 max-xl:grid-cols-1">
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entrega</p>
-          <p className="mt-2 text-sm font-semibold">Qualidade de entrega</p>
-          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
+        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Entrega</p>
+          <p className="mt-2 text-sm font-medium text-zinc-200">Qualidade de entrega</p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
             Sucesso {successRate}% vs erros {errorRate}% com base no volume atual.
           </p>
         </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Estabilidade</p>
-          <p className="mt-2 text-sm font-semibold">Pressão de retries</p>
-          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
+        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Estabilidade</p>
+          <p className="mt-2 text-sm font-medium text-zinc-200">Pressão de retries</p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
             Falhas transientes representam {retriesShare}% do fluxo monitorado.
           </p>
         </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/90 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Eficiência</p>
-          <p className="mt-2 text-sm font-semibold">Score operacional</p>
-          <p className="mt-1 text-xs leading-5 text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
+        <article className="rounded-2xl border border-white/5 bg-white/[0.01] p-5 transition-colors hover:bg-white/[0.03]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Eficiência</p>
+          <p className="mt-2 text-sm font-medium text-zinc-200">Score operacional</p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
             Score atual {automationScore}/100 considerando erros e severidade.
           </p>
         </article>
       </section>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
-        <div className="flex items-center justify-between gap-3 max-md:flex-col max-md:items-start">
+      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
+        <div className="flex items-start justify-between gap-3 max-md:flex-col max-md:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Atenção agora</p>
-            <p className="mt-1 text-sm text-[color:color-mix(in_srgb,var(--muted)_84%,white_16%)]">Itens que podem bloquear entrega ou captura em tempo real.</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Atenção agora</p>
+            <p className="mt-1 text-sm text-zinc-400">Itens que podem bloquear entrega ou captura em tempo real.</p>
           </div>
           <button
             type="button"
@@ -324,19 +324,19 @@ export function OverviewPanel({
           </button>
         </div>
 
-        <div className="mt-3 grid gap-3">
+        <div className="mt-5 grid gap-3">
           {criticalAlerts.length ? (
             criticalAlerts.slice(0, 4).map((alert) => (
-              <article key={alert.id} className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-3">
+              <article key={alert.id} className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 transition-colors hover:bg-amber-500/15">
                 <div className="flex items-start justify-between gap-3 max-md:flex-col">
                   <div>
-                    <p className="text-sm font-semibold text-amber-100">{alert.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-amber-100/90">{alert.detail}</p>
+                    <p className="text-sm font-semibold text-amber-300">{alert.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-amber-200/80">{alert.detail}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setView(alert.goTo)}
-                    className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/20 hover:text-amber-100"
                   >
                     {alert.cta}
                   </button>
@@ -344,9 +344,10 @@ export function OverviewPanel({
               </article>
             ))
           ) : (
-            <p className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
+            <div className="flex items-center gap-3 rounded-xl border border-[#25D366]/20 bg-[#25D366]/10 px-4 py-4 text-sm font-medium text-[#25D366]">
+              <div className="h-2 w-2 rounded-full bg-[#25D366] shrink-0" />
               Operação estável: conexões, fluxo e destinos estão prontos.
-            </p>
+            </div>
           )}
         </div>
       </section>
@@ -416,98 +417,98 @@ export function OverviewPanel({
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+        <article className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">saúde dos fluxos</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Visão rapida da Ponte e do Automatizador de Ofertas.</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Saúde dos fluxos</p>
+              <p className="mt-1 text-sm text-zinc-400">Visão rápida da Ponte e do Automatizador de Ofertas.</p>
             </div>
             <button
               type="button"
               onClick={() => setView('flows')}
-              className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               Abrir Fluxos
             </button>
           </div>
 
-          <div className="mt-3 grid gap-3">
-            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Ponte Telegram -&gt; WhatsApp</p>
+                <p className="text-sm font-medium text-zinc-200">Ponte Telegram &rarr; WhatsApp</p>
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                    'rounded-full px-2.5 py-1 text-[11px] font-medium',
                     bridgeHealth.label === 'Ativo'
-                      ? 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                      ? 'border border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
                       : bridgeHealth.label === 'Pausado'
-                        ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
-                        : 'border border-red-400/20 bg-red-400/10 text-red-100'
+                        ? 'border border-amber-500/20 bg-amber-500/10 text-amber-400'
+                        : 'border border-red-500/20 bg-red-500/10 text-red-400'
                   )}
                 >
                   {bridgeHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{bridgeHealth.reason || 'Fluxo pronto e em Operação.'}</p>
+              <p className="mt-1 text-xs text-zinc-500">{bridgeHealth.reason || 'Fluxo pronto e em Operação.'}</p>
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Automatizador de Ofertas</p>
+                <p className="text-sm font-medium text-zinc-200">Automatizador de Ofertas</p>
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                    'rounded-full px-2.5 py-1 text-[11px] font-medium',
                     affiliateHealth.label === 'Ativo'
-                      ? 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                      ? 'border border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
                       : affiliateHealth.label === 'Pausado'
-                        ? 'border border-amber-400/20 bg-amber-400/10 text-amber-100'
-                        : 'border border-red-400/20 bg-red-400/10 text-red-100'
+                        ? 'border border-amber-500/20 bg-amber-500/10 text-amber-400'
+                        : 'border border-red-500/20 bg-red-500/10 text-red-400'
                   )}
                 >
                   {affiliateHealth.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">{affiliateHealth.reason || 'Fluxo pronto e em Operação.'}</p>
+              <p className="mt-1 text-xs text-zinc-500">{affiliateHealth.reason || 'Fluxo pronto e em Operação.'}</p>
             </div>
           </div>
         </article>
 
-        <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+        <article className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-3 max-md:flex-col">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Timeline operacional</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Últimos eventos com filtro rápido para investigação.</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Timeline operacional</p>
+              <p className="mt-1 text-sm text-zinc-400">Últimos eventos com filtro rápido para investigação.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'all' ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Todos</button>
-              <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'errors' ? 'border-red-400/20 bg-red-400/10 text-red-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Erros</button>
-              <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'delivery' ? 'border-sky-400/20 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Entrega</button>
-              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', timelineFilter === 'auth' ? 'border-amber-400/20 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-[var(--muted)]')}>Autenticação</button>
+              <button type="button" onClick={() => setTimelineFilter('all')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'all' ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Todos</button>
+              <button type="button" onClick={() => setTimelineFilter('errors')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'errors' ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Erros</button>
+              <button type="button" onClick={() => setTimelineFilter('delivery')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'delivery' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Entrega</button>
+              <button type="button" onClick={() => setTimelineFilter('auth')} className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors', timelineFilter === 'auth' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : 'border-white/5 bg-white/[0.02] text-zinc-500 hover:text-zinc-300')}>Autenticação</button>
             </div>
           </div>
 
-          <div className="mt-3 grid gap-2">
+          <div className="mt-5 grid gap-2">
             {timelineEvents.length ? (
               timelineEvents.map((event) => (
-                <div key={event.id} className="rounded-lg border border-white/10 bg-black/15 p-3">
+                <div key={event.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3 transition-colors hover:bg-white/[0.04]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
                       {event.level === 'error' ? (
-                        <AlertCircle size={16} className="mt-0.5 text-red-300" />
+                        <AlertCircle size={16} className="mt-0.5 text-red-400" />
                       ) : (
-                        <CheckCircle2 size={16} className="mt-0.5 text-emerald-300" />
+                        <CheckCircle2 size={16} className="mt-0.5 text-[#25D366]" />
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold">{event.message}</p>
-                        <p className="mt-0.5 text-[11px] text-[var(--muted)]">{humanize(event.type || 'atividade')}</p>
+                        <p className="text-sm font-medium text-zinc-200">{event.message}</p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">{humanize(event.type || 'atividade')}</p>
                       </div>
                     </div>
-                    <p className="shrink-0 text-[11px] text-[var(--muted)]">{formatDate(event.at)}</p>
+                    <p className="shrink-0 text-[11px] text-zinc-500">{formatDate(event.at)}</p>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="rounded-md border border-dashed border-[var(--border)] px-3 py-4 text-sm text-[var(--muted)]">
+              <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500 text-center">
                 Nenhum evento encontrado para esse filtro.
               </p>
             )}
@@ -515,72 +516,72 @@ export function OverviewPanel({
         </article>
       </section>
 
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4">
+      <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3 max-md:flex-col">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Drill-down de falhas</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">Separação por tipo para acelerar correção operacional.</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Drill-down de falhas</p>
+            <p className="mt-1 text-sm text-zinc-400">Separação por tipo para acelerar correção operacional.</p>
           </div>
           <button
             type="button"
             onClick={() => setView('activity')}
-            className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] hover:bg-white/10"
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             Abrir Histórico completo
           </button>
         </div>
 
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">
-          <article className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-3">
+        <div className="mt-5 grid gap-3 xl:grid-cols-2">
+          <article className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 transition-colors hover:bg-amber-500/15">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-amber-100">Falhas transientes</p>
-              <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+              <p className="text-sm font-semibold text-amber-300">Falhas transientes</p>
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-2.5 py-1 text-xs font-bold text-amber-200">
                 {transientFailures}
               </span>
             </div>
-            <p className="mt-1 text-xs leading-5 text-amber-100/90">
+            <p className="mt-2 text-xs leading-relaxed text-amber-200/80">
               Geralmente ligadas a instabilidade de sessão/rede. Recomendado: revisar conexões e repetir sincronização.
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setView('connections')}
-                className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+                className="rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/30 hover:text-white"
               >
                 Revisar conexões
               </button>
               <button
                 type="button"
                 onClick={() => setView('flows')}
-                className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+                className="rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/30 hover:text-white"
               >
                 Validar fluxo
               </button>
             </div>
           </article>
 
-          <article className="rounded-lg border border-red-400/20 bg-red-400/10 p-3">
+          <article className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 transition-colors hover:bg-red-500/15">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-red-100">Falhas fatais</p>
-              <span className="rounded-full border border-red-300/30 bg-red-300/10 px-2.5 py-1 text-xs font-semibold text-red-100">
+              <p className="text-sm font-semibold text-red-400">Falhas fatais</p>
+              <span className="rounded-full border border-red-500/30 bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-200">
                 {fatalFailures}
               </span>
             </div>
-            <p className="mt-1 text-xs leading-5 text-red-100/90">
+            <p className="mt-2 text-xs leading-relaxed text-red-200/80">
               Erros que pedem ação imediata. Recomendado: checar Histórico detalhado e regras de envio/credenciais.
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setView('activity')}
-                className="rounded-md border border-red-300/30 bg-red-300/10 px-3 py-1.5 text-xs font-semibold text-red-50 hover:bg-red-300/20"
+                className="rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/30 hover:text-white"
               >
                 Investigar eventos
               </button>
               <button
                 type="button"
                 onClick={() => setView('groups')}
-                className="rounded-md border border-red-300/30 bg-red-300/10 px-3 py-1.5 text-xs font-semibold text-red-50 hover:bg-red-300/20"
+                className="rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/30 hover:text-white"
               >
                 Revisar destinos
               </button>
@@ -619,20 +620,20 @@ function OffersPanel({
   const canClearDashboard = Boolean(refresh && setNotice && setBusy);
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Entregas</p>
-          <h2 className="mt-1 text-xl font-semibold">Ofertas captadas</h2>
-          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Entregas</p>
+          <h2 className="mt-1 text-xl font-semibold text-white">Ofertas captadas</h2>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-400">
             Isso limpa apenas a visualização do painel. Suas cotas, métricas reais e Histórico técnico continuam intactos.
           </p>
           {dashboardViewClearedAt ? (
-            <p className="mt-1 text-[11px] text-[var(--muted)]">Ultima limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
+            <p className="mt-1 text-[11px] text-zinc-500">Última limpeza visual: {formatDate(dashboardViewClearedAt)}</p>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+          <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300">
             {formatNumber(state.offers?.length || 0)} recente(s)
           </span>
           {canClearDashboard ? (
@@ -659,12 +660,12 @@ function OffersPanel({
                   await refresh?.();
                   setNotice?.('Painel visual limpo com sucesso.');
                 } catch (error) {
-                  setNotice?.(error instanceof Error ? error.message : 'não foi possível limpar o painel.');
+                  setNotice?.(error instanceof Error ? error.message : 'Não foi possível limpar o painel.');
                 } finally {
                   setBusy?.('');
                 }
               }}
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:border-emerald-400/30 hover:text-white disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
             >
               <Trash2 size={14} />
               Limpar painel
@@ -676,47 +677,47 @@ function OffersPanel({
       <div className="grid gap-3">
         {offers.length ? (
           offers.map((offer) => (
-            <article key={offer.id} className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <article key={offer.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusPill status={offer.status} />
                     {offer.fromQueue ? (
-                      <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-100">
+                      <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-400">
                         Reprocessada
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-[var(--foreground)]">{offer.preview}</p>
+                  <p className="mt-3 text-sm font-medium leading-relaxed text-zinc-200">{offer.preview}</p>
                 </div>
-                <div className="shrink-0 text-right text-xs text-[var(--muted)]">
+                <div className="shrink-0 text-right text-xs text-zinc-500">
                   <p>{formatDate(offer.lastUpdatedAt || offer.at)}</p>
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-                <span className="rounded-full border border-[var(--border)] px-2.5 py-1">{offer.sourceLabel}</span>
-                <span className="rounded-full border border-[var(--border)] px-2.5 py-1">
+              <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-400">
+                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">{offer.sourceLabel}</span>
+                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
                   {offer.messageCount} mensagem(ns)
                 </span>
-                <span className="rounded-full border border-[var(--border)] px-2.5 py-1">
+                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
                   {offer.groupCount} grupo(s)
                 </span>
-                <span className="rounded-full border border-[var(--border)] px-2.5 py-1">
+                <span className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1">
                   {offer.deliveryCount} entrega(s)
                 </span>
               </div>
 
               {offer.reason ? (
-                <p className="mt-3 text-xs text-[var(--muted)]">
-                  Motivo: <span className="text-[var(--foreground)]">{humanize(offer.reason)}</span>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Motivo: <span className="text-zinc-300">{humanize(offer.reason)}</span>
                 </p>
               ) : null}
             </article>
           ))
         ) : (
-          <div className="rounded-lg border border-dashed border-[var(--border)] bg-black/10 p-4 text-sm text-[var(--muted)]">
-            Quando uma oferta entrar pelo Telegram, ela vai aparecer aqui com status, horario e alcance da entrega.
+          <div className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-zinc-500 text-center">
+            Quando uma oferta entrar pelo Telegram, ela vai aparecer aqui com status, horário e alcance da entrega.
           </div>
         )}
       </div>
@@ -729,16 +730,16 @@ function StatusPill({ status }: { status: string }) {
   const label = formatOfferStatus(status);
   const className =
     status === 'sent'
-      ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+      ? 'border-[#25D366]/20 bg-[#25D366]/10 text-[#25D366]'
       : status === 'queued'
-        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+        ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
         : status === 'failed'
-          ? 'border-red-400/20 bg-red-400/10 text-red-100'
+          ? 'border-red-500/20 bg-red-500/10 text-red-400'
           : status === 'ignored'
-            ? 'border-zinc-400/20 bg-zinc-400/10 text-zinc-200'
-            : 'border-sky-400/20 bg-sky-400/10 text-sky-100';
+            ? 'border-zinc-600/20 bg-zinc-600/10 text-zinc-400'
+            : 'border-sky-500/20 bg-sky-500/10 text-sky-400';
 
-  return <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', className)}>{label}</span>;
+  return <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-medium', className)}>{label}</span>;
 }
 
 
@@ -759,22 +760,24 @@ function SystemPowerSwitch({
       disabled={disabled}
       onClick={() => void onChange(!checked)}
       className={cn(
-        'relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border px-1 transition',
+        'relative inline-flex h-9 w-[4.5rem] shrink-0 items-center rounded-full border px-1.5 transition-all duration-300',
         checked
-          ? 'border-emerald-400/20 bg-emerald-400/20'
-          : 'border-[var(--border)] bg-white/8',
-        disabled && 'opacity-60'
+          ? 'border-[#25D366]/30 bg-[#25D366]/20 shadow-[0_0_15px_rgba(37,211,102,0.15)]'
+          : 'border-white/10 bg-zinc-800',
+        disabled && 'cursor-not-allowed opacity-50'
       )}
     >
       <span
         className={cn(
-          'absolute inset-y-1 w-6 rounded-full bg-white shadow transition',
-          checked ? 'left-[calc(100%-1.75rem)] bg-[var(--accent)]' : 'left-1 bg-white/90'
+          'absolute inset-y-1.5 w-6 rounded-full transition-all duration-300',
+          checked 
+            ? 'left-[calc(100%-1.85rem)] bg-[#25D366] shadow-[0_0_10px_rgba(37,211,102,0.5)]' 
+            : 'left-1.5 bg-zinc-400'
         )}
       />
-      <span className="relative z-10 flex w-full justify-between px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--foreground)]">
-        <span className={cn(checked ? 'opacity-100' : 'opacity-30')}>On</span>
-        <span className={cn(checked ? 'opacity-30' : 'opacity-100')}>Off</span>
+      <span className="relative z-10 flex w-full justify-between px-1.5 text-[10px] font-bold uppercase tracking-wider">
+        <span className={cn('transition-opacity duration-300', checked ? 'text-[#25D366] opacity-100' : 'opacity-0')}>On</span>
+        <span className={cn('transition-opacity duration-300', checked ? 'opacity-0' : 'text-zinc-500 opacity-100')}>Off</span>
       </span>
     </button>
   );
@@ -814,7 +817,7 @@ function getFlowHealthStatus({
   if (!selected && saved) {
     return { label: 'Pausado', reason: 'Fluxo alternativo em uso' };
   }
-  return { label: 'Incompleto', reason: 'não salvo' };
+  return { label: 'Incompleto', reason: 'Não salvo' };
 }
 
 function getActiveAffiliateAutomation(state: AppState) {
@@ -880,13 +883,15 @@ function Metric({
   detail: string;
 }) {
   return (
-    <article className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-4">
+    <article className="group rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/10 hover:bg-white/[0.04]">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-[var(--muted)]">{label}</span>
-        <Icon size={18} className="text-[var(--accent)]" />
+        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{label}</span>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/50 text-[#25D366] transition-colors group-hover:bg-[#25D366]/10">
+          <Icon size={16} />
+        </div>
       </div>
-      <strong className="mt-4 block text-3xl font-semibold">{formatNumber(value)}</strong>
-      <p className="mt-2 text-xs text-[var(--muted)]">{detail}</p>
+      <strong className="mt-5 block text-4xl font-semibold tracking-tight text-white">{formatNumber(value)}</strong>
+      <p className="mt-2 text-xs leading-relaxed text-zinc-400">{detail}</p>
     </article>
   );
 }
@@ -915,55 +920,55 @@ function PlanUsageCard({
   }>;
 }) {
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
+    <section className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-4 max-md:flex-col">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{title}</p>
-          <h2 className="mt-1 text-xl font-semibold">{planLabel}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{title}</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">{planLabel}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{description}</p>
         </div>
-        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+        <span className="rounded-full border border-[#25D366]/20 bg-[#25D366]/10 px-3 py-1.5 text-xs font-medium text-[#25D366]">
           Plano ativo
         </span>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
         {items.map((item) => {
           const safeLimit = Math.max(1, item.limit || 0);
           const percent = Math.max(0, Math.min(100, Math.round((item.used / safeLimit) * 100)));
 
           return (
-            <article key={item.label} className="rounded-2xl border border-[var(--border)] bg-black/10 p-4">
+            <article key={item.label} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition-colors hover:bg-white/[0.04]">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">{item.label}</p>
-                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+                <p className="text-sm font-medium text-zinc-200">{item.label}</p>
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-400">
                   {item.used}/{item.limit}
                 </span>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/8">
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-800">
                 <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#25D366,#229ED9)] transition-all"
+                  className="h-full rounded-full bg-[#25D366] transition-all"
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{item.detail}</p>
+              <p className="mt-4 text-xs leading-relaxed text-zinc-500">{item.detail}</p>
             </article>
           );
         })}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap gap-2">
         {featureBadges.map((feature) => (
           <span
             key={feature.label}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold',
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium',
               feature.enabled
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-                : 'border-white/10 bg-white/5 text-[var(--muted)]'
+                ? 'border-[#25D366]/20 bg-[#25D366]/10 text-zinc-200'
+                : 'border-white/5 bg-white/[0.02] text-zinc-500'
             )}
           >
-            <span className={cn('h-2 w-2 rounded-full', feature.enabled ? 'bg-[#25D366]' : 'bg-[var(--warning)]')} />
+            <span className={cn('h-1.5 w-1.5 rounded-full', feature.enabled ? 'bg-[#25D366]' : 'bg-zinc-600')} />
             {feature.label}
             {feature.value ? `: ${feature.value}` : feature.enabled ? ' liberado' : ' bloqueado'}
           </span>
@@ -972,5 +977,3 @@ function PlanUsageCard({
     </section>
   );
 }
-
-
