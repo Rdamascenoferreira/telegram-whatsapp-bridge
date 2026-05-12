@@ -341,7 +341,7 @@ export function AffiliateAutomationPanel({
                       type="checkbox" name="amazonShortenerEnabled" defaultChecked={Boolean(affiliate.account?.amazonShortenerEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.amazonAffiliate}
                       className="h-4 w-4 rounded border-white/20 bg-black/20 text-[#FF9900] focus:ring-[#FF9900]"
                     />
-                    Gerar link curto (amzn.to)
+                    Gerar link encurtado
                   </label>
                   
                   {!amazonShortenerGloballyEnabled ? (
