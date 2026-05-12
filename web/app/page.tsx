@@ -64,15 +64,19 @@ import { cn } from '../lib/utils';
 
 const panelVersion = 'Versão 2.01';
 
-const navItems: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
+const navItems = [
+  { category: 'Principal' },
   { key: 'overview', label: 'Dashboard', icon: Gauge },
-  { key: 'connections', label: 'Config. Telegram', icon: Settings2 },
-  { key: 'groups', label: 'Config. WhatsApp', icon: Users },
-  { key: 'flows', label: 'Fluxos', icon: ArrowRight },
-  { key: 'affiliate', label: 'Config. Afiliados', icon: CreditCard },
+  { category: 'Operação' },
+  { key: 'flows', label: 'Meus Fluxos', icon: ArrowRight },
+  { key: 'affiliate', label: 'Regras de Afiliado', icon: CreditCard },
+  { category: 'Conexões' },
+  { key: 'connections', label: 'Telegram', icon: MessageSquare },
+  { key: 'groups', label: 'WhatsApp', icon: Smartphone },
+  { category: 'Sistema' },
   { key: 'planUsage', label: 'Plano e Uso', icon: TrendingUp },
   { key: 'activity', label: 'Histórico', icon: Activity },
-  { key: 'account', label: 'Conta', icon: User },
+  { key: 'account', label: 'Minha Conta', icon: User },
   { key: 'admin', label: 'Admin', icon: Shield }
 ];
 
@@ -212,11 +216,11 @@ export default function Home() {
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="grid min-h-screen grid-cols-[280px_1fr] max-lg:grid-cols-1">
         <aside className="border-r border-white/5 bg-zinc-950 px-5 py-6 max-lg:border-b max-lg:border-r-0">
-          <div className="mb-8 flex items-center gap-3 px-3">
+          <div className="mb-10 flex items-center gap-3 px-3">
             <AvatarBadge user={state.auth.user} size="md" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-zinc-200">Portal do Afiliado</p>
-              <p className="truncate text-xs text-zinc-500">
+              <p className="text-sm font-bold text-white">Portal do Afiliado</p>
+              <p className="truncate text-xs font-semibold text-zinc-500">
                 {state.auth.user?.name || panelVersion}
               </p>
             </div>
@@ -225,19 +229,26 @@ export default function Home() {
           <nav className="grid gap-1">
             {navItems
               .filter((item) => item.key !== 'admin' || isAdmin)
-              .map((item) => {
-                const Icon = item.icon;
+              .map((item, index) => {
+                if (item.category) {
+                  return (
+                    <p key={`cat-${index}`} className="mt-6 mb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-600 first:mt-0">
+                      {item.category}
+                    </p>
+                  );
+                }
+                const Icon = item.icon as any;
                 const isActive = view === item.key;
                 return (
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => setView(item.key)}
+                    onClick={() => setView(item.key as any)}
                     className={cn(
-                      'flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all',
+                      'flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition-all duration-300',
                       isActive
-                        ? 'bg-[#25D366]/10 text-[#25D366]'
-                        : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'
+                        ? 'bg-[#25D366]/10 text-[#25D366] shadow-[inset_0_0_0_1px_rgba(37,211,102,0.2)]'
+                        : 'text-zinc-400 hover:bg-white/[0.03] hover:text-white'
                     )}
                   >
                     <Icon size={18} className={cn('transition-colors', isActive ? 'text-[#25D366]' : 'text-zinc-500')} />
