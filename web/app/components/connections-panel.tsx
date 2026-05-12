@@ -1,4 +1,4 @@
-﻿import { Bot, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
+import { Bot, CheckCircle2, MessageSquare, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { Field } from './common-ui';
 import { HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../lib/http';
@@ -98,59 +98,60 @@ export function ConnectionsPanel({
     : 'Sessão de usuário';
 
   return (
-    <div className="grid grid-cols-[1fr_380px] gap-5 max-xl:grid-cols-1">
-      <section className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(6,26,18,0.96),rgba(4,18,13,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-        <div className="border-b border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(37,211,102,0.08),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,158,217,0.08),transparent_26%)] px-6 py-5 max-sm:px-4">
+    <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-8">
+        {/* HEADER */}
+        <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-md max-sm:p-6">
           <div className="flex items-start justify-between gap-4 max-lg:flex-col">
             <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Telegram</p>
-              <div className="mt-3 flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-200 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-                  <MessageSquare size={22} />
+              <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Telegram</p>
+              <div className="mt-4 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400">
+                  <MessageSquare size={24} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.02em]">Central do Telegram</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                  <h2 className="text-3xl font-bold tracking-tight text-white">Central do Telegram</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">
                     Conecte sua conta, valide o código de acesso e mantenha a sessão do Telegram pronta para alimentar os fluxos da operação.
                   </p>
                 </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100">
+              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs font-bold text-sky-400">
                 {telegramHeroStatusLabel}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
+              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-zinc-400">
                 {telegramHeroSessionLabel}
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-5 px-6 py-6 max-sm:px-4">
+        <section className="grid gap-8">
           <InternalSetupChecklist
-            title="Checklist do Config. Telegram"
+            title="Checklist de Configuração"
             steps={telegramInternalChecklist}
             complete={telegramChecklistComplete}
-            completeLabel="Telegram 100% configurado"
+            completeLabel="Telegram 100% conectado"
           />
 
-          <section className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            <div className="mb-4 flex items-start justify-between gap-3 max-md:flex-col">
+          <div className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-sm max-sm:p-6">
+            <div className="mb-8 flex items-start justify-between gap-4 max-md:flex-col border-b border-white/5 pb-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Etapa 1</p>
-                <h3 className="mt-1 text-lg font-semibold">Entrar na conta do Telegram</h3>
-                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  Primeiro conecte sua conta. Depois a aba Fluxos libera a escolha da origem que vai alimentar a ponte simples ou o automatizador de ofertas.
+                <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Etapa 1</p>
+                <h3 className="mt-1 text-xl font-bold text-white">Entrar na conta do Telegram</h3>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  Primeiro conecte sua conta. Depois a aba Fluxos liberará a escolha da origem que vai alimentar a ponte ou o automatizador.
                 </p>
               </div>
-              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
+              <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-400 shrink-0">
                 {telegramStatusLabel}
               </span>
             </div>
 
             <form
-              className="grid gap-4"
+              className="grid gap-6"
               onSubmit={async (event) => {
                 event.preventDefault();
                 if (readOnlyAccount) {
@@ -172,18 +173,18 @@ export function ConnectionsPanel({
                 setBusy('');
               }}
             >
-              <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Modo de conexão</p>
-                <p className="mt-1 text-sm font-semibold">Sessão de usuário</p>
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Modo de Conexão</p>
+                <p className="mt-1 text-sm font-bold text-white">Sessão de Usuário</p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-6 md:grid-cols-3">
                 <Field label="API ID" value={telegramApiId} onChange={setTelegramApiId} placeholder="12345678" disabled={readOnlyAccount || credentialsLocked} />
                 <Field label="API Hash" value={telegramApiHash} onChange={setTelegramApiHash} placeholder="Cole o API Hash" disabled={readOnlyAccount || credentialsLocked} />
                 <Field label="Telefone" value={telegramPhone} onChange={setTelegramPhone} placeholder="+55 21 99999-9999" disabled={readOnlyAccount || credentialsLocked} />
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-4">
                 {effectiveCredentialsEditing ? (
                   <button
                     type="submit"
@@ -212,55 +213,57 @@ export function ConnectionsPanel({
               </div>
             </form>
 
-            <>
-              <div className="mt-5 grid gap-4 lg:grid-cols-[180px_1fr]">
-                <button
-                  type="button"
-                  disabled={readOnlyAccount || busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
-                  onClick={async () => {
-                    setBusy('telegram-send-code');
-                    try {
-                      await postJsonWithOptions('/api/settings', {
-                        telegramMode: 'user',
-                        telegramChannel: state.config.telegramChannel,
-                        telegramApiId,
-                        telegramApiHash,
-                        telegramPhone,
-                        telegramBotToken: ''
-                      }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
-                      await postJsonWithOptions('/api/telegram/send-code', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
-                      await refresh();
-                      setNotice('Código enviado para o Telegram.');
-                    } catch (error) {
-                      setNotice(error instanceof Error ? error.message : 'Não foi possível enviar o código do Telegram.');
-                    } finally {
-                      setBusy('');
-                    }
-                  }}
-                  className={primaryButtonClassName}
-                >
-                  Enviar código
-                </button>
+            <div className="mt-8 pt-8 border-t border-white/5">
+              <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
+                <div>
+                  <button
+                    type="button"
+                    disabled={readOnlyAccount || busy === 'telegram-send-code' || busy === 'settings' || !canUseAuthStep}
+                    onClick={async () => {
+                      setBusy('telegram-send-code');
+                      try {
+                        await postJsonWithOptions('/api/settings', {
+                          telegramMode: 'user',
+                          telegramChannel: state.config.telegramChannel,
+                          telegramApiId,
+                          telegramApiHash,
+                          telegramPhone,
+                          telegramBotToken: ''
+                        }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
+                        await postJsonWithOptions('/api/telegram/send-code', undefined, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
+                        await refresh();
+                        setNotice('Código enviado para o Telegram.');
+                      } catch (error) {
+                        setNotice(error instanceof Error ? error.message : 'Não foi possível enviar o código do Telegram.');
+                      } finally {
+                        setBusy('');
+                      }
+                    }}
+                    className={cn(primaryButtonClassName, "w-full h-[58px]")}
+                  >
+                    Enviar código
+                  </button>
+                </div>
 
-                <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+                <div className="grid grid-cols-2 gap-6 max-md:grid-cols-1">
                   <Field
-                    label="Código recebido"
+                    label="Código Recebido"
                     value={effectiveTelegramCode}
                     onChange={setTelegramCode}
                     placeholder="Digite o código do Telegram"
                     disabled={readOnlyAccount || !canUseAuthStep || authPhase === 'auth_required' || authPhase === 'idle'}
                   />
                   <Field
-                    label="Senha em duas etapas"
+                    label="Senha em Duas Etapas"
                     value={effectiveTelegramPassword}
                     onChange={setTelegramPassword}
-                    placeholder="Preencha apenas se o Telegram pedir"
+                    placeholder="Somente se solicitado"
                     disabled={readOnlyAccount || !canUseAuthStep || authPhase !== 'password_required'}
                   />
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-6 flex flex-wrap gap-4">
                 <button
                   type="button"
                   disabled={readOnlyAccount || busy === 'telegram-complete-auth' || (authPhase !== 'code_required' && authPhase !== 'password_required')}
@@ -283,10 +286,11 @@ export function ConnectionsPanel({
                       setBusy('');
                     }
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
+                  className="inline-flex h-[58px] items-center justify-center gap-2 rounded-[18px] bg-sky-500 px-6 font-bold text-white transition hover:bg-sky-400 disabled:opacity-50"
                 >
-                  {authPhase === 'password_required' ? 'Enviar senha em duas etapas' : 'Concluir login no Telegram'}
+                  {authPhase === 'password_required' ? 'Enviar senha' : 'Concluir login'}
                 </button>
+
                 <button
                   type="button"
                   disabled={readOnlyAccount || busy === 'telegram-disconnect' || !hasSavedCredentials}
@@ -300,62 +304,64 @@ export function ConnectionsPanel({
                     setTelegramCode('');
                     setTelegramPassword('');
                     await refresh();
-                    setNotice('Telegram desconectado e configurações removidas.');
+                    setNotice('Telegram desconectado.');
                     setBusy('');
                   }}
-                  className={secondaryButtonClassName}
+                  className={cn(secondaryButtonClassName, "h-[58px]")}
                 >
                   Desconectar Telegram
                 </button>
               </div>
 
-              <p className="mt-4 text-sm text-[var(--muted)]">
+              <p className="mt-6 text-sm text-zinc-400">
                 {telegramUserLabel
-                  ? `Conta conectada: ${telegramUserLabel}.`
+                  ? <span className="font-semibold text-white">Conta conectada: {telegramUserLabel}</span>
                   : authPhase === 'password_required'
-                    ? 'O Telegram pediu a senha em duas etapas para concluir a conexão.'
+                    ? <span className="text-amber-400">O Telegram pediu a senha em duas etapas para concluir a conexão.</span>
                     : authPhase === 'code_required'
                       ? 'Digite o código enviado para concluir a conexão.'
                       : authPhase === 'auth_required'
                         ? 'Envie um código para iniciar a conexão da sua conta.'
-                        : 'Sua sessão do Telegram ficara salva para reconectar depois sem bot.'}
+                        : 'Sua sessão do Telegram ficará salva para reconectar depois sem bot.'}
               </p>
-            </>
-          </section>
+            </div>
+          </div>
 
-          <section className="mt-5 rounded-lg border border-[var(--border)] bg-black/10 p-4">
-            <div className="flex items-start justify-between gap-3 max-md:flex-col">
+          <div className="rounded-3xl border border-white/5 bg-black/20 p-6">
+            <div className="flex items-start justify-between gap-4 max-md:flex-col">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Próximo passo</p>
-                <h3 className="mt-1 text-lg font-semibold">Defina os fluxos na aba dedicada</h3>
-                <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                  Depois de concluir o login, use a aba <span className="font-semibold text-[var(--foreground)]">Fluxos</span> para escolher se esta conta vai operar a ponte simples ou o automatizador de ofertas.
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Próximo Passo</p>
+                <h3 className="mt-1 text-lg font-bold text-white">Defina os fluxos na aba dedicada</h3>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  Depois de concluir o login, use a aba <span className="font-bold text-white">Fluxos</span> para escolher se esta conta vai operar a ponte simples ou o automatizador de ofertas.
                 </p>
               </div>
-              <span className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-semibold text-[var(--muted)]">
-                {hasTelegramConnection ? 'Sessão pronta' : 'Aguardando login'}
+              <span className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-zinc-400 shrink-0">
+                {hasTelegramConnection ? 'Sessão Pronta' : 'Aguardando Login'}
               </span>
             </div>
-          </section>
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
 
-      <ConnectionSummary state={state} />
+      <div className="self-start">
+        <ConnectionSummary state={state} />
+      </div>
     </div>
   );
 }
 
 export function ConnectionSummary({ state }: { state: ConnectionsPanelState }) {
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Conexões</p>
-      <div className="mt-4 grid gap-3">
+    <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-md">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Resumo de Conexões</p>
+      <div className="mt-6 grid gap-4">
         <ConnectionRow icon={Bot} label="Telegram" status={state.telegramStatus} detail={state.telegram.user?.name || state.config.telegramChannel || 'Aguardando configuração'} />
-        <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sessão ainda não conectada'} />
+        <ConnectionRow icon={Smartphone} label="WhatsApp" status={state.whatsAppStatus} detail={state.whatsAppPhone || 'Sessão pendente'} />
       </div>
 
       {state.issue?.message ? (
-        <p className="mt-4 rounded-md border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100">
+        <p className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400">
           {state.issue.message}
         </p>
       ) : null}
@@ -375,13 +381,13 @@ function ConnectionRow({
   detail: string;
 }) {
   return (
-    <div className="rounded-md border border-[var(--border)] bg-black/10 p-3">
-      <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+    <div className="rounded-2xl border border-white/5 bg-black/20 p-4 transition-colors hover:bg-white/[0.02]">
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
         <Icon size={14} />
         {label}
       </div>
-      <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{humanize(status)}</p>
-      <p className="text-xs text-[var(--muted)]">{detail}</p>
+      <p className="mt-2 text-sm font-bold text-white">{humanize(status)}</p>
+      <p className="mt-1 text-xs text-zinc-400">{detail}</p>
     </div>
   );
 }
@@ -410,52 +416,52 @@ export function InternalSetupChecklist({
   return (
     <section
       className={cn(
-        'rounded-2xl border p-4 transition',
+        'rounded-3xl border p-6 transition-all duration-500',
         complete
-          ? 'border-emerald-300/40 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.18),transparent_34%),rgba(16,185,129,0.08)] shadow-[0_0_0_1px_rgba(34,197,94,0.08),0_18px_45px_rgba(16,185,129,0.12)]'
-          : 'border-[var(--border)] bg-black/10'
+          ? 'border-[#25D366]/30 bg-[#25D366]/5 shadow-[0_0_30px_rgba(37,211,102,0.05)]'
+          : 'border-white/5 bg-zinc-900/40 backdrop-blur-sm'
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{title}</p>
-          <p className={cn('mt-1 text-sm font-semibold', complete ? 'text-emerald-100' : 'text-[var(--foreground)]')}>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{title}</p>
+          <p className={cn('mt-1 text-base font-bold', complete ? 'text-[#25D366]' : 'text-white')}>
             {complete ? completeLabel : 'Complete as etapas para liberar a configuração.'}
           </p>
           {!complete && nextStep ? (
-            <p className="mt-1 text-xs text-[color:color-mix(in_srgb,var(--muted)_82%,white_18%)]">
-              Próximo passo: <span className="font-semibold text-[var(--foreground)]">{nextStep.label}</span>
+            <p className="mt-1 text-xs font-semibold text-zinc-400">
+              Próximo Passo: <span className="text-white">{nextStep.label}</span>
             </p>
           ) : null}
           {!complete && blockedStep?.blockedReason ? (
-            <p className="mt-1 text-xs text-amber-200/90">
-              Bloqueio: <span className="font-semibold text-amber-100">{blockedStep.blockedReason}</span>
+            <p className="mt-1 text-xs font-bold text-amber-400">
+              Bloqueio: {blockedStep.blockedReason}
             </p>
           ) : null}
         </div>
         <span
           className={cn(
-            'rounded-full px-3 py-1.5 text-sm font-bold',
+            'rounded-full px-4 py-2 text-xs font-bold',
             complete
-              ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/30'
-              : 'bg-white/5 text-[var(--muted)] ring-1 ring-white/10'
+              ? 'bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20'
+              : 'bg-white/5 text-zinc-400 border border-white/10'
           )}
         >
           {doneCount}/{steps.length} ({progressPercent}%)
         </span>
       </div>
 
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/40">
         <div
           className={cn(
-            'h-full rounded-full transition-all duration-500',
-            complete ? 'bg-emerald-300' : 'bg-[linear-gradient(90deg,#22c55e,#38bdf8)]'
+            'h-full rounded-full transition-all duration-700 ease-out',
+            complete ? 'bg-[#25D366]' : 'bg-gradient-to-r from-zinc-600 to-zinc-400'
           )}
           style={{ width: progressPercent + '%' }}
         />
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => {
           const blocked = !step.done && !step.ready && Boolean(step.blockedReason);
 
@@ -463,57 +469,45 @@ export function InternalSetupChecklist({
             <div
               key={step.label}
               className={cn(
-                'rounded-xl border px-3 py-3 transition',
+                'rounded-2xl border p-4 transition-colors',
                 step.done
-                  ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-50'
+                  ? 'border-[#25D366]/30 bg-[#25D366]/5'
                   : step.ready
-                    ? 'border-sky-400/25 bg-sky-400/10 text-sky-50'
+                    ? 'border-sky-500/30 bg-sky-500/5'
                     : blocked
-                      ? 'border-amber-400/30 bg-amber-400/10 text-amber-50'
-                      : 'border-white/10 bg-white/[0.03] text-[var(--muted)]'
+                      ? 'border-amber-500/30 bg-amber-500/5'
+                      : 'border-white/5 bg-white/[0.02]'
               )}
             >
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold',
-                  step.done
-                    ? 'border-emerald-300/40 bg-emerald-400/20 text-emerald-100'
-                    : step.ready
-                      ? 'border-sky-300/40 bg-sky-400/20 text-sky-100'
-                      : blocked
-                        ? 'border-amber-300/40 bg-amber-400/20 text-amber-100'
-                        : 'border-white/15 bg-white/5 text-[var(--muted)]'
-                )}
-              >
-                {step.done ? <CheckCircle2 size={14} /> : index + 1}
-              </span>
-              <p className="text-sm font-semibold">{step.label}</p>
+              <div className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors',
+                    step.done
+                      ? 'bg-[#25D366] text-black'
+                      : step.ready
+                        ? 'bg-sky-500/20 text-sky-400'
+                        : blocked
+                          ? 'bg-amber-500/20 text-amber-400'
+                          : 'bg-white/10 text-zinc-500'
+                  )}
+                >
+                  {step.done ? <CheckCircle2 size={16} /> : index + 1}
+                </span>
+                <div>
+                  <p className={cn("text-sm font-bold", step.done ? "text-[#25D366]" : "text-white")}>{step.label}</p>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    {step.done ? 'Concluído' : step.ready ? 'Aguardando' : blocked ? 'Bloqueada' : 'Pendente'}
+                  </p>
+                </div>
+              </div>
+              {blocked && step.blockedReason && (
+                <p className="mt-3 text-xs font-semibold text-amber-400/80">{step.blockedReason}</p>
+              )}
             </div>
-            <div className="mt-2">
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em]',
-                  step.done
-                    ? 'bg-emerald-400/20 text-emerald-100'
-                    : step.ready
-                      ? 'bg-sky-400/20 text-sky-100'
-                      : blocked
-                        ? 'bg-amber-400/20 text-amber-100'
-                        : 'bg-white/10 text-[var(--muted)]'
-                )}
-              >
-                {step.done ? 'Concluído' : step.ready ? 'Em andamento' : blocked ? 'Bloqueada' : 'Pendente'}
-              </span>
-            </div>
-            {blocked && step.blockedReason ? (
-              <p className="mt-2 text-xs text-amber-100/90">{step.blockedReason}</p>
-            ) : null}
-          </div>
           );
         })}
       </div>
     </section>
   );
 }
-
