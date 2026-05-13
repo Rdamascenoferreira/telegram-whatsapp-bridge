@@ -127,11 +127,38 @@ function buildLayoutSvg({ products, slots, settings }) {
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
-  <rect width="1200" height="1000" fill="${settings.backgroundColor}"/>
-  <rect width="1200" height="170" fill="${settings.primaryColor}"/>
-  <rect y="170" width="1200" height="6" fill="${settings.accentColor}"/>
-  <text x="70" y="78" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">${escapeXml(brandName)}</text>
-  <text x="70" y="122" fill="rgba(255,255,255,0.76)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">${escapeXml(headline)}</text>
+  <defs>
+    <pattern id="gridPattern" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="bgGlowA" cx="20%" cy="18%" r="62%">
+      <stop offset="0%" stop-color="rgba(37,211,102,0.18)"/>
+      <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
+    </radialGradient>
+    <radialGradient id="bgGlowB" cx="86%" cy="74%" r="48%">
+      <stop offset="0%" stop-color="rgba(34,158,217,0.15)"/>
+      <stop offset="100%" stop-color="rgba(34,158,217,0)"/>
+    </radialGradient>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${settings.primaryColor}"/>
+      <stop offset="100%" stop-color="#0b132f"/>
+    </linearGradient>
+    <filter id="headerLineGlow" x="-40%" y="-900%" width="180%" height="1900%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="1000" fill="#0b132f"/>
+  <rect width="1200" height="1000" fill="url(#bgGlowA)"/>
+  <rect width="1200" height="1000" fill="url(#bgGlowB)"/>
+  <rect width="1200" height="1000" fill="url(#gridPattern)" opacity="0.45"/>
+  <rect width="1200" height="170" fill="url(#headerGrad)"/>
+  <rect y="170" width="1200" height="3" fill="${settings.accentColor}" filter="url(#headerLineGlow)"/>
+  <text x="70" y="78" fill="#f3f4f6" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">${escapeXml(brandName)}</text>
+  <text x="70" y="122" fill="rgba(255,255,255,0.72)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">${escapeXml(headline)}</text>
   ${products.map((product, index) => buildProductCardSvg(product, slots[index], settings, products.length)).join('\n')}
 </svg>`;
 }
@@ -149,15 +176,22 @@ function buildProductCardSvg(product, slot, settings, total) {
   const detailsY = compact ? slot.y + 126 : slot.y + slot.height - 168;
   const priceBoxWidth = compact ? 220 : slot.width - 72;
   const priceBoxHeight = compact ? 112 : 126;
+  const imageFrameX = compact ? slot.x + 22 : slot.x + 30;
+  const imageFrameY = compact ? slot.y + 62 : slot.y + 110;
+  const imageFrameW = compact ? 250 : slot.width - 60;
+  const imageFrameH = compact ? 228 : 300;
 
   return `
-  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="#ffffff"/>
-  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="none" stroke="rgba(15,23,42,0.10)" stroke-width="2"/>
+  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="rgba(255,255,255,0.10)"/>
+  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+  <rect x="${slot.x + 2}" y="${slot.y + 2}" width="${slot.width - 4}" height="${slot.height - 4}" rx="26" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
   <text x="${slot.x + 36}" y="${slot.y + 34}" fill="${settings.accentColor}" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" letter-spacing="2">${escapeXml(marketplace)}</text>
   ${titleLines.map((line, lineIndex) => `<text x="${slot.x + 36}" y="${titleY + lineIndex * (titleSize + 7)}" fill="${settings.textColor}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800">${escapeXml(line)}</text>`).join('\n')}
+  <rect x="${imageFrameX}" y="${imageFrameY}" width="${imageFrameW}" height="${imageFrameH}" rx="${compact ? 18 : 24}" fill="rgba(255,255,255,0.06)"/>
+  <rect x="${imageFrameX}" y="${imageFrameY}" width="${imageFrameW}" height="${imageFrameH}" rx="${compact ? 18 : 24}" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
   <rect x="${detailsX}" y="${detailsY}" width="${priceBoxWidth}" height="${priceBoxHeight}" rx="24" fill="${settings.primaryColor}"/>
   <text x="${detailsX + 24}" y="${detailsY + 44}" fill="rgba(255,255,255,0.70)" font-family="Arial, Helvetica, sans-serif" font-size="${compact ? 15 : 18}" font-weight="800">a partir de</text>
-  <text x="${detailsX + 24}" y="${detailsY + (compact ? 84 : 92)}" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="${priceSize}" font-weight="900">${escapeXml(price)}</text>
+  <text x="${detailsX + 24}" y="${detailsY + (compact ? 84 : 92)}" fill="#f7e7a5" font-family="Arial, Helvetica, sans-serif" font-size="${priceSize}" font-weight="900">${escapeXml(price)}</text>
   ${installment ? `<text x="${detailsX + 24}" y="${detailsY + priceBoxHeight + 34}" fill="${settings.textColor}" opacity="0.75" font-family="Arial, Helvetica, sans-serif" font-size="${compact ? 16 : 20}" font-weight="700">${escapeXml(installment)}</text>` : ''}
   `;
 }
