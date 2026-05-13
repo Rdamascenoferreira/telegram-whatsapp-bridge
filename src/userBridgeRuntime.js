@@ -3790,9 +3790,20 @@ function collectNearbyPriceLines(lines, index) {
   const prices = [];
 
   for (let current = Math.max(0, index); current < Math.min(lines.length, index + 6); current += 1) {
-    const line = cleanCommercialDisplayLine(lines[current]);
+    const rawLine = String(lines[current] ?? '');
+    const line = cleanCommercialDisplayLine(rawLine);
+    const hasPrice = /R\$\s?[\d.]+(?:,\d{2})?/i.test(line);
 
-    if (/R\$\s?[\d.]+(?:,\d{2})?/i.test(line)) {
+    // Stop scanning when we detect a new product/link block ahead.
+    if (
+      current > index &&
+      !hasPrice &&
+      /\b(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/\S+)/i.test(rawLine)
+    ) {
+      break;
+    }
+
+    if (hasPrice) {
       prices.push(line);
     }
 
