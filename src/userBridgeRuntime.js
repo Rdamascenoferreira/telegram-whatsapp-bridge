@@ -1911,6 +1911,8 @@ export class UserBridgeRuntime {
       return null;
     }
 
+    const sharedPriceLines = collectSharedPostLayoutPriceLines(messageText, converted);
+
     const cacheKey = this.buildPostLayoutCacheKey({ messageText, converted, settings });
     const cachedPayload = this.getCachedPostLayoutPayload(cacheKey);
     if (cachedPayload) {
@@ -1940,7 +1942,9 @@ export class UserBridgeRuntime {
         converted.map(async (item, index) => {
           const imageUrl = await this.fetchOpenGraphImageUrl(item.affiliateUrl);
           const imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
-          const details = extractPostLayoutProductDetails(messageText, item, index);
+          const details = extractPostLayoutProductDetails(messageText, item, index, {
+            sharedPriceLines
+          });
           return {
             ...details,
             marketplace: item.marketplace,
@@ -3745,7 +3749,7 @@ function extractPrimaryConvertedProductUrl(convertedUrls = []) {
   return converted ? String(converted.affiliateUrl).trim() : '';
 }
 
-function extractPostLayoutProductDetails(messageText, convertedUrl, index) {
+function extractPostLayoutProductDetails(messageText, convertedUrl, index, options = {}) {
   const lines = String(messageText ?? '').split('\n');
   const affiliateUrl = String(convertedUrl?.affiliateUrl || '').trim();
   const originalUrl = String(convertedUrl?.originalUrl || '').replace(/^https?:\/\//i, '');
@@ -3757,11 +3761,13 @@ function extractPostLayoutProductDetails(messageText, convertedUrl, index) {
     cleanPostLayoutTitle(findPreviousProductTitleLine(lines, contextStart)) ||
     `Oferta ${index + 1}`;
   const priceLines = collectNearbyPriceLines(lines, contextStart);
+  const sharedPriceLines = Array.isArray(options.sharedPriceLines) ? options.sharedPriceLines : [];
+  const resolvedPriceLines = priceLines.length ? priceLines : sharedPriceLines;
 
   return {
     title,
-    price: priceLines[0] || '',
-    installment: priceLines[1] || ''
+    price: resolvedPriceLines[0] || '',
+    installment: resolvedPriceLines[1] || ''
   };
 }
 
@@ -3813,6 +3819,59 @@ function collectNearbyPriceLines(lines, index) {
   }
 
   return prices;
+}
+
+function collectSharedPostLayoutPriceLines(messageText, convertedUrls = []) {
+  const lines = String(messageText ?? '').split('\n');
+  const productLineIndexes = Array.isArray(convertedUrls)
+    ? convertedUrls
+        .map((item) => findProductUrlLineIndex(
+          lines,
+          String(item?.affiliateUrl || '').trim(),
+          String(item?.originalUrl || '').replace(/^https?:\/\//i, '')
+        ))
+        .filter((index) => index >= 0)
+    : [];
+
+  if (!productLineIndexes.length) {
+    return [];
+  }
+
+  const lastProductLineIndex = Math.max(...productLineIndexes);
+  const prices = [];
+
+  for (let current = lastProductLineIndex + 1; current < Math.min(lines.length, lastProductLineIndex + 10); current += 1) {
+    const rawLine = String(lines[current] ?? '');
+    const line = cleanCommercialDisplayLine(rawLine);
+
+    if (isLikelyPostFooterLine(rawLine)) {
+      break;
+    }
+
+    if (/R\$\s?[\d.]+(?:,\d{2})?/i.test(line)) {
+      prices.push(line);
+    }
+
+    if (prices.length >= 2) {
+      break;
+    }
+  }
+
+  return prices;
+}
+
+function isLikelyPostFooterLine(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+
+  return (
+    normalized.startsWith('canais de') ||
+    normalized.startsWith('visite ') ||
+    normalized.startsWith('siga ') ||
+    normalized.startsWith('@') ||
+    normalized.includes('instagram') ||
+    normalized.includes('telegram') ||
+    normalized.includes('whatsapp')
+  );
 }
 
 function removeKnownUrlsFromLine(line, urls) {

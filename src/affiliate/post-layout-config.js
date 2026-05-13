@@ -6,7 +6,7 @@ export const defaultPostLayoutConfig = {
   accentColor: '#25D366',
   backgroundColor: '#f8fafc',
   textColor: '#111827',
-  maxProducts: 2
+  maxProducts: 4
 };
 
 export function normalizePostLayoutConfig(value = {}) {

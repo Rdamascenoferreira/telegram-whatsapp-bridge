@@ -20,7 +20,7 @@ const defaults: PostLayoutConfig = {
   accentColor: '#25D366',
   backgroundColor: '#f8fafc',
   textColor: '#111827',
-  maxProducts: 2
+  maxProducts: 4
 };
 
 function isReadOnlyAccount(state: AppState) {
@@ -123,18 +123,21 @@ export function PostLayoutPanel({
           </div>
 
           <label className="grid gap-2 text-sm font-semibold text-white">
-            Produtos na arte
+            Limite maximo automatico
             <select
               value={maxProducts}
               disabled={readOnlyAccount}
               onChange={(event) => setMaxProducts(event.target.value)}
               className={secondaryInput}
             >
-              <option value="1">1 produto</option>
-              <option value="2">2 produtos</option>
-              <option value="3">3 produtos</option>
-              <option value="4">4 produtos</option>
+              <option value="1">Ate 1 produto</option>
+              <option value="2">Ate 2 produtos</option>
+              <option value="3">Ate 3 produtos</option>
+              <option value="4">Ate 4 produtos</option>
             </select>
+            <span className="text-xs font-normal leading-5 text-[var(--muted)]">
+              O sistema escolhe automaticamente quantos cards usar pela quantidade de links convertidos da mensagem.
+            </span>
           </label>
 
           <div className="flex justify-end">
