@@ -822,6 +822,7 @@ function isAmazonShortenerGloballyEnabled() {
 }
 
 function normalizeAffiliateAutomationDraft(userId, payload = {}) {
+  const mediaSourceMode = String(payload.mediaSourceMode ?? 'telegram_media').trim().toLowerCase();
   return {
     id: 'manual-test',
     userId,
@@ -835,8 +836,8 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
     messageBeautifierStyle: 'clean',
     aiRewriteEnabled: false,
     aiRewriteStyle: 'clean',
-    mediaSourceMode: String(payload.mediaSourceMode ?? 'telegram_media').trim().toLowerCase() === 'product_image'
-      ? 'product_image'
+    mediaSourceMode: ['telegram_media', 'product_image', 'system_layout'].includes(mediaSourceMode)
+      ? mediaSourceMode
       : 'telegram_media',
     preserveOriginalTextEnabled: true,
     isActive: true,

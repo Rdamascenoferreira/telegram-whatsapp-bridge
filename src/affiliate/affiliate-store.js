@@ -623,7 +623,7 @@ function normalizeBeautifierStyle(value) {
 
 function normalizeMediaSourceMode(value) {
   const mode = String(value ?? '').trim().toLowerCase();
-  return ['telegram_media', 'product_image'].includes(mode) ? mode : 'telegram_media';
+  return ['telegram_media', 'product_image', 'system_layout'].includes(mode) ? mode : 'telegram_media';
 }
 
 function mapAutomationRulesColumns(payload = {}) {

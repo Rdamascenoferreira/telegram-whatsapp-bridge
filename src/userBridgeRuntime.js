@@ -1735,8 +1735,18 @@ export class UserBridgeRuntime {
   async prepareAffiliateWhatsAppPayload({ messageText, telegramMessage, automation, convertedUrls }) {
     const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
 
+    if (mode === 'system_layout') {
+      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+
+      if (layoutPayload) {
+        return layoutPayload;
+      }
+    }
+
     if (mode === 'product_image') {
-      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls);
+      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls, {
+        preferSystemLayout: false
+      });
 
       if (productImagePayload) {
         return productImagePayload;
@@ -1771,8 +1781,18 @@ export class UserBridgeRuntime {
   async prepareAffiliateTelegramPayload({ messageText, telegramMessage, automation, convertedUrls }) {
     const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
 
+    if (mode === 'system_layout') {
+      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+
+      if (layoutPayload) {
+        return layoutPayload;
+      }
+    }
+
     if (mode === 'product_image') {
-      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls);
+      const productImagePayload = await this.prepareAffiliateProductImagePayload(messageText, convertedUrls, {
+        preferSystemLayout: false
+      });
 
       if (productImagePayload) {
         return productImagePayload;
@@ -1804,11 +1824,15 @@ export class UserBridgeRuntime {
     };
   }
 
-  async prepareAffiliateProductImagePayload(messageText, convertedUrls = []) {
-    const cleanPostLayoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+  async prepareAffiliateProductImagePayload(messageText, convertedUrls = [], options = {}) {
+    const preferSystemLayout = options.preferSystemLayout !== false;
 
-    if (cleanPostLayoutPayload) {
-      return cleanPostLayoutPayload;
+    if (preferSystemLayout) {
+      const cleanPostLayoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+
+      if (cleanPostLayoutPayload) {
+        return cleanPostLayoutPayload;
+      }
     }
 
     const productUrl = extractPrimaryConvertedProductUrl(convertedUrls);
@@ -3535,7 +3559,7 @@ function buildAffiliateIgnoredReason(result) {
 
 function normalizeAffiliateMediaSourceMode(value) {
   const mode = String(value ?? '').trim().toLowerCase();
-  return ['telegram_media', 'product_image'].includes(mode) ? mode : 'telegram_media';
+  return ['telegram_media', 'product_image', 'system_layout'].includes(mode) ? mode : 'telegram_media';
 }
 
 function sanitizeWhatsAppAffiliateText(value) {

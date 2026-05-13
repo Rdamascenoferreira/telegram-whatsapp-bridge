@@ -455,7 +455,7 @@ export function AffiliateAutomationPanel({
 
                 <label className="grid gap-2 mt-2">
                   <span className="text-sm font-semibold text-zinc-200">Origem da Imagem</span>
-                  <span className="text-xs leading-relaxed text-zinc-500 mb-1">Qual foto usar no WhatsApp se o Telegram não tiver uma boa.</span>
+                  <span className="text-xs leading-relaxed text-zinc-500 mb-1">Escolha entre imagem original, imagem do produto ou layout proprio do sistema.</span>
                   <select
                     name="mediaSourceMode"
                     defaultValue={activeAutomation?.mediaSourceMode || 'telegram_media'}
@@ -464,6 +464,7 @@ export function AffiliateAutomationPanel({
                   >
                     <option value="telegram_media">Usar imagem original do Telegram</option>
                     <option value="product_image">Buscar imagem direto da Amazon/Shopee</option>
+                    <option value="system_layout">Usar layout proprio do sistema</option>
                   </select>
                 </label>
 
@@ -645,3 +646,4 @@ export function AffiliateAutomationPanel({
     </div>
   );
 }
+

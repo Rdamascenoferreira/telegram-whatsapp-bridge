@@ -93,7 +93,7 @@ export type AffiliateAutomation = {
   messageBeautifierStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
   aiRewriteEnabled?: boolean;
   aiRewriteStyle?: 'clean' | 'sales' | 'urgent' | 'plain';
-  mediaSourceMode?: 'telegram_media' | 'product_image';
+  mediaSourceMode?: 'telegram_media' | 'product_image' | 'system_layout';
   preserveOriginalTextEnabled?: boolean;
   telegramForwardEnabled?: boolean;
   telegramDestinationGroupId?: string;
