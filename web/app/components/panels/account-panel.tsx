@@ -58,6 +58,9 @@ export function AccountPanel({
   const [busy, setBusy] = useState('');
   const [previewAvatar, setPreviewAvatar] = useState(user?.avatarUrl || '');
   const [profileEditing, setProfileEditing] = useState(false);
+  const [telegramApiId, setTelegramApiId] = useState(state.config.telegramApiId || '');
+  const [telegramApiHash, setTelegramApiHash] = useState(state.config.telegramApiHash || '');
+  const [telegramPhone, setTelegramPhone] = useState(state.config.telegramPhone || '');
 
   const providers = user?.providers || [];
   const usesGoogleAvatar = providers.includes('google');
@@ -226,6 +229,72 @@ export function AccountPanel({
                 A senha desta conta e gerenciada pelo provedor de login conectado.
               </div>
             )}
+          </div>
+
+          <div className="rounded-lg border border-[var(--border)] bg-black/10 p-4">
+            <div className="flex items-start justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+              <div>
+                <p className="text-sm font-semibold">Credenciais padrao do Telegram</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                  Salve API ID, API Hash e telefone aqui para o bloco Telegram carregar esses dados automaticamente.
+                </p>
+              </div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                Preenchimento automatico
+              </span>
+            </div>
+
+            <form
+              className="mt-4 grid gap-4 md:grid-cols-3"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setBusy('telegram-defaults');
+
+                try {
+                  await postJsonWithOptions('/api/settings', {
+                    telegramMode: 'user',
+                    telegramChannel: state.config.telegramChannel || '',
+                    telegramApiId,
+                    telegramApiHash,
+                    telegramPhone,
+                    telegramBotToken: ''
+                  }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
+                  await refresh();
+                  setNotice('Credenciais padrao do Telegram salvas.');
+                } catch (error) {
+                  setNotice(error instanceof Error ? error.message : 'Nao foi possivel salvar as credenciais do Telegram.');
+                } finally {
+                  setBusy('');
+                }
+              }}
+            >
+              <Field
+                label="API ID"
+                value={telegramApiId}
+                onChange={setTelegramApiId}
+                placeholder="12345678"
+                disabled={readOnlyAccount}
+              />
+              <Field
+                label="API Hash"
+                value={telegramApiHash}
+                onChange={setTelegramApiHash}
+                placeholder="Cole o API Hash"
+                disabled={readOnlyAccount}
+              />
+              <Field
+                label="Telefone"
+                value={telegramPhone}
+                onChange={setTelegramPhone}
+                placeholder="+55 21 99999-9999"
+                disabled={readOnlyAccount}
+              />
+              <div className="md:col-span-3 flex justify-end">
+                <button type="submit" className={primaryButton} disabled={readOnlyAccount || busy === 'telegram-defaults'}>
+                  Salvar credenciais do Telegram
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
