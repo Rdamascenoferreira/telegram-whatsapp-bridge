@@ -117,7 +117,11 @@ export async function processAffiliateMessage(params = {}) {
           isCouponOrPromoLink: marketplace === 'amazon' && isCouponOrPromoLink(originalMessage, urlMatch)
         });
       } else if (marketplace === 'unknown') {
-        if (automation.unknownLinkBehavior === 'remove') {
+        const footerLink = isLikelyFooterUrlByContext(originalMessage, urlMatch);
+        if (footerLink) {
+          addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
+          conversion.error = 'Footer/community link ignored by smart cleanup';
+        } else if (automation.unknownLinkBehavior === 'remove') {
           addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
         } else if (automation.unknownLinkBehavior === 'ignore_message') {
           shouldIgnoreEntireMessage = true;
@@ -323,6 +327,46 @@ function isCouponOrPromoLink(message, urlMatch) {
   }
 
   return false;
+}
+
+function isLikelyFooterUrlByContext(message, urlMatch) {
+  const lineContext = getUrlLineContext(message, urlMatch);
+  const currentLine = normalizeContext(lineContext.currentLine);
+  const previousLine = normalizeContext(lineContext.previousLine);
+  const joinedContext = normalizeContext([lineContext.previousLine, lineContext.currentLine].filter(Boolean).join(' '));
+  const normalizedUrl = normalizeComparableUrl(urlMatch?.normalizedUrl || urlMatch?.rawUrl || '');
+
+  if (!normalizedUrl) {
+    return false;
+  }
+
+  const footerContextPatterns = [
+    /\bconvide\s+seus\s+amigos\b/,
+    /\bmais\s+grupos?\s+de\s+ofertas?\b/,
+    /\bparticipe\s+do\s+nosso\s+outro\s+grupo\b/,
+    /\bgrupo\s+de\s+promocoes\b/,
+    /\bgrupos?\s+de\s+promocoes\b/,
+    /\bcanais?\s+de\s+promocoes\b/,
+    /\bpromocoes?\s+gerais\b/,
+    /\bpromocoes?\s+no\s+whatsapp\b/,
+    /\b(?:instagram|linktree|telegram|whatsapp)\s*:/,
+    /\bentre\s+no\s+(grupo|canal)\b/,
+    /\bsiga\s+(nosso|o)\s+(grupo|canal|insta|instagram)\b/,
+    /\bvisite\s+nosso\s+insta\b/
+  ];
+
+  if (footerContextPatterns.some((pattern) => pattern.test(joinedContext) || pattern.test(currentLine) || pattern.test(previousLine))) {
+    return true;
+  }
+
+  return [
+    'instagram.com',
+    't.me/',
+    'linktr.ee',
+    'whatsapp.com/channel',
+    'chat.whatsapp.com',
+    'wa.me/'
+  ].some((token) => normalizedUrl.includes(token));
 }
 
 function getUrlLineContext(message, urlMatch) {

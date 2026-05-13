@@ -23,7 +23,7 @@ const account = {
   shopeeEnabled: false
 };
 
-test('processAffiliateMessage converts Amazon and keeps unknown links', async () => {
+test('processAffiliateMessage converts Amazon and removes obvious footer/community links', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',
     automationId: 'automation-1',
@@ -41,7 +41,7 @@ test('processAffiliateMessage converts Amazon and keeps unknown links', async ()
   assert.equal(result.status, 'converted');
   assert.equal(result.shouldSend, true);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
-  assert.match(result.processedMessage, /https:\/\/linktr\.ee\/mc8mb/);
+  assert.doesNotMatch(result.processedMessage, /https:\/\/linktr\.ee\/mc8mb/);
 });
 
 test('processAffiliateMessage ignores messages without links', async () => {
@@ -106,6 +106,36 @@ test('processAffiliateMessage removes unknown links that were written without pr
 
   assert.equal(result.status, 'ignored');
   assert.equal(result.processedMessage, 'Mais cupons:');
+});
+
+test('processAffiliateMessage ignores footer/community unknown links without dropping the whole message', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: { ...automation, unknownLinkBehavior: 'ignore_message' },
+    account,
+    dryRun: true,
+    message: [
+      '[Amazon] Mouse Gamer',
+      'Link produto: jogobara.to/abc123',
+      'R$ 129,90',
+      '',
+      'Visite nosso insta:',
+      'https://instagram.com/canal.ofertas'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('jogobara.to')
+        ? 'https://www.amazon.com.br/dp/B0ABC12345?tag=old-20'
+        : url,
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.shouldSend, true);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /instagram\.com/i);
 });
 
 test('processAffiliateMessage converts real Telegram entity URLs hidden behind anchor text', async () => {
