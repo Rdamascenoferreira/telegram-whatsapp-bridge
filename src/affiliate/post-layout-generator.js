@@ -176,10 +176,13 @@ function buildProductCardSvg(product, slot, settings, total) {
   const detailsY = compact ? slot.y + 126 : slot.y + slot.height - 168;
   const priceBoxWidth = compact ? 220 : slot.width - 72;
   const priceBoxHeight = compact ? 112 : 126;
-  const imageFrameX = compact ? slot.x + 22 : slot.x + 30;
-  const imageFrameY = compact ? slot.y + 62 : slot.y + 110;
-  const imageFrameW = compact ? 250 : slot.width - 60;
-  const imageFrameH = compact ? 228 : 300;
+  // Keep frame locked to the real image slot so the border never drifts.
+  const imageFramePaddingX = compact ? 10 : 16;
+  const imageFramePaddingY = compact ? 10 : 14;
+  const imageFrameX = slot.imageX - imageFramePaddingX;
+  const imageFrameY = slot.imageY - imageFramePaddingY;
+  const imageFrameW = slot.imageWidth + imageFramePaddingX * 2;
+  const imageFrameH = slot.imageHeight + imageFramePaddingY * 2;
 
   return `
   <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="rgba(255,255,255,0.10)"/>
