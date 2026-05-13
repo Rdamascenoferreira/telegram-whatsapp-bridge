@@ -1,4 +1,4 @@
-const trailingUrlPunctuation = /[),.;:!?]+$/;
+const trailingUrlPunctuation = /[)\].,;:!?*_~]+$/;
 const urlLikePattern = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"']*)?/giu;
 
 export function extractUrls(text) {

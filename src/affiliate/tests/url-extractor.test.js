@@ -35,3 +35,12 @@ test('extractUrls does not duplicate repeated links', () => {
 
   assert.deepEqual(extractUrls(input), ['https://amzn.to/abc']);
 });
+
+test('extractUrls trims markdown markers glued to short links', () => {
+  const input = '**Produto:** jogobara.to/mEwin**\nOutro: **jogobara.to/sxYtJ**';
+
+  assert.deepEqual(extractUrls(input), [
+    'https://jogobara.to/mEwin',
+    'https://jogobara.to/sxYtJ'
+  ]);
+});
