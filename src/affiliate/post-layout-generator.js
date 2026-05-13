@@ -111,10 +111,10 @@ function buildSlots(count) {
       y,
       width,
       height,
-      imageX: x + 28,
-      imageY: y + 126,
-      imageWidth: 190,
-      imageHeight: 140
+      imageX: x + 34,
+      imageY: y + 82,
+      imageWidth: 230,
+      imageHeight: 220
     });
   }
 
@@ -146,8 +146,8 @@ function buildProductCardSvg(product, slot, settings, total) {
   const marketplace = product.marketplace ? String(product.marketplace).toUpperCase() : 'OFERTA';
   const titleY = slot.y + (compact ? 46 : 54);
   const detailsX = compact ? slot.x + 245 : slot.x + 36;
-  const detailsY = compact ? slot.y + 96 : slot.y + slot.height - 168;
-  const priceBoxWidth = compact ? 230 : slot.width - 72;
+  const detailsY = compact ? slot.y + 126 : slot.y + slot.height - 168;
+  const priceBoxWidth = compact ? 220 : slot.width - 72;
   const priceBoxHeight = compact ? 112 : 126;
 
   return `
