@@ -1947,7 +1947,12 @@ export class UserBridgeRuntime {
           const imageUrl = metadataUrl ? await this.fetchOpenGraphImageUrl(metadataUrl) : '';
           let imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
 
-          if (!imageBuffer && sourceFallbackImageBuffer && converted.length === 1) {
+          if (
+            !imageBuffer &&
+            sourceFallbackImageBuffer &&
+            converted.length === 1 &&
+            String(item?.marketplace || '').toLowerCase() !== 'shopee'
+          ) {
             imageBuffer = sourceFallbackImageBuffer;
           }
 
