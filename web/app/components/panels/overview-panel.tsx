@@ -555,10 +555,12 @@ function OffersPanel({
   setBusy?: (value: string) => void;
   busy?: string;
 }) {
-  const allOffers = compact ? (state.offers || []).slice(0, 6) : state.offers || [];
+  const allOffers = state.offers || [];
   const [offersTab, setOffersTab] = useState<'sent' | 'ignored'>('sent');
-  const sentOffers = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'sent');
-  const ignoredOffers = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'ignored');
+  const sentOffersRaw = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'sent');
+  const ignoredOffersRaw = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'ignored');
+  const sentOffers = compact ? sentOffersRaw.slice(0, 6) : sentOffersRaw;
+  const ignoredOffers = compact ? ignoredOffersRaw.slice(0, 6) : ignoredOffersRaw;
   const offers = offersTab === 'sent' ? sentOffers : ignoredOffers;
   const readOnlyAccount = isReadOnlyAccount(state);
   const dashboardViewClearedAt = state.config.dashboardViewClearedAt || '';

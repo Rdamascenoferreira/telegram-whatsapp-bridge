@@ -1501,6 +1501,36 @@ export class UserBridgeRuntime {
       });
 
       if (!result.shouldSend) {
+        const ignoredReason = buildAffiliateIgnoredReason(result);
+        const ignoredSourceMessage =
+          telegramMessage || { text: messageText, caption: messageText, chatId: sourceGroupId };
+        this.upsertOffer([ignoredSourceMessage], {
+          id: `affiliate:${automation.id}:${String(telegramMessageId || Date.now())}`,
+          status: 'ignored',
+          sourceLabel: `${sourceGroupName || sourceGroupId || 'Telegram'} [Afiliados]`,
+          preview: String(result.processedMessage || messageText || 'Mensagem ignorada pela automacao de afiliados.'),
+          messageCount: 1,
+          groupCount: 0,
+          deliveryCount: 0,
+          reason: ignoredReason,
+          metadata: {
+            channels: {
+              telegram: {
+                status: 'received',
+                detail: 'Mensagem processada pela automacao de afiliados.'
+              },
+              whatsapp: {
+                status: 'ignored',
+                delivered: 0,
+                failed: 0,
+                skipped: 0,
+                targetGroups: 0
+              }
+            },
+            automationId: automation.id,
+            automationName: automation.name
+          }
+        });
         this.log(`Automação de afiliados "${automation.name}" processou a mensagem sem envio (${result.status}).`, {
           type: 'affiliate_ignored',
           metadata: {
@@ -3248,6 +3278,30 @@ function buildDeliveryKey({ flow, sourceKey, groupId, messageType }) {
 
 function hashText(value) {
   return crypto.createHash('sha1').update(String(value ?? '')).digest('hex').slice(0, 12);
+}
+
+function buildAffiliateIgnoredReason(result) {
+  const explicitError = String(result?.errorMessage || '').trim();
+  if (explicitError) {
+    return explicitError;
+  }
+
+  const status = String(result?.status || '').trim().toLowerCase();
+  if (status === 'error') {
+    return 'Falha no processamento da automacao de afiliados.';
+  }
+
+  const convertedUrls = Array.isArray(result?.convertedUrls) ? result.convertedUrls : [];
+  if (convertedUrls.length === 0) {
+    return 'Nenhum link elegivel encontrado na mensagem.';
+  }
+
+  const hasUnknown = convertedUrls.some((item) => String(item?.marketplace || '').toLowerCase() === 'unknown');
+  if (hasUnknown) {
+    return 'Links nao suportados pela regra atual de afiliados.';
+  }
+
+  return 'Mensagem ignorada por regra da automacao de afiliados.';
 }
 
 function normalizeAffiliateMediaSourceMode(value) {
