@@ -1766,7 +1766,8 @@ export class UserBridgeRuntime {
 
     if (mode === 'system_layout') {
       const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls, {
-        force: true
+        force: true,
+        telegramMessage
       });
 
       if (layoutPayload) {
@@ -1820,7 +1821,8 @@ export class UserBridgeRuntime {
 
     if (mode === 'system_layout') {
       const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls, {
-        force: true
+        force: true,
+        telegramMessage
       });
 
       if (layoutPayload) {
@@ -1938,10 +1940,17 @@ export class UserBridgeRuntime {
     }
 
     try {
+      const sourceFallbackImageBuffer = await this.getPostLayoutSourceFallbackImageBuffer(options.telegramMessage, converted);
       const products = await Promise.all(
         converted.map(async (item, index) => {
-          const imageUrl = await this.fetchOpenGraphImageUrl(item.affiliateUrl);
-          const imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
+          const metadataUrl = selectPostLayoutMetadataUrl(item);
+          const imageUrl = metadataUrl ? await this.fetchOpenGraphImageUrl(metadataUrl) : '';
+          let imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
+
+          if (!imageBuffer && sourceFallbackImageBuffer && converted.length === 1) {
+            imageBuffer = sourceFallbackImageBuffer;
+          }
+
           const details = extractPostLayoutProductDetails(messageText, item, index, {
             sharedPriceLines
           });
@@ -1980,6 +1989,24 @@ export class UserBridgeRuntime {
         type: 'affiliate_post_layout_error',
         increments: { errors: 1 }
       });
+      return null;
+    }
+  }
+
+  async getPostLayoutSourceFallbackImageBuffer(telegramMessage, convertedUrls = []) {
+    if (!telegramMessage || !Array.isArray(convertedUrls) || convertedUrls.length !== 1) {
+      return null;
+    }
+
+    try {
+      const originalPayload = await this.prepareWhatsAppPayload(telegramMessage);
+
+      if (originalPayload?.type !== 'media' || !String(originalPayload.mimeType || '').toLowerCase().startsWith('image/')) {
+        return null;
+      }
+
+      return Buffer.from(String(originalPayload.base64 || ''), 'base64');
+    } catch {
       return null;
     }
   }
@@ -3752,29 +3779,68 @@ function extractPrimaryConvertedProductUrl(convertedUrls = []) {
 function extractPostLayoutProductDetails(messageText, convertedUrl, index, options = {}) {
   const lines = String(messageText ?? '').split('\n');
   const affiliateUrl = String(convertedUrl?.affiliateUrl || '').trim();
-  const originalUrl = String(convertedUrl?.originalUrl || '').replace(/^https?:\/\//i, '');
-  const lineIndex = findProductUrlLineIndex(lines, affiliateUrl, originalUrl);
+  const originalUrlFull = String(convertedUrl?.originalUrl || '').trim();
+  const originalUrl = originalUrlFull.replace(/^https?:\/\//i, '');
+  const lineIndex = findProductUrlLineIndex(lines, affiliateUrl, originalUrlFull, originalUrl);
   const contextStart = lineIndex >= 0 ? lineIndex : 0;
   const sameLine = lineIndex >= 0 ? lines[lineIndex] : '';
-  const title =
-    cleanPostLayoutTitle(removeKnownUrlsFromLine(sameLine, [affiliateUrl, originalUrl])) ||
-    cleanPostLayoutTitle(findPreviousProductTitleLine(lines, contextStart)) ||
-    `Oferta ${index + 1}`;
+  const inlineTitle = cleanPostLayoutTitle(removeKnownUrlsFromLine(sameLine, [affiliateUrl, originalUrlFull, originalUrl]));
+  const previousTitle = cleanPostLayoutTitle(findPreviousProductTitleLine(lines, contextStart));
+  const title = resolvePostLayoutTitle(inlineTitle, previousTitle, index);
   const priceLines = collectNearbyPriceLines(lines, contextStart);
   const sharedPriceLines = Array.isArray(options.sharedPriceLines) ? options.sharedPriceLines : [];
   const resolvedPriceLines = priceLines.length ? priceLines : sharedPriceLines;
+  const { price, installment } = splitPostLayoutPriceLines(resolvedPriceLines);
 
   return {
     title,
-    price: resolvedPriceLines[0] || '',
-    installment: resolvedPriceLines[1] || ''
+    price,
+    installment
   };
 }
 
-function findProductUrlLineIndex(lines, affiliateUrl, originalUrl) {
+function resolvePostLayoutTitle(inlineTitle, previousTitle, index) {
+  if (inlineTitle && previousTitle) {
+    if (looksLikeSizeOnlyVariant(inlineTitle)) {
+      return cleanPostLayoutTitle(
+        previousTitle.toLowerCase().includes(inlineTitle.toLowerCase())
+          ? previousTitle
+          : `${previousTitle} ${inlineTitle}`
+      ) || `Oferta ${index + 1}`;
+    }
+
+    if (isWeakStandaloneLayoutTitle(inlineTitle)) {
+      return previousTitle;
+    }
+  }
+
+  return inlineTitle || previousTitle || `Oferta ${index + 1}`;
+}
+
+function splitPostLayoutPriceLines(lines = []) {
+  const normalizedLines = Array.isArray(lines)
+    ? lines.map((line) => cleanCommercialDisplayLine(line)).filter(Boolean)
+    : [];
+  const price = normalizedLines[0] || '';
+  const explicitSecondaryLine = normalizedLines[1] || '';
+
+  if (explicitSecondaryLine) {
+    return {
+      price,
+      installment: explicitSecondaryLine
+    };
+  }
+
+  return {
+    price,
+    installment: extractPriceQualifier(price)
+  };
+}
+
+function findProductUrlLineIndex(lines, ...urls) {
   return lines.findIndex((line) => {
     const normalized = String(line ?? '');
-    return [affiliateUrl, originalUrl].filter(Boolean).some((url) => normalized.includes(url));
+    return urls.filter(Boolean).some((url) => normalized.includes(url));
   });
 }
 
@@ -3828,6 +3894,7 @@ function collectSharedPostLayoutPriceLines(messageText, convertedUrls = []) {
         .map((item) => findProductUrlLineIndex(
           lines,
           String(item?.affiliateUrl || '').trim(),
+          String(item?.originalUrl || '').trim(),
           String(item?.originalUrl || '').replace(/^https?:\/\//i, '')
         ))
         .filter((index) => index >= 0)
@@ -3886,11 +3953,44 @@ function cleanPostLayoutTitle(value) {
     .replace(/\b[a-z0-9-]+\.[a-z]{2,}\/\S+/gi, '')
     .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
     .replace(/[*_~`[\](){}]/g, '')
+    .replace(/\s*[-–—]?\s*(?:amazon|shopee)\s*$/i, '')
     .replace(/^[\s:;,\-.>]+/g, '')
     .replace(/[\s:;,\-.>]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
     .slice(0, 90);
+}
+
+function looksLikeSizeOnlyVariant(value) {
+  const normalized = String(value ?? '').trim();
+  return /^\d{1,3}\s*(?:"|”|pol|polegadas?)$/i.test(normalized);
+}
+
+function isWeakStandaloneLayoutTitle(value) {
+  const normalized = String(value ?? '').trim();
+
+  if (!normalized) {
+    return true;
+  }
+
+  if (looksLikeSizeOnlyVariant(normalized)) {
+    return true;
+  }
+
+  return normalized.length <= 4 && !/[a-z]{2,}/i.test(normalized);
+}
+
+function extractPriceQualifier(value) {
+  const source = cleanCommercialDisplayLine(value);
+
+  if (!source) {
+    return '';
+  }
+
+  return source
+    .replace(/^.*?R\$\s?[\d.]+(?:,\d{2})?/i, '')
+    .replace(/^[\s:;,\-.>]+/g, '')
+    .trim();
 }
 
 function cleanCommercialDisplayLine(value) {
@@ -3921,6 +4021,7 @@ function inferImageExtension(mimeType) {
 
 function extractProductImageUrlFromHtml(html) {
   const source = String(html ?? '');
+  const decodedSource = decodeEmbeddedUrlSource(source);
   const candidatePatterns = [
     /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
     /<meta[^>]+property=["']og:image:secure_url["'][^>]*content=["']([^"']+)["'][^>]*>/i,
@@ -3928,11 +4029,16 @@ function extractProductImageUrlFromHtml(html) {
     /<meta[^>]+name=["']twitter:image:src["'][^>]*content=["']([^"']+)["'][^>]*>/i,
     /<link[^>]+rel=["']image_src["'][^>]*href=["']([^"']+)["'][^>]*>/i,
     /<img[^>]+id=["']landingImage["'][^>]*src=["']([^"']+)["'][^>]*>/i,
-    /data-old-hires=["']([^"']+)["']/i
+    /data-old-hires=["']([^"']+)["']/i,
+    /"image"\s*:\s*\[\s*"([^"]+)"/i,
+    /"image"\s*:\s*"([^"]+)"/i,
+    /"image_url"\s*:\s*"([^"]+)"/i,
+    /"imageUrl"\s*:\s*"([^"]+)"/i,
+    /"thumbnail"\s*:\s*"([^"]+)"/i
   ];
 
   for (const pattern of candidatePatterns) {
-    const match = source.match(pattern);
+    const match = decodedSource.match(pattern);
     const candidate = sanitizeImageCandidate(match?.[1]);
 
     if (candidate) {
@@ -3940,7 +4046,7 @@ function extractProductImageUrlFromHtml(html) {
     }
   }
 
-  const dynamicImageMatch = source.match(/data-a-dynamic-image=["']\{([^"']+)\}["']/i);
+  const dynamicImageMatch = decodedSource.match(/data-a-dynamic-image=["']\{([^"']+)\}["']/i);
   if (dynamicImageMatch?.[1]) {
     const unescaped = dynamicImageMatch[1].replace(/&quot;/g, '"');
     const urlMatch = unescaped.match(/https?:\/\/[^"\\\s]+/i);
@@ -3950,17 +4056,27 @@ function extractProductImageUrlFromHtml(html) {
     }
   }
 
-  const jsonLdImageMatch = source.match(/"image"\s*:\s*"([^"]+)"/i);
+  const jsonLdImageMatch = decodedSource.match(/"image"\s*:\s*"([^"]+)"/i);
   const jsonLdCandidate = sanitizeImageCandidate(jsonLdImageMatch?.[1]);
   if (jsonLdCandidate) {
     return jsonLdCandidate;
+  }
+
+  const knownHostMatch = decodedSource.match(/(?:https?:)?\/\/[^\s"'<>]+(?:susercontent\.com|images(?:-na)?\.ssl-images-amazon\.com)[^\s"'<>]*/i);
+  const knownHostCandidate = sanitizeImageCandidate(knownHostMatch?.[0]);
+  if (knownHostCandidate) {
+    return knownHostCandidate;
   }
 
   return '';
 }
 
 function sanitizeImageCandidate(value) {
-  const candidate = String(value ?? '').trim();
+  let candidate = decodeEmbeddedUrlSource(String(value ?? '').trim());
+
+  if (candidate.startsWith('//')) {
+    candidate = `https:${candidate}`;
+  }
 
   if (!candidate || !/^https?:\/\//i.test(candidate)) {
     return '';
@@ -3974,7 +4090,32 @@ function sanitizeImageCandidate(value) {
     return candidate;
   }
 
+  if (/(?:^|\/\/)(?:[a-z-]+\.)?img\.susercontent\.com\/.+/i.test(candidate)) {
+    return candidate;
+  }
+
   return '';
+}
+
+function decodeEmbeddedUrlSource(value) {
+  return String(value ?? '')
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\//g, '/');
+}
+
+function selectPostLayoutMetadataUrl(item) {
+  const preferred = [
+    item?.expandedUrl,
+    item?.originalExpandedUrl,
+    item?.affiliateUrl,
+    item?.originalUrl
+  ]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean);
+
+  return preferred[0] || '';
 }
 
 function fallbackText(message) {
@@ -4197,3 +4338,12 @@ function filterDashboardItemsByTimestamp(items, clearedAt, dateField) {
     return value >= baseline;
   });
 }
+
+export const __postLayoutTestUtils = {
+  extractPostLayoutProductDetails,
+  extractProductImageUrlFromHtml,
+  sanitizeImageCandidate,
+  cleanPostLayoutTitle,
+  splitPostLayoutPriceLines,
+  selectPostLayoutMetadataUrl
+};
