@@ -47,6 +47,7 @@ export function PostLayoutPanel({
   const [textColor, setTextColor] = useState(current.textColor || defaults.textColor);
   const [maxProducts, setMaxProducts] = useState(String(current.maxProducts || defaults.maxProducts));
   const [busy, setBusy] = useState(false);
+  const previewCount = Math.max(1, Math.min(4, Number(maxProducts) || defaults.maxProducts));
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -155,8 +156,8 @@ export function PostLayoutPanel({
             <p className="text-xl font-black text-white">{brandName || 'Oferta do dia'}</p>
             <p className="mt-1 text-sm font-bold text-white/70">{headline || defaults.headline}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 p-4">
-            {[0, 1].slice(0, Math.min(2, Number(maxProducts) || 2)).map((item) => (
+          <div className={`grid gap-3 p-4 ${previewCount === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {Array.from({ length: previewCount }).map((_, item) => (
               <div key={item} className="rounded-md bg-white p-3">
                 <div className="mb-3 h-24 rounded-md bg-zinc-100" />
                 <p className="text-xs font-black" style={{ color: textColor }}>Produto em oferta</p>
