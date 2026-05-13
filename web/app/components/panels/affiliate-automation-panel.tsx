@@ -46,6 +46,24 @@ export function AffiliateAutomationPanel({
     status: string;
     rewriteMode?: string;
     rewriteError?: string;
+    channelPayloads?: {
+      whatsApp?: {
+        type: 'text' | 'media';
+        text?: string;
+        caption?: string;
+        mimeType?: string;
+        filename?: string;
+        mediaPreviewUrl?: string;
+      } | null;
+      telegram?: {
+        type: 'text' | 'media';
+        text?: string;
+        caption?: string;
+        mimeType?: string;
+        filename?: string;
+        mediaPreviewUrl?: string;
+      } | null;
+    } | null;
   } | null>(null);
 
   async function submitAccount(event?: FormEvent<HTMLFormElement>) {
@@ -227,6 +245,40 @@ export function AffiliateAutomationPanel({
     if (status === 'error') return 'Erro';
     return 'Mantido';
   };
+
+  const renderChannelPreview = (label: string, payload: NonNullable<NonNullable<typeof testResult>['channelPayloads']>['whatsApp']) => (
+    <div className="grid gap-3">
+      <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 px-2">{label}</span>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        {!payload ? (
+          <p className="text-xs text-zinc-500">Sem payload disponivel para esta simulacao.</p>
+        ) : payload.type === 'media' ? (
+          <div className="grid gap-3">
+            {payload.mediaPreviewUrl ? (
+              <img
+                src={payload.mediaPreviewUrl}
+                alt={`Preview ${label}`}
+                className="max-h-72 w-full rounded-xl border border-white/10 bg-black/20 object-contain"
+              />
+            ) : null}
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              Modo: media {payload.mimeType ? `| ${payload.mimeType}` : ''}
+            </p>
+            <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-white/5 bg-black/20 p-3 font-mono text-[12px] leading-relaxed text-zinc-200">
+              {payload.caption || ''}
+            </pre>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Modo: texto</p>
+            <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-white/5 bg-black/20 p-3 font-mono text-[12px] leading-relaxed text-zinc-200">
+              {payload.text || ''}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="grid gap-8">
@@ -592,6 +644,11 @@ export function AffiliateAutomationPanel({
                          )}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {renderChannelPreview('Simulacao real de saida - WhatsApp', testResult.channelPayloads?.whatsApp || null)}
+                    {renderChannelPreview('Simulacao real de saida - Telegram', testResult.channelPayloads?.telegram || null)}
                   </div>
                 </div>
               ) : null}

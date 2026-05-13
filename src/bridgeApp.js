@@ -423,19 +423,46 @@ export class BridgeApp {
 
     app.post('/api/affiliate/test', requireWriteAccess, async (request, response) => {
       const result = await runUserOperation(request, 'affiliate:test', async () => {
-        ensureAffiliateTermsAccepted(await getAffiliateState(request.user.id));
+        const affiliateState = await getAffiliateState(request.user.id);
+        ensureAffiliateTermsAccepted(affiliateState);
         const message = String(request.body?.message ?? '');
         const automationId = String(request.body?.automationId ?? '').trim();
         const draftAutomation = request.body?.automation
           ? normalizeAffiliateAutomationDraft(request.user.id, request.body.automation)
           : null;
-        return await processAffiliateMessage({
+        const simulationResult = await processAffiliateMessage({
           userId: request.user.id,
           automationId: draftAutomation ? '' : automationId,
           automation: draftAutomation,
           message,
           dryRun: true
         });
+
+        const automationForSimulation =
+          draftAutomation
+          || (affiliateState.automations || []).find((automation) => String(automation.id || '') === automationId)
+          || normalizeAffiliateAutomationDraft(request.user.id, {});
+
+        let channelPayloads = null;
+
+        if (simulationResult?.shouldSend && simulationResult?.processedMessage) {
+          const runtime = await this.manager.getRuntimeForUser(request.user);
+          const payloads = await runtime.prepareAffiliateChannelPayloads({
+            originalMessageText: String(simulationResult.processedMessage || ''),
+            telegramMessage: null,
+            automation: automationForSimulation,
+            convertedUrls: Array.isArray(simulationResult.convertedUrls) ? simulationResult.convertedUrls : []
+          });
+          channelPayloads = {
+            whatsApp: serializeAffiliatePayloadForSimulation(payloads?.whatsApp),
+            telegram: serializeAffiliatePayloadForSimulation(payloads?.telegram)
+          };
+        }
+
+        return {
+          ...simulationResult,
+          channelPayloads
+        };
       });
 
       response.json(result);
@@ -842,6 +869,28 @@ function normalizeAffiliateAutomationDraft(userId, payload = {}) {
     preserveOriginalTextEnabled: true,
     isActive: true,
     destinations: []
+  };
+}
+
+function serializeAffiliatePayloadForSimulation(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  if (payload.type === 'media' && payload.base64) {
+    const mimeType = String(payload.mimeType || 'image/jpeg');
+    return {
+      type: 'media',
+      caption: String(payload.caption || ''),
+      mimeType,
+      filename: String(payload.filename || ''),
+      mediaPreviewUrl: `data:${mimeType};base64,${String(payload.base64)}`
+    };
+  }
+
+  return {
+    type: 'text',
+    text: String(payload.text || '')
   };
 }
 
