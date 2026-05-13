@@ -555,7 +555,11 @@ function OffersPanel({
   setBusy?: (value: string) => void;
   busy?: string;
 }) {
-  const offers = compact ? (state.offers || []).slice(0, 6) : state.offers || [];
+  const allOffers = compact ? (state.offers || []).slice(0, 6) : state.offers || [];
+  const [offersTab, setOffersTab] = useState<'sent' | 'ignored'>('sent');
+  const sentOffers = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'sent');
+  const ignoredOffers = allOffers.filter((offer) => String(offer.status || '').toLowerCase() === 'ignored');
+  const offers = offersTab === 'sent' ? sentOffers : ignoredOffers;
   const readOnlyAccount = isReadOnlyAccount(state);
   const dashboardViewClearedAt = state.config.dashboardViewClearedAt || '';
   const canClearDashboard = Boolean(refresh && setNotice && setBusy);
@@ -565,11 +569,41 @@ function OffersPanel({
       <div className="mb-8 flex items-center justify-between gap-3 border-b border-white/5 pb-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-white">Últimos Envios</h2>
-          <p className="mt-2 text-sm text-zinc-400">Ofertas captadas e entregues pelo sistema.</p>
+          <p className="mt-2 text-sm text-zinc-400">
+            {offersTab === 'sent'
+              ? 'Mensagens encaminhadas com sucesso.'
+              : 'Mensagens ignoradas e o motivo da exclusao do fluxo.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => setOffersTab('sent')}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
+                offersTab === 'sent'
+                  ? 'bg-[#25D366]/20 text-[#25D366]'
+                  : 'text-zinc-400 hover:bg-white/10 hover:text-white'
+              )}
+            >
+              Ultimos envios
+            </button>
+            <button
+              type="button"
+              onClick={() => setOffersTab('ignored')}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-bold transition-colors',
+                offersTab === 'ignored'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'text-zinc-400 hover:bg-white/10 hover:text-white'
+              )}
+            >
+              Mensagens ignoradas
+            </button>
+          </div>
           <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300">
-            {formatNumber(state.offers?.length || 0)} ofertas
+            {formatNumber(offers.length)} ofertas
           </span>
           {canClearDashboard && !readOnlyAccount && (
             <button
@@ -642,8 +676,14 @@ function OffersPanel({
         ) : (
           <div className="rounded-3xl border border-dashed border-white/10 p-12 text-center">
              <MessageSquare className="mx-auto mb-4 text-zinc-600" size={32} />
-             <p className="text-base font-semibold text-zinc-300">Aguardando mensagens</p>
-             <p className="mt-2 text-sm text-zinc-500">As ofertas processadas aparecerao aqui.</p>
+             <p className="text-base font-semibold text-zinc-300">
+               {offersTab === 'sent' ? 'Nenhum envio concluido' : 'Nenhuma mensagem ignorada'}
+             </p>
+             <p className="mt-2 text-sm text-zinc-500">
+               {offersTab === 'sent'
+                 ? 'As mensagens encaminhadas com sucesso aparecerao aqui.'
+                 : 'As mensagens ignoradas e seus motivos aparecerao aqui.'}
+             </p>
              {dashboardViewClearedAt ? (
                <p className="mt-2 text-xs text-zinc-500">
                  Visualizacao filtrada desde {formatDate(dashboardViewClearedAt)}. Novos envios aparecerao apos essa data.
