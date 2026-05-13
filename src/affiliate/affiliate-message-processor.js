@@ -94,7 +94,7 @@ export async function processAffiliateMessage(params = {}) {
       const replacementTarget = urlMatch.rawUrl;
       const expanded = await expandUrlFn(originalUrl);
       const expandedUrl = expanded.expandedUrl || originalUrl;
-      const marketplace = detectMarketplace(expandedUrl);
+      const marketplace = detectMarketplace(expandedUrl, { originalUrl });
       let conversion = {
         originalUrl,
         expandedUrl,

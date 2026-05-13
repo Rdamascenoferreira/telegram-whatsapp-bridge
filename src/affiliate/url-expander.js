@@ -83,7 +83,11 @@ async function followRedirects(originalUrl, method, timeoutMs, maxRedirects) {
         continue;
       }
 
-      return { originalUrl, expandedUrl: response.url || currentUrl, success: true };
+      const resolvedUrl = response.url || currentUrl;
+      const htmlRedirectUrl = await extractHtmlRedirectUrl(response, resolvedUrl);
+      const expandedUrl = htmlRedirectUrl || resolvedUrl;
+
+      return { originalUrl, expandedUrl, success: true };
     } catch (error) {
       return {
         originalUrl,
@@ -100,6 +104,44 @@ async function followRedirects(originalUrl, method, timeoutMs, maxRedirects) {
     success: false,
     error: 'Too many redirects'
   };
+}
+
+async function extractHtmlRedirectUrl(response, baseUrl) {
+  try {
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('text/html')) {
+      return '';
+    }
+
+    const html = await response.text();
+    if (!html) {
+      return '';
+    }
+
+    const patterns = [
+      /<meta[^>]+http-equiv=["']refresh["'][^>]+content=["'][^"']*url=([^"']+)["']/i,
+      /window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i,
+      /location\.replace\(\s*["']([^"']+)["']\s*\)/i,
+      /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      const candidate = String(match?.[1] || '').trim();
+      if (!candidate) {
+        continue;
+      }
+
+      const resolved = new URL(candidate, baseUrl).toString();
+      if (isSafeHttpUrl(resolved)) {
+        return resolved;
+      }
+    }
+  } catch {
+    return '';
+  }
+
+  return '';
 }
 
 async function fetchWithTimeout(url, method, timeoutMs) {

@@ -1,4 +1,4 @@
-﻿import crypto from 'node:crypto';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import QRCode from 'qrcode';
@@ -35,6 +35,12 @@ const albumFlushDelayMs = 1800;
 const pendingTelegramMessageLimit = 60;
 const pendingTelegramMessageTtlMs = 5 * 60 * 1000;
 const groupAdminCheckBatchSize = parseBoundedInteger(process.env.WHATSAPP_GROUP_ADMIN_CHECK_BATCH_SIZE, 12, 1, 100);
+const groupCacheMaxAgeMs = parseBoundedTimeout(
+  process.env.WHATSAPP_GROUP_CACHE_MAX_AGE_MS,
+  30 * 60 * 1000,
+  60 * 1000,
+  24 * 60 * 60 * 1000
+);
 const deliveryReceiptTtlMs = 6 * 60 * 60 * 1000;
 const maxRecentDeliveryReceipts = 4000;
 const deliveryReceiptsFilename = 'delivery-receipts.json';
@@ -744,7 +750,15 @@ export class UserBridgeRuntime {
           return;
         }
 
-        this.refreshAvailableGroups().catch((error) => {
+        // Skip auto-refresh if cache is fresh (< groupCacheMaxAgeMs)
+        if (this.availableGroups.length > 0 && !this.isGroupCacheStale()) {
+          this.log(`Cache de grupos reutilizado (${this.availableGroups.length} grupos, atualizado em ${this.groupCacheRefreshedAt}).`, {
+            type: 'groups_cache_reused'
+          });
+          return;
+        }
+
+        this.refreshAvailableGroups({ waitForCompletion: false }).catch((error) => {
           this.log(`Falha ao atualizar grupos apos login: ${error.message}`, {
             level: 'error',
             type: 'whatsapp_groups_error',
@@ -2503,6 +2517,75 @@ export class UserBridgeRuntime {
     };
   }
 
+  isGroupCacheStale() {
+    if (!this.groupCacheRefreshedAt) {
+      return true;
+    }
+
+    const cachedAt = new Date(this.groupCacheRefreshedAt).getTime();
+
+    if (Number.isNaN(cachedAt)) {
+      return true;
+    }
+
+    return Date.now() - cachedAt > groupCacheMaxAgeMs;
+  }
+
+  getGroupsPage({ search = '', page = 1, pageSize = 50, filter = 'all' } = {}) {
+    const selected = new Set(this.config.selectedGroupIds);
+    let groups = this.availableGroups;
+
+    if (filter === 'selected') {
+      groups = groups.filter((group) => selected.has(group.id));
+    } else if (filter === 'community') {
+      groups = groups.filter((group) => Boolean(group.isCommunityLinked) && !Boolean(group.isAnnouncement));
+    } else if (filter === 'announcement') {
+      groups = groups.filter((group) => Boolean(group.isAnnouncement));
+    } else if (filter === 'admin') {
+      groups = groups.filter((group) => group.hasAdminAccess === true);
+    }
+
+    if (search) {
+      const normalized = search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      groups = groups.filter((group) => {
+        const name = (group.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return name.includes(normalized);
+      });
+    }
+
+    // Sort: selected first, then alphabetical
+    groups = [...groups].sort((left, right) => {
+      const leftSelected = selected.has(left.id) ? 1 : 0;
+      const rightSelected = selected.has(right.id) ? 1 : 0;
+      if (leftSelected !== rightSelected) return rightSelected - leftSelected;
+      return left.name.localeCompare(right.name, 'pt-BR');
+    });
+
+    const total = groups.length;
+    const clampedPage = Math.max(1, Math.min(page, Math.ceil(total / pageSize) || 1));
+    const start = (clampedPage - 1) * pageSize;
+    const paged = groups.slice(start, start + pageSize);
+
+    return {
+      groups: paged.map((group) => ({ ...group, selected: selected.has(group.id) })),
+      pagination: {
+        page: clampedPage,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize) || 1
+      },
+      meta: {
+        refreshing: this.isRefreshingGroups,
+        progress: this.groupRefreshProgress,
+        cachedAt: this.groupCacheRefreshedAt,
+        cacheStale: this.isGroupCacheStale(),
+        selectedGroupIds: this.config.selectedGroupIds || [],
+        adminGroupCount: countAdminGroups(this.availableGroups),
+        totalAvailable: this.availableGroups.length
+      }
+    };
+  }
+
   async refreshAvailableGroups(options = {}) {
     const waitForCompletion = options.waitForCompletion !== false;
 
@@ -2574,23 +2657,32 @@ export class UserBridgeRuntime {
       const diagnosticSample = [];
       let foundAdmins = 0;
 
+      const cachedMap = new Map(this.availableGroups.map((g) => [g.id, g]));
+
       for (let index = 0; index < groups.length; index += 1) {
         const chat = groups[index];
-        const participants = getGroupParticipants(chat);
-        const adminParticipant = participants.find((participant) => {
-          const participantIds = buildCanonicalIds(participant.id);
-          return (
-            intersects(participantIds, myCanonicalIds) &&
-            (participant.isAdmin || participant.isSuperAdmin)
-          );
-        });
+        const cached = cachedMap.get(chat.id);
+        const participants = chat.participants;
+        
+        let isAdmin = cached?.hasAdminAccess;
+
+        if (isAdmin === undefined || isAdmin === null) {
+          const adminParticipant = participants.find((participant) => {
+            const participantIds = buildCanonicalIds(participant.id);
+            return (
+              intersects(participantIds, myCanonicalIds) &&
+              (participant.isAdmin || participant.isSuperAdmin)
+            );
+          });
+          isAdmin = Boolean(adminParticipant);
+        }
 
         if (diagnosticSample.length < 6) {
           diagnosticSample.push({
             name: chat.name || 'Grupo sem nome',
             id: chat.id,
             participantCount: participants.length,
-            matchedAdmin: Boolean(adminParticipant),
+            matchedAdmin: isAdmin,
             sampleParticipantIds: participants.slice(0, 5).map((participant) => ({
               id: serializeWid(participant.id),
               canonical: [...buildCanonicalIds(participant.id)],
@@ -2613,9 +2705,9 @@ export class UserBridgeRuntime {
           isAnnouncement: chat.isAnnouncement,
           isCommunityLinked: chat.isCommunityLinked,
           parentGroupId: chat.parentGroupId,
-          hasAdminAccess: Boolean(adminParticipant)
+          hasAdminAccess: isAdmin
         });
-        if (adminParticipant) {
+        if (isAdmin) {
           foundAdmins += 1;
         }
 
@@ -3296,8 +3388,31 @@ function buildAffiliateIgnoredReason(result) {
     return 'Nenhum link elegivel encontrado na mensagem.';
   }
 
+  const errorDetails = convertedUrls
+    .map((item) => String(item?.error || '').trim())
+    .filter(Boolean);
+  if (errorDetails.length) {
+    return `Falha ao converter links: ${errorDetails[0]}`;
+  }
+
   const hasUnknown = convertedUrls.some((item) => String(item?.marketplace || '').toLowerCase() === 'unknown');
   if (hasUnknown) {
+    const unknownHosts = convertedUrls
+      .filter((item) => String(item?.marketplace || '').toLowerCase() === 'unknown')
+      .map((item) => {
+        const raw = String(item?.expandedUrl || item?.originalUrl || '').trim();
+        try {
+          return new URL(raw).hostname.toLowerCase();
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean);
+
+    if (unknownHosts.length > 0) {
+      return `Links nao suportados pela regra atual de afiliados (${[...new Set(unknownHosts)].join(', ')}).`;
+    }
+
     return 'Links nao suportados pela regra atual de afiliados.';
   }
 
