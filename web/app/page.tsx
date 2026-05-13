@@ -11,6 +11,7 @@ import {
   CreditCard,
   Eye,
   Gauge,
+  Image as ImageIcon,
   LockKeyhole,
   Mail,
   MessageSquare,
@@ -39,6 +40,7 @@ import { PlanUsagePanel } from './components/panels/plan-usage-panel';
 import { AffiliateAutomationPanel } from './components/panels/affiliate-automation-panel';
 import { ActivityLogPanel } from './components/panels/activity-log-panel';
 import { AccountPanel } from './components/panels/account-panel';
+import { PostLayoutPanel } from './components/panels/post-layout-panel';
 import { AuthScreen } from './components/auth/auth-screen';
 import type { AppState, ViewKey } from './types/panel';
 import { AvatarBadge, Field, LoadingScreen, ReadOnlyModeBanner } from './components/common-ui';
@@ -70,6 +72,7 @@ const navItems = [
   { category: 'Operação' },
   { key: 'flows', label: 'Meus Fluxos', icon: ArrowRight },
   { key: 'affiliate', label: 'Regras de Afiliado', icon: CreditCard },
+  { key: 'postLayout', label: 'Layout de Postagem', icon: ImageIcon },
   { category: 'Conexões' },
   { key: 'connections', label: 'Telegram', icon: MessageSquare },
   { key: 'groups', label: 'WhatsApp', icon: Smartphone },
@@ -333,6 +336,7 @@ export default function Home() {
               refresh={loadState}
             />
           ) : null}
+          {view === 'postLayout' ? <PostLayoutPanel state={state} refresh={loadState} setNotice={setNotice} /> : null}
           {view === 'planUsage' ? <PlanUsagePanel state={state} setView={setView} /> : null}
           {view === 'activity' ? <ActivityLogPanel state={state} /> : null}
           {view === 'account' ? <AccountPanel key={accountPanelKey} state={state} refresh={loadState} setNotice={setNotice} /> : null}

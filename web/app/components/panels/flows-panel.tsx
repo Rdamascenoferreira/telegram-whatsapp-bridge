@@ -2,11 +2,12 @@
 
 import { AlertCircle, ArrowRight, Bot, CheckCircle2, Clock3, RefreshCcw, Search, Shield, Smartphone, Users, X, Zap } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useWhatsAppGroups } from '../../hooks/useWhatsAppGroups';
 import { Field } from '../common-ui';
 import { InternalSetupChecklist } from '../connections-panel';
 import { FlowSaveActionsCard } from '../flow-save-actions-card';
 import { ApiRequestError, HTTP_TIMEOUT_MS, postJsonWithOptions } from '../../../lib/http';
-import { formatDate, formatOfferStatus, humanize, isWhatsAppConnectedStatus, normalizeRouteSourceId, normalizeText } from '../../../lib/panel-utils';
+import { formatDate, formatOfferStatus, humanize, isWhatsAppConnectedStatus, normalizeRouteSourceId } from '../../../lib/panel-utils';
 import { cn } from '../../../lib/utils';
 import type { AppState, FlowFieldErrors, ViewKey, WhatsAppGroup } from '../../types/panel';
 
@@ -657,11 +658,24 @@ function WhatsAppDestinationSelector({
   const [selected, setSelected] = useState(new Set(state.config.selectedGroupIds));
   const [hasPendingSelectionChanges, setHasPendingSelectionChanges] = useState(false);
   const [quickFilter, setQuickFilter] = useState<'all' | 'selected' | 'community' | 'announcement'>('all');
-  const groupsProgress = state.metrics.groupRefreshProgress;
+  const [groupsPage, setGroupsPage] = useState(1);
+
+  // Use the lightweight paginated API instead of state.groups
+  const { data: groupsData, loading: groupsLoading, reload: reloadGroups } = useWhatsAppGroups({
+    search: filter,
+    page: groupsPage,
+    pageSize: 50,
+    filter: quickFilter,
+    enabled: true
+  });
+
+  const groupsMeta = groupsData?.meta;
+  const groupsPagination = groupsData?.pagination;
+  const apiGroups = useMemo(() => groupsData?.groups || [], [groupsData?.groups]);
+  const groupsRefreshing = groupsMeta?.refreshing ?? state.metrics.groupsRefreshing ?? false;
+  const groupsProgress = groupsMeta?.progress ?? state.metrics.groupRefreshProgress;
   const groupsPhase = groupsProgress?.phase || 'idle';
   const groupsPercent = Math.max(0, Math.min(100, groupsProgress?.percent || 0));
-  const groupsProcessed = groupsProgress?.processed || 0;
-  const groupsTotal = groupsProgress?.total || 0;
   
   const groupsPhaseLabel =
     groupsPhase === 'loading_groups' ? 'Carregando lista'
@@ -669,44 +683,28 @@ function WhatsAppDestinationSelector({
       : groupsPhase === 'done' ? 'Atualizado'
       : groupsPhase === 'error' ? 'Falha ao atualizar' : 'Preparando leitura';
   
-  const cachedAtLabel = state.metrics.groupCacheRefreshedAt ? formatDate(state.metrics.groupCacheRefreshedAt) : '';
-  const selectedGroups = useMemo(() => state.groups.filter((group) => selected.has(group.id)), [selected, state.groups]);
+  const cachedAtLabel = (groupsMeta?.cachedAt || state.metrics.groupCacheRefreshedAt) ? formatDate(groupsMeta?.cachedAt || state.metrics.groupCacheRefreshedAt || '') : '';
+  // For selected groups, merge from API data + state fallback
+  const allKnownGroups = useMemo(() => {
+    const map = new Map(state.groups.map((g) => [g.id, g]));
+    for (const g of apiGroups) map.set(g.id, g);
+    return [...map.values()];
+  }, [state.groups, apiGroups]);
+  const selectedGroups = useMemo(() => allKnownGroups.filter((group) => selected.has(group.id)), [selected, allKnownGroups]);
   const savedSelectedSet = useMemo(() => new Set(state.config.selectedGroupIds || []), [state.config.selectedGroupIds]);
   const selectedCount = selected.size;
   const savedCount = savedSelectedSet.size;
   const selectionDelta = selectedCount - savedCount;
   const overPlanLimit = selectedCount > whatsappDestinationLimit;
-  const staleSelectedIds = useMemo(() => [...selected].filter((groupId) => !state.groups.some((group) => group.id === groupId)), [selected, state.groups]);
+  const staleSelectedIds = useMemo(() => [...selected].filter((groupId) => !allKnownGroups.some((group) => group.id === groupId)), [selected, allKnownGroups]);
   const hasStaleSelections = staleSelectedIds.length > 0;
   const noAdminSelectedCount = useMemo(
     () => selectedGroups.filter((group) => group.hasAdminAccess === false).length,
     [selectedGroups]
   );
-  const pendingAdminCheckCount = useMemo(
-    () => state.groups.filter((group) => group.hasAdminAccess === null || group.hasAdminAccess === undefined).length,
-    [state.groups]
-  );
-  
-  const filteredGroups = useMemo(() => {
-    const normalized = normalizeText(filter);
-    return state.groups
-      .filter((group) => {
-        if (quickFilter === 'selected') return selected.has(group.id);
-        if (quickFilter === 'community') return Boolean(group.isCommunityLinked) && !Boolean(group.isAnnouncement);
-        if (quickFilter === 'announcement') return Boolean(group.isAnnouncement);
-        return true;
-      })
-      .filter((group) => normalizeText(group.name).includes(normalized))
-      .sort((left, right) => Number(selected.has(right.id)) - Number(selected.has(left.id)));
-  }, [filter, quickFilter, selected, state.groups]);
+  const pendingAdminCheckCount = groupsMeta ? (groupsMeta.totalAvailable - groupsMeta.adminGroupCount) : 0;
 
-  const visibleSelectableGroupIds = useMemo(() => filteredGroups.map((group) => group.id), [filteredGroups]);
-
-  useEffect(() => {
-    if (!state.metrics.groupsRefreshing) return;
-    const timer = window.setInterval(() => { void refresh().catch(() => undefined); }, 2000);
-    return () => window.clearInterval(timer);
-  }, [refresh, state.metrics.groupsRefreshing]);
+  const visibleSelectableGroupIds = useMemo(() => apiGroups.map((group) => group.id), [apiGroups]);
 
   return (
     <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-8 shadow-xl backdrop-blur-sm max-sm:p-6">
@@ -718,29 +716,29 @@ function WhatsAppDestinationSelector({
             Esta seleção vale para a ponte comum e para o Automatizador.
           </p>
           <p className="mt-2 text-xs text-zinc-500">
-            Grupos vistos: {state.metrics.availableGroupCount || state.groups.length || 0} | Admin confirmado: {state.metrics.availableAdminGroupCount || 0} | Verificando: {pendingAdminCheckCount}
+            Grupos vistos: {groupsMeta?.totalAvailable ?? state.metrics.availableGroupCount ?? 0} | Admin confirmado: {groupsMeta?.adminGroupCount ?? state.metrics.availableAdminGroupCount ?? 0} | Verificando: {pendingAdminCheckCount}
           </p>
         </div>
         <button
           type="button"
-          disabled={readOnlyAccount || busy === 'groups' || state.metrics.groupsRefreshing}
+          disabled={readOnlyAccount || busy === 'groups' || groupsRefreshing}
           onClick={async () => {
             setBusy('groups');
             setNotice('Sincronização dos grupos iniciada. Pode levar alguns minutos.');
             void postJsonWithOptions('/api/refresh-groups', undefined, { timeoutMs: HTTP_TIMEOUT_MS.LONG })
-              .then(async () => { await refresh(); setNotice('Lista de grupos do WhatsApp atualizada.'); })
+              .then(async () => { await refresh(); reloadGroups(); setNotice('Lista de grupos do WhatsApp atualizada.'); })
               .catch(() => { setNotice('Falha ao atualizar os grupos. Tente reconectar o WhatsApp.'); })
               .finally(() => setBusy(''));
-            window.setTimeout(() => { void refresh().catch(() => undefined); }, 600);
+            window.setTimeout(() => { reloadGroups(); }, 600);
           }}
-          className={cn(secondaryButton, state.metrics.groupsRefreshing && 'animate-pulse')}
+          className={cn(secondaryButton, groupsRefreshing && 'animate-pulse')}
         >
-          <RefreshCcw size={16} className={state.metrics.groupsRefreshing ? 'animate-spin' : ''} />
-          {state.metrics.groupsRefreshing ? `Sincronizando ${groupsPercent}%` : 'Atualizar grupos'}
+          <RefreshCcw size={16} className={groupsRefreshing ? 'animate-spin' : ''} />
+          {groupsRefreshing ? `Sincronizando ${groupsPercent}%` : 'Atualizar grupos'}
         </button>
       </div>
 
-      {state.metrics.groupsRefreshing && (
+      {groupsRefreshing && (
         <div className="mb-6 overflow-hidden rounded-3xl border border-[#25D366]/20 bg-[#25D366]/5 p-6 shadow-xl">
           <div className="flex items-start justify-between gap-4 max-md:flex-col">
             <div>
@@ -769,7 +767,7 @@ function WhatsAppDestinationSelector({
         </div>
       )}
 
-      {!state.metrics.groupsRefreshing && state.metrics.hasCachedGroups && cachedAtLabel && (
+      {!groupsRefreshing && (groupsMeta?.totalAvailable ?? 0) > 0 && cachedAtLabel && (
         <div className="mb-6 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-sm text-zinc-400 flex items-center gap-3">
            <Clock3 size={18} className="text-zinc-500" />
            <span>Última lista salva: <strong className="text-white font-semibold">{cachedAtLabel}</strong></span>
@@ -782,7 +780,10 @@ function WhatsAppDestinationSelector({
           <Search size={18} className="text-zinc-500" />
           <input
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => {
+              setGroupsPage(1);
+              setFilter(event.target.value);
+            }}
             placeholder="Buscar grupo pelo nome..."
             className="w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-600 h-10"
           />
@@ -799,7 +800,10 @@ function WhatsAppDestinationSelector({
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setQuickFilter(f.id as any)}
+                onClick={() => {
+                  setGroupsPage(1);
+                  setQuickFilter(f.id as any);
+                }}
                 className={cn(
                   'rounded-xl border px-4 py-2 text-xs font-bold transition-colors',
                   quickFilter === f.id
@@ -889,9 +893,17 @@ function WhatsAppDestinationSelector({
         ) : null}
       </div>
 
-      <div className="max-h-[500px] overflow-auto rounded-3xl border border-white/5 bg-black/20">
-        {filteredGroups.length ? (
-          filteredGroups.map((group) => {
+      <div className="relative max-h-[500px] overflow-auto rounded-3xl border border-white/5 bg-black/20">
+        {groupsLoading && !apiGroups.length && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-3xl">
+            <div className="flex items-center gap-3 rounded-2xl bg-zinc-900/90 px-5 py-3 shadow-lg">
+              <RefreshCcw size={16} className="animate-spin text-[#25D366]" />
+              <span className="text-sm font-semibold text-zinc-300">Carregando grupos...</span>
+            </div>
+          </div>
+        )}
+        {apiGroups.length ? (
+          apiGroups.map((group) => {
             const checked = selected.has(group.id);
             const disabledByLimit = !checked && selected.size >= whatsappDestinationLimit;
 
@@ -924,9 +936,37 @@ function WhatsAppDestinationSelector({
             );
           })
         ) : (
-          <div className="p-12 text-center text-sm text-zinc-500">Nenhum grupo encontrado com este filtro.</div>
+          <div className="p-12 text-center text-sm text-zinc-500">
+            {groupsLoading ? 'Carregando...' : 'Nenhum grupo encontrado com este filtro.'}
+          </div>
         )}
       </div>
+
+      {/* Pagination controls */}
+      {groupsPagination && groupsPagination.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            disabled={groupsPage <= 1}
+            onClick={() => setGroupsPage((p) => Math.max(1, p - 1))}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
+          <span className="rounded-xl border border-white/5 bg-black/20 px-4 py-2 text-xs font-bold text-zinc-400">
+            Página {groupsPagination.page} de {groupsPagination.totalPages}
+            <span className="ml-2 text-zinc-600">({groupsPagination.total} grupos)</span>
+          </span>
+          <button
+            type="button"
+            disabled={groupsPage >= groupsPagination.totalPages}
+            onClick={() => setGroupsPage((p) => p + 1)}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
 
       <div className="mt-6 flex items-center justify-between gap-4 max-lg:flex-col max-lg:items-stretch">
         <div className="flex-1 rounded-3xl border border-white/5 bg-black/20 p-6">

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { defaultPostLayoutConfig, normalizePostLayoutConfig } from './affiliate/post-layout-config.js';
 import { waitForFileOperations, writeJsonFileAtomic } from './jsonFileStore.js';
 
 const dataDir = path.resolve(process.cwd(), 'data');
@@ -23,6 +24,7 @@ export const defaultConfig = {
   disconnectWhatsAppOnLogout: false,
   dashboardViewClearedAt: '',
   selectedGroupIds: [],
+  postLayout: defaultPostLayoutConfig,
   whatsAppGroupCache: {
     groups: [],
     diagnostics: null,
@@ -94,6 +96,7 @@ export async function loadConfigForUser(userId) {
       ...defaultConfig,
       ...parsed,
       selectedGroupIds: Array.isArray(parsed.selectedGroupIds) ? parsed.selectedGroupIds : [],
+      postLayout: normalizePostLayoutConfig(parsed.postLayout),
       whatsAppGroupCache: normalizeWhatsAppGroupCache(parsed.whatsAppGroupCache)
     };
   } catch (error) {
@@ -112,6 +115,7 @@ export async function saveConfigForUser(userId, nextConfig) {
     ...defaultConfig,
     ...nextConfig,
     selectedGroupIds: Array.isArray(nextConfig.selectedGroupIds) ? nextConfig.selectedGroupIds : [],
+    postLayout: normalizePostLayoutConfig(nextConfig.postLayout),
     whatsAppGroupCache: normalizeWhatsAppGroupCache(nextConfig.whatsAppGroupCache)
   };
 

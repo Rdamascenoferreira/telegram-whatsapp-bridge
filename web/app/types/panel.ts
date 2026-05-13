@@ -105,6 +105,17 @@ export type AffiliateAutomation = {
   }>;
 };
 
+export type PostLayoutConfig = {
+  enabled: boolean;
+  brandName: string;
+  headline: string;
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  maxProducts: number;
+};
+
 export type AffiliateLog = {
   id: string;
   automationId?: string;
@@ -216,6 +227,7 @@ export type AppState = {
     bridgeEnabled: boolean;
     disconnectWhatsAppOnLogout?: boolean;
     dashboardViewClearedAt?: string;
+    postLayout?: PostLayoutConfig;
     selectedGroupIds: string[];
   };
   metrics: {
@@ -310,6 +322,7 @@ export type ViewKey =
   | 'groups'
   | 'flows'
   | 'affiliate'
+  | 'postLayout'
   | 'planUsage'
   | 'activity'
   | 'account'

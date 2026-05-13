@@ -22,6 +22,8 @@ import {
   updateAffiliateMessageLog
 } from './affiliate/affiliate-store.js';
 import { processAffiliateMessage } from './affiliate/affiliate-message-processor.js';
+import { normalizePostLayoutConfig } from './affiliate/post-layout-config.js';
+import { generateCleanPostLayoutImage } from './affiliate/post-layout-generator.js';
 import {
   ensureWorkspaceForUser,
   loadConfigForUser,
@@ -207,7 +209,8 @@ export class UserBridgeRuntime {
         bridgeEnabled: this.config.bridgeEnabled,
         disconnectWhatsAppOnLogout: Boolean(this.config.disconnectWhatsAppOnLogout),
         dashboardViewClearedAt,
-        selectedGroupIds: this.config.selectedGroupIds
+        selectedGroupIds: this.config.selectedGroupIds,
+        postLayout: normalizePostLayoutConfig(this.config.postLayout)
       },
       metrics: {
         ...this.activity.metrics,
@@ -295,6 +298,15 @@ export class UserBridgeRuntime {
     });
 
     this.log(`Grupos selecionados atualizados (${selectedGroupIds.length}).`);
+  }
+
+  async updatePostLayout(postLayout) {
+    this.config = await saveConfigForUser(this.userId, {
+      ...this.config,
+      postLayout: normalizePostLayoutConfig(postLayout)
+    });
+
+    this.log('Layout de postagem atualizado pelo painel.');
   }
 
   async clearDashboardView() {
@@ -1793,6 +1805,12 @@ export class UserBridgeRuntime {
   }
 
   async prepareAffiliateProductImagePayload(messageText, convertedUrls = []) {
+    const cleanPostLayoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+
+    if (cleanPostLayoutPayload) {
+      return cleanPostLayoutPayload;
+    }
+
     const productUrl = extractPrimaryConvertedProductUrl(convertedUrls);
 
     if (!productUrl) {
@@ -1807,6 +1825,60 @@ export class UserBridgeRuntime {
 
     const mediaPayload = await this.downloadExternalImageAsMediaPayload(imageUrl, messageText);
     return mediaPayload;
+  }
+
+  async prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls = []) {
+    const settings = normalizePostLayoutConfig(this.config?.postLayout);
+
+    if (!settings.enabled) {
+      return null;
+    }
+
+    const converted = Array.isArray(convertedUrls)
+      ? convertedUrls.filter((item) => item?.status === 'converted' && item?.affiliateUrl).slice(0, settings.maxProducts)
+      : [];
+
+    if (!converted.length) {
+      return null;
+    }
+
+    try {
+      const products = [];
+
+      for (let index = 0; index < converted.length; index += 1) {
+        const item = converted[index];
+        const imageUrl = await this.fetchOpenGraphImageUrl(item.affiliateUrl);
+        const imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
+        const details = extractPostLayoutProductDetails(messageText, item, index);
+
+        products.push({
+          ...details,
+          marketplace: item.marketplace,
+          imageBuffer
+        });
+      }
+
+      const imageBuffer = await generateCleanPostLayoutImage({ products, settings });
+
+      if (!imageBuffer) {
+        return null;
+      }
+
+      return {
+        type: 'media',
+        base64: imageBuffer.toString('base64'),
+        mimeType: 'image/png',
+        filename: `affiliate-layout-${Date.now()}.png`,
+        caption: messageText
+      };
+    } catch (error) {
+      this.log(`Layout de postagem indisponivel: ${error.message}`, {
+        level: 'error',
+        type: 'affiliate_post_layout_error',
+        increments: { errors: 1 }
+      });
+      return null;
+    }
   }
 
   async fetchOpenGraphImageUrl(targetUrl) {
@@ -2531,6 +2603,44 @@ export class UserBridgeRuntime {
     return Date.now() - cachedAt > groupCacheMaxAgeMs;
   }
 
+  async downloadExternalImageBuffer(imageUrl) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ogImageFetchTimeoutMs);
+
+    try {
+      const response = await fetch(imageUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'user-agent': modernChromeUserAgent
+        }
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const mimeType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+
+      if (!mimeType.startsWith('image/')) {
+        return null;
+      }
+
+      const contentLength = Number(response.headers.get('content-length') || 0);
+
+      if (Number.isFinite(contentLength) && contentLength > ogImageMaxBytes) {
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return buffer.length && buffer.byteLength <= ogImageMaxBytes ? buffer : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   getGroupsPage({ search = '', page = 1, pageSize = 50, filter = 'all' } = {}) {
     const selected = new Set(this.config.selectedGroupIds);
     let groups = this.availableGroups;
@@ -2596,11 +2706,15 @@ export class UserBridgeRuntime {
       return;
     }
 
-    const refreshPromise = this.performAvailableGroupsRefresh().finally(() => {
-      if (this.groupRefreshPromise === refreshPromise) {
-        this.groupRefreshPromise = null;
-      }
-    });
+    const refreshPromise = this.performAvailableGroupsRefresh()
+      .catch((err) => {
+        this.log(`Erro ao atualizar grupos: ${err.message}`, { level: 'error' });
+      })
+      .finally(() => {
+        if (this.groupRefreshPromise === refreshPromise) {
+          this.groupRefreshPromise = null;
+        }
+      });
     this.groupRefreshPromise = refreshPromise;
 
     if (waitForCompletion) {
@@ -3452,6 +3566,94 @@ function extractPrimaryConvertedProductUrl(convertedUrls = []) {
     : null;
 
   return converted ? String(converted.affiliateUrl).trim() : '';
+}
+
+function extractPostLayoutProductDetails(messageText, convertedUrl, index) {
+  const lines = String(messageText ?? '').split('\n');
+  const affiliateUrl = String(convertedUrl?.affiliateUrl || '').trim();
+  const originalUrl = String(convertedUrl?.originalUrl || '').replace(/^https?:\/\//i, '');
+  const lineIndex = findProductUrlLineIndex(lines, affiliateUrl, originalUrl);
+  const contextStart = lineIndex >= 0 ? lineIndex : 0;
+  const sameLine = lineIndex >= 0 ? lines[lineIndex] : '';
+  const title =
+    cleanPostLayoutTitle(removeKnownUrlsFromLine(sameLine, [affiliateUrl, originalUrl])) ||
+    cleanPostLayoutTitle(findPreviousProductTitleLine(lines, contextStart)) ||
+    `Oferta ${index + 1}`;
+  const priceLines = collectNearbyPriceLines(lines, contextStart);
+
+  return {
+    title,
+    price: priceLines[0] || '',
+    installment: priceLines[1] || ''
+  };
+}
+
+function findProductUrlLineIndex(lines, affiliateUrl, originalUrl) {
+  return lines.findIndex((line) => {
+    const normalized = String(line ?? '');
+    return [affiliateUrl, originalUrl].filter(Boolean).some((url) => normalized.includes(url));
+  });
+}
+
+function findPreviousProductTitleLine(lines, index) {
+  for (let current = index - 1; current >= 0; current -= 1) {
+    const line = String(lines[current] ?? '').trim();
+
+    if (!line || /R\$\s?[\d.]+(?:,\d{2})?/i.test(line) || /^[-_*]+$/.test(line)) {
+      continue;
+    }
+
+    return line;
+  }
+
+  return '';
+}
+
+function collectNearbyPriceLines(lines, index) {
+  const prices = [];
+
+  for (let current = Math.max(0, index); current < Math.min(lines.length, index + 6); current += 1) {
+    const line = cleanCommercialDisplayLine(lines[current]);
+
+    if (/R\$\s?[\d.]+(?:,\d{2})?/i.test(line)) {
+      prices.push(line);
+    }
+
+    if (prices.length >= 2) {
+      break;
+    }
+  }
+
+  return prices;
+}
+
+function removeKnownUrlsFromLine(line, urls) {
+  return urls
+    .filter(Boolean)
+    .reduce((value, url) => value.split(url).join(''), String(line ?? ''));
+}
+
+function cleanPostLayoutTitle(value) {
+  return stripWrappedFormattingMarkers(value)
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\b[a-z0-9-]+\.[a-z]{2,}\/\S+/gi, '')
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/[*_~`[\](){}]/g, '')
+    .replace(/^[\s:;,\-.>]+/g, '')
+    .replace(/[\s:;,\-.>]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, 90);
+}
+
+function cleanCommercialDisplayLine(value) {
+  return String(value ?? '')
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
+    .replace(/[*_~`]/g, '')
+    .replace(/^[\s:;,\-.>]+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, 64);
 }
 
 function inferImageExtension(mimeType) {

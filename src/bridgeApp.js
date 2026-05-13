@@ -191,6 +191,14 @@ export class BridgeApp {
       await respondWithState(request, response);
     });
 
+    app.post('/api/post-layout', requireWriteAccess, async (request, response) => {
+      await runUserOperation(request, 'post-layout:update', async () => {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        await runtime.updatePostLayout(request.body || {});
+      });
+      await respondWithState(request, response);
+    });
+
     app.post('/api/telegram/send-code', requireWriteAccess, async (request, response) => {
       await runUserOperation(request, 'telegram:send-code', async () => {
         const runtime = await this.manager.getRuntimeForUser(request.user);
@@ -242,6 +250,30 @@ export class BridgeApp {
         await runtime.updateGroups(selectedGroupIds);
       });
       await respondWithState(request, response);
+    });
+
+    app.get('/api/groups/list', requireAuth, async (request, response) => {
+      try {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        const search = String(request.query?.search ?? '').trim();
+        const page = Math.max(1, parseInt(String(request.query?.page ?? '1'), 10) || 1);
+        const pageSize = Math.min(100, Math.max(10, parseInt(String(request.query?.pageSize ?? '50'), 10) || 50));
+        const filter = String(request.query?.filter ?? 'all').trim();
+        const result = runtime.getGroupsPage({ search, page, pageSize, filter });
+        response.json(result);
+      } catch (error) {
+        response.status(500).json({ error: error?.message || 'Não foi possível carregar a lista de grupos.' });
+      }
+    });
+
+    app.get('/api/groups/status', requireAuth, async (request, response) => {
+      try {
+        const runtime = await this.manager.getRuntimeForUser(request.user);
+        const statusPage = runtime.getGroupsPage({ page: 1, pageSize: 1 });
+        response.json(statusPage.meta);
+      } catch (error) {
+        response.status(500).json({ error: error?.message || 'Não foi possível obter o status dos grupos.' });
+      }
     });
 
     app.post('/api/refresh-groups', requireWriteAccess, async (request, response) => {

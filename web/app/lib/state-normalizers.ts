@@ -15,6 +15,16 @@ export function createAuthenticatedShellState(auth: AppState['auth']): AppState 
       hasTelegramSession: false,
       bridgeEnabled: false,
       disconnectWhatsAppOnLogout: false,
+      postLayout: {
+        enabled: false,
+        brandName: '',
+        headline: 'Ofertas selecionadas',
+        primaryColor: '#0f172a',
+        accentColor: '#25D366',
+        backgroundColor: '#f8fafc',
+        textColor: '#111827',
+        maxProducts: 2
+      },
       selectedGroupIds: []
     },
     metrics: {},
