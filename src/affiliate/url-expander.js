@@ -85,9 +85,22 @@ async function followRedirects(originalUrl, method, timeoutMs, maxRedirects) {
 
       const resolvedUrl = response.url || currentUrl;
       const htmlRedirectUrl = await extractHtmlRedirectUrl(response, resolvedUrl);
-      const expandedUrl = htmlRedirectUrl || resolvedUrl;
 
-      return { originalUrl, expandedUrl, success: true };
+      if (htmlRedirectUrl && htmlRedirectUrl !== currentUrl && htmlRedirectUrl !== resolvedUrl) {
+        if (!isSafeHttpUrl(htmlRedirectUrl)) {
+          return {
+            originalUrl,
+            expandedUrl: resolvedUrl,
+            success: false,
+            error: 'HTML redirect target has unsafe protocol'
+          };
+        }
+
+        currentUrl = htmlRedirectUrl;
+        continue;
+      }
+
+      return { originalUrl, expandedUrl: resolvedUrl, success: true };
     } catch (error) {
       return {
         originalUrl,
@@ -122,7 +135,8 @@ async function extractHtmlRedirectUrl(response, baseUrl) {
       /<meta[^>]+http-equiv=["']refresh["'][^>]+content=["'][^"']*url=([^"']+)["']/i,
       /window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i,
       /location\.replace\(\s*["']([^"']+)["']\s*\)/i,
-      /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
+      /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i,
+      /<a[^>]+href=["']([^"']*(?:amazon\.com(?:\.br)?|amzn\.to|shopee\.com(?:\.br)?|shope\.ee)[^"']*)["']/i
     ];
 
     for (const pattern of patterns) {
