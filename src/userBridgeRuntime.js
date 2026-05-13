@@ -1736,11 +1736,19 @@ export class UserBridgeRuntime {
     const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
 
     if (mode === 'system_layout') {
-      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls, {
+        force: true
+      });
 
       if (layoutPayload) {
         return layoutPayload;
       }
+
+      // In explicit system layout mode, never reuse source media branding.
+      return {
+        type: 'text',
+        text: messageText
+      };
     }
 
     if (mode === 'product_image') {
@@ -1782,11 +1790,18 @@ export class UserBridgeRuntime {
     const mode = normalizeAffiliateMediaSourceMode(automation?.mediaSourceMode);
 
     if (mode === 'system_layout') {
-      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls);
+      const layoutPayload = await this.prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls, {
+        force: true
+      });
 
       if (layoutPayload) {
         return layoutPayload;
       }
+
+      return {
+        type: 'text',
+        text: messageText
+      };
     }
 
     if (mode === 'product_image') {
@@ -1851,10 +1866,11 @@ export class UserBridgeRuntime {
     return mediaPayload;
   }
 
-  async prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls = []) {
+  async prepareAffiliateCleanPostLayoutPayload(messageText, convertedUrls = [], options = {}) {
     const settings = normalizePostLayoutConfig(this.config?.postLayout);
+    const force = Boolean(options.force);
 
-    if (!settings.enabled) {
+    if (!settings.enabled && !force) {
       return null;
     }
 
