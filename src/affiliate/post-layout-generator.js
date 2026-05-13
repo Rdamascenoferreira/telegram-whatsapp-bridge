@@ -141,7 +141,7 @@ function buildProductCardSvg(product, slot, settings, total) {
   const titleSize = compact ? 22 : 26;
   const priceSize = compact ? 30 : 42;
   const titleLines = wrapText(product.title || 'Produto em oferta', compact ? 28 : 30, compact ? 2 : 3);
-  const price = product.price || 'Confira no link';
+  const price = compactPriceForBadge(product.price || '');
   const installment = product.installment || '';
   const marketplace = product.marketplace ? String(product.marketplace).toUpperCase() : 'OFERTA';
   const titleY = slot.y + (compact ? 46 : 54);
@@ -160,6 +160,21 @@ function buildProductCardSvg(product, slot, settings, total) {
   <text x="${detailsX + 24}" y="${detailsY + (compact ? 84 : 92)}" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="${priceSize}" font-weight="900">${escapeXml(price)}</text>
   ${installment ? `<text x="${detailsX + 24}" y="${detailsY + priceBoxHeight + 34}" fill="${settings.textColor}" opacity="0.75" font-family="Arial, Helvetica, sans-serif" font-size="${compact ? 16 : 20}" font-weight="700">${escapeXml(installment)}</text>` : ''}
   `;
+}
+
+function compactPriceForBadge(value) {
+  const source = String(value || '').replace(/\s+/g, ' ').trim();
+  const match = source.match(/R\$\s?[\d.]+(?:,\d{2})?/i);
+
+  if (match?.[0]) {
+    return match[0].replace(/\s+/g, ' ').trim();
+  }
+
+  if (source.length <= 24) {
+    return source || 'Confira no link';
+  }
+
+  return `${source.slice(0, 24).trim()}...`;
 }
 
 function wrapText(value, maxChars, maxLines) {
