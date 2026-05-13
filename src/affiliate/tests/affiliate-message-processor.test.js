@@ -136,6 +136,50 @@ test('processAffiliateMessage ignores footer/community unknown links without dro
   assert.equal(result.shouldSend, true);
   assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0ABC12345\?tag=tagdocliente-20/);
   assert.doesNotMatch(result.processedMessage, /instagram\.com/i);
+  assert.doesNotMatch(result.processedMessage, /Visite nosso insta/i);
+});
+
+test('processAffiliateMessage converts offer short links and removes Jogo Barato social footer', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation: { ...automation, unknownLinkBehavior: 'ignore_message' },
+    account,
+    dryRun: true,
+    message: [
+      '[Amazon] Franquia Mortal Kombat (PS5)',
+      '',
+      'MK 11 Ultimate: jogobara.to/mEwin',
+      'R$ 111,50 no Pix ou NuPay',
+      'R$ 119,90 em ate 3x',
+      '',
+      'MK 1: jogobara.to/sxYtJ',
+      'R$ 130,10 no pix ou NuPay',
+      'R$ 139,90 em ate 6x',
+      '',
+      'Frete Gratis',
+      '',
+      'Canais de Promocoes do Jogo Barato (https://www.jogobarato.com.br/redes-sociais)'
+    ].join('\n'),
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url.includes('mEwin')
+        ? 'https://www.amazon.com.br/dp/B08M511L1B?tag=old-20'
+        : url.includes('sxYtJ')
+          ? 'https://www.amazon.com.br/dp/B0CD2RBWM6?tag=old-20'
+          : url,
+      success: true
+    })
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.shouldSend, true);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B08M511L1B\?tag=tagdocliente-20/);
+  assert.match(result.processedMessage, /https:\/\/www\.amazon\.com\.br\/dp\/B0CD2RBWM6\?tag=tagdocliente-20/);
+  assert.doesNotMatch(result.processedMessage, /Canais de Promocoes/i);
+  assert.doesNotMatch(result.processedMessage, /redes-sociais/i);
+  assert.doesNotMatch(result.processedMessage, /\(\)/);
+  assert.equal(result.convertedUrls.filter((item) => item.status === 'converted').length, 2);
 });
 
 test('processAffiliateMessage converts real Telegram entity URLs hidden behind anchor text', async () => {

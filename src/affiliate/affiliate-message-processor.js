@@ -87,6 +87,7 @@ export async function processAffiliateMessage(params = {}) {
 
     const replacements = new Map();
     const convertedUrls = [];
+    const footerLineRemovalIndexes = new Set();
     let shouldIgnoreEntireMessage = false;
 
     for (const urlMatch of uniqueUrlMatches(urlMatches)) {
@@ -120,6 +121,7 @@ export async function processAffiliateMessage(params = {}) {
         const footerLink = isLikelyFooterUrlByContext(originalMessage, urlMatch);
         if (footerLink) {
           addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
+          markFooterLineForRemoval(originalMessage, urlMatch, footerLineRemovalIndexes);
           conversion.error = 'Footer/community link ignored by smart cleanup';
         } else if (automation.unknownLinkBehavior === 'remove') {
           addReplacement(replacements, originalUrl, replacementTarget, '', urlMatch);
@@ -161,6 +163,7 @@ export async function processAffiliateMessage(params = {}) {
     }
 
     let processedMessage = rebuildMessageWithUrlReplacements(originalMessage, urlMatches, replacements);
+    processedMessage = removeMarkedFooterLines(processedMessage, footerLineRemovalIndexes);
 
     if (automation.removeOriginalFooter) {
       processedMessage = removeLikelyFooter(processedMessage);
@@ -367,6 +370,63 @@ function isLikelyFooterUrlByContext(message, urlMatch) {
     'chat.whatsapp.com',
     'wa.me/'
   ].some((token) => normalizedUrl.includes(token));
+}
+
+function markFooterLineForRemoval(message, urlMatch, lineIndexes) {
+  const text = String(message ?? '');
+  const offset = Number(urlMatch?.offset ?? -1);
+
+  if (!Number.isInteger(offset) || offset < 0 || offset > text.length) {
+    return;
+  }
+
+  const lines = text.split('\n');
+  const lineIndex = text.slice(0, offset).split('\n').length - 1;
+
+  if (lineIndex < 0 || lineIndex >= lines.length) {
+    return;
+  }
+
+  lineIndexes.add(lineIndex);
+
+  const previousIndex = findPreviousNonEmptyLineIndex(lines, lineIndex);
+  if (previousIndex >= 0 && isStandaloneFooterIntroLine(lines[previousIndex])) {
+    lineIndexes.add(previousIndex);
+  }
+}
+
+function removeMarkedFooterLines(message, lineIndexes) {
+  if (!lineIndexes?.size) {
+    return message;
+  }
+
+  const lines = String(message ?? '').split('\n');
+  const kept = lines.filter((_, index) => !lineIndexes.has(index));
+  return normalizePreservedSpacing(kept.join('\n'));
+}
+
+function findPreviousNonEmptyLineIndex(lines, index) {
+  for (let current = index - 1; current >= 0; current -= 1) {
+    if (String(lines[current] ?? '').trim()) {
+      return current;
+    }
+  }
+
+  return -1;
+}
+
+function isStandaloneFooterIntroLine(line) {
+  const normalized = normalizeContext(line).trim();
+
+  return [
+    /^visite\s+nosso\s+insta\s*:?\s*$/,
+    /^instagram\s*:?\s*$/,
+    /^telegram\s*:?\s*$/,
+    /^whatsapp\s*:?\s*$/,
+    /^canais?\s+de\s+promocoes?\s*:?\s*$/,
+    /^redes\s+sociais\s*:?\s*$/,
+    /^siga\s+(nosso|o)\s+(insta|instagram|canal|grupo)\s*:?\s*$/
+  ].some((pattern) => pattern.test(normalized));
 }
 
 function getUrlLineContext(message, urlMatch) {
