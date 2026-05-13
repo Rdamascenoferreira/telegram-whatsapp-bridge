@@ -629,9 +629,14 @@ function OffersPanel({
               </div>
               {offer.reason && (
                 <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                  <p className="text-xs text-amber-200/80">Motivo: {humanize(offer.reason)}</p>
+                  <p className="text-xs text-amber-200/80">Motivo: {describeOfferReason(offer)}</p>
                 </div>
               )}
+              {!offer.reason && offer.status === 'ignored' ? (
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                  <p className="text-xs text-amber-200/80">Motivo: Mensagem ignorada por regra de fluxo.</p>
+                </div>
+              ) : null}
             </article>
           ))
         ) : (
@@ -693,6 +698,36 @@ function formatOfferTelegramSummary(offer: ActivityOffer) {
   const status = humanize(String(telegram.status || 'received'));
   const detail = String(telegram.detail || '').trim();
   return detail ? `${status} (${detail})` : status;
+}
+
+function describeOfferReason(offer: ActivityOffer) {
+  const reason = String(offer.reason || '').trim().toLowerCase();
+  if (!reason) {
+    return 'Nao informado.';
+  }
+
+  const mapped: Record<string, string> = {
+    bridge_disabled: 'O sistema estava desligado no momento do recebimento.',
+    no_groups_selected: 'Nenhum destino do WhatsApp estava selecionado.',
+    qr_required: 'O WhatsApp estava aguardando leitura do QR Code.',
+    authenticated: 'O WhatsApp ainda estava autenticando.',
+    connecting: 'O WhatsApp estava conectando.',
+    reconnecting: 'O WhatsApp estava reconectando.',
+    disconnected: 'A sessao do WhatsApp estava desconectada.',
+    browser_closed: 'A janela do WhatsApp estava fechada ou reiniciando.',
+    recoverable_target_error: 'Falha temporaria na sessao do WhatsApp; mensagem enviada para fila.',
+    duplicate_delivery_key: 'Mensagem duplicada detectada e ignorada para evitar reenvio.'
+  };
+
+  if (mapped[reason]) {
+    return mapped[reason];
+  }
+
+  if (reason.startsWith('telegram indisponivel')) {
+    return 'O Telegram estava indisponivel para encaminhamento complementar.';
+  }
+
+  return humanize(offer.reason || '');
 }
 
 function StatusPill({ status }: { status: string }) {
