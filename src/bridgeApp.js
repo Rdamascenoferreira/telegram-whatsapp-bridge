@@ -22,6 +22,8 @@ import { BridgeManager } from './bridgeManager.js';
 import { loadConfigForUser } from './configStore.js';
 import { ensurePlanCount, ensurePlanFeature, getPlanLimits } from './planLimits.js';
 
+const simulatorInlinePreviewMaxBytes = 320 * 1024;
+
 function isOperationalWhatsAppStatus(value) {
   return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
 }
@@ -879,12 +881,20 @@ function serializeAffiliatePayloadForSimulation(payload) {
 
   if (payload.type === 'media' && payload.base64) {
     const mimeType = String(payload.mimeType || 'image/jpeg');
+    const base64 = String(payload.base64 || '');
+    const mediaBytes = Buffer.byteLength(base64, 'base64');
+    const mediaPreviewUrl =
+      mediaBytes <= simulatorInlinePreviewMaxBytes
+        ? `data:${mimeType};base64,${base64}`
+        : '';
     return {
       type: 'media',
       caption: String(payload.caption || ''),
       mimeType,
       filename: String(payload.filename || ''),
-      mediaPreviewUrl: `data:${mimeType};base64,${String(payload.base64)}`
+      mediaBytes,
+      previewOmitted: mediaBytes > simulatorInlinePreviewMaxBytes,
+      mediaPreviewUrl
     };
   }
 

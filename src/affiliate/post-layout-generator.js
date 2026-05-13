@@ -42,7 +42,15 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
   }
 
   const svg = buildLayoutSvg({ products: items, slots, settings: layout });
-  return await sharp(Buffer.from(svg)).composite(composites).png().toBuffer();
+  return await sharp(Buffer.from(svg))
+    .composite(composites)
+    .png({
+      compressionLevel: 9,
+      effort: 9,
+      palette: true,
+      quality: 82
+    })
+    .toBuffer();
 }
 
 function buildSlots(count) {
@@ -53,10 +61,10 @@ function buildSlots(count) {
         y: 245,
         width: 760,
         height: 610,
-        imageX: 330,
-        imageY: 325,
-        imageWidth: 540,
-        imageHeight: 340
+        imageX: 300,
+        imageY: 390,
+        imageWidth: 600,
+        imageHeight: 270
       }
     ];
   }
@@ -69,9 +77,9 @@ function buildSlots(count) {
         width: 500,
         height: 610,
         imageX: 140,
-        imageY: 330,
+        imageY: 388,
         imageWidth: 360,
-        imageHeight: 330
+        imageHeight: 250
       },
       {
         x: 630,
@@ -79,9 +87,9 @@ function buildSlots(count) {
         width: 500,
         height: 610,
         imageX: 700,
-        imageY: 330,
+        imageY: 388,
         imageWidth: 360,
-        imageHeight: 330
+        imageHeight: 250
       }
     ];
   }
@@ -104,9 +112,9 @@ function buildSlots(count) {
       width,
       height,
       imageX: x + 28,
-      imageY: y + 68,
+      imageY: y + 126,
       imageWidth: 190,
-      imageHeight: 170
+      imageHeight: 140
     });
   }
 
@@ -116,7 +124,6 @@ function buildSlots(count) {
 function buildLayoutSvg({ products, slots, settings }) {
   const brandName = settings.brandName || 'Oferta do dia';
   const headline = settings.headline || 'Ofertas selecionadas';
-  const footer = products.length > 1 ? `${products.length} ofertas convertidas` : 'Oferta convertida';
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
@@ -126,7 +133,6 @@ function buildLayoutSvg({ products, slots, settings }) {
   <text x="70" y="78" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">${escapeXml(brandName)}</text>
   <text x="70" y="122" fill="rgba(255,255,255,0.76)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">${escapeXml(headline)}</text>
   ${products.map((product, index) => buildProductCardSvg(product, slots[index], settings, products.length)).join('\n')}
-  <text x="70" y="940" fill="${settings.textColor}" opacity="0.55" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">${escapeXml(footer)}</text>
 </svg>`;
 }
 

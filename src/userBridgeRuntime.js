@@ -48,6 +48,30 @@ const maxRecentDeliveryReceipts = 4000;
 const deliveryReceiptsFilename = 'delivery-receipts.json';
 const ogImageFetchTimeoutMs = 7000;
 const ogImageMaxBytes = 3 * 1024 * 1024;
+const postLayoutRenderTimeoutMs = parseBoundedTimeout(
+  process.env.POST_LAYOUT_RENDER_TIMEOUT_MS,
+  6500,
+  1000,
+  30000
+);
+const postLayoutCacheTtlMs = parseBoundedTimeout(
+  process.env.POST_LAYOUT_CACHE_TTL_MS,
+  10 * 60 * 1000,
+  30 * 1000,
+  60 * 60 * 1000
+);
+const postLayoutCacheMaxEntries = parseBoundedInteger(
+  process.env.POST_LAYOUT_CACHE_MAX_ENTRIES,
+  160,
+  10,
+  5000
+);
+const postLayoutMaxGenerationsPerMinute = parseBoundedInteger(
+  process.env.POST_LAYOUT_MAX_GENERATIONS_PER_MINUTE,
+  24,
+  1,
+  1000
+);
 const modernChromeUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
 const defaultWhatsAppHeadless = !['0', 'false', 'no', 'off'].includes(
@@ -161,6 +185,11 @@ export class UserBridgeRuntime {
     };
     this.persistDeliveryReceiptsPromise = Promise.resolve();
     this.lastWhatsAppRecoveryAttemptAt = 0;
+    this.postLayoutRenderCache = new Map();
+    this.postLayoutGenerationWindow = {
+      startedAt: 0,
+      count: 0
+    };
     this.initialized = false;
   }
 
@@ -1882,32 +1911,62 @@ export class UserBridgeRuntime {
       return null;
     }
 
+    const cacheKey = this.buildPostLayoutCacheKey({ messageText, converted, settings });
+    const cachedPayload = this.getCachedPostLayoutPayload(cacheKey);
+    if (cachedPayload) {
+      return {
+        type: 'media',
+        base64: cachedPayload.base64,
+        mimeType: cachedPayload.mimeType,
+        filename: `affiliate-layout-${Date.now()}.${inferImageExtension(cachedPayload.mimeType)}`,
+        caption: messageText
+      };
+    }
+
+    if (!this.reservePostLayoutGenerationSlot()) {
+      this.log('Layout de postagem ignorado por limite de geracoes por minuto.', {
+        level: 'error',
+        type: 'affiliate_post_layout_rate_limit',
+        increments: { errors: 1 },
+        metadata: {
+          limit: postLayoutMaxGenerationsPerMinute
+        }
+      });
+      return null;
+    }
+
     try {
-      const products = [];
-
-      for (let index = 0; index < converted.length; index += 1) {
-        const item = converted[index];
-        const imageUrl = await this.fetchOpenGraphImageUrl(item.affiliateUrl);
-        const imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
-        const details = extractPostLayoutProductDetails(messageText, item, index);
-
-        products.push({
-          ...details,
-          marketplace: item.marketplace,
-          imageBuffer
-        });
-      }
-
-      const imageBuffer = await generateCleanPostLayoutImage({ products, settings });
+      const products = await Promise.all(
+        converted.map(async (item, index) => {
+          const imageUrl = await this.fetchOpenGraphImageUrl(item.affiliateUrl);
+          const imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
+          const details = extractPostLayoutProductDetails(messageText, item, index);
+          return {
+            ...details,
+            marketplace: item.marketplace,
+            imageBuffer
+          };
+        })
+      );
+      const imageBuffer = await withTimeout(
+        generateCleanPostLayoutImage({ products, settings }),
+        postLayoutRenderTimeoutMs
+      );
 
       if (!imageBuffer) {
         return null;
       }
+      const mimeType = 'image/png';
+      const base64 = imageBuffer.toString('base64');
+      this.setCachedPostLayoutPayload(cacheKey, {
+        base64,
+        mimeType
+      });
 
       return {
         type: 'media',
-        base64: imageBuffer.toString('base64'),
-        mimeType: 'image/png',
+        base64,
+        mimeType,
         filename: `affiliate-layout-${Date.now()}.png`,
         caption: messageText
       };
@@ -1918,6 +1977,84 @@ export class UserBridgeRuntime {
         increments: { errors: 1 }
       });
       return null;
+    }
+  }
+
+  reservePostLayoutGenerationSlot() {
+    const now = Date.now();
+    const windowStart = this.postLayoutGenerationWindow.startedAt || 0;
+    const elapsed = now - windowStart;
+
+    if (elapsed >= 60 * 1000) {
+      this.postLayoutGenerationWindow.startedAt = now;
+      this.postLayoutGenerationWindow.count = 0;
+    }
+
+    if (this.postLayoutGenerationWindow.count >= postLayoutMaxGenerationsPerMinute) {
+      return false;
+    }
+
+    this.postLayoutGenerationWindow.count += 1;
+    return true;
+  }
+
+  buildPostLayoutCacheKey({ messageText, converted, settings }) {
+    const normalizedUrls = Array.isArray(converted)
+      ? converted.map((item) => String(item?.affiliateUrl || '').trim()).filter(Boolean).join('|')
+      : '';
+    const signature = JSON.stringify({
+      messageText: String(messageText || '').trim(),
+      normalizedUrls,
+      settings: {
+        brandName: settings.brandName,
+        headline: settings.headline,
+        primaryColor: settings.primaryColor,
+        accentColor: settings.accentColor,
+        backgroundColor: settings.backgroundColor,
+        textColor: settings.textColor,
+        maxProducts: settings.maxProducts
+      }
+    });
+
+    return crypto.createHash('sha1').update(signature).digest('hex');
+  }
+
+  getCachedPostLayoutPayload(cacheKey) {
+    if (!cacheKey) {
+      return null;
+    }
+
+    const entry = this.postLayoutRenderCache.get(cacheKey);
+
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt <= Date.now()) {
+      this.postLayoutRenderCache.delete(cacheKey);
+      return null;
+    }
+
+    return entry.payload;
+  }
+
+  setCachedPostLayoutPayload(cacheKey, payload) {
+    if (!cacheKey || !payload?.base64 || !payload?.mimeType) {
+      return;
+    }
+
+    this.postLayoutRenderCache.set(cacheKey, {
+      expiresAt: Date.now() + postLayoutCacheTtlMs,
+      payload
+    });
+
+    if (this.postLayoutRenderCache.size <= postLayoutCacheMaxEntries) {
+      return;
+    }
+
+    const oldestKey = this.postLayoutRenderCache.keys().next().value;
+    if (oldestKey) {
+      this.postLayoutRenderCache.delete(oldestKey);
     }
   }
 

@@ -54,6 +54,8 @@ export function AffiliateAutomationPanel({
         mimeType?: string;
         filename?: string;
         mediaPreviewUrl?: string;
+        mediaBytes?: number;
+        previewOmitted?: boolean;
       } | null;
       telegram?: {
         type: 'text' | 'media';
@@ -62,6 +64,8 @@ export function AffiliateAutomationPanel({
         mimeType?: string;
         filename?: string;
         mediaPreviewUrl?: string;
+        mediaBytes?: number;
+        previewOmitted?: boolean;
       } | null;
     } | null;
   } | null>(null);
@@ -262,8 +266,13 @@ export function AffiliateAutomationPanel({
               />
             ) : null}
             <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-              Modo: media {payload.mimeType ? `| ${payload.mimeType}` : ''}
+              Modo: media {payload.mimeType ? `| ${payload.mimeType}` : ''}{payload.mediaBytes ? ` | ${Math.round(payload.mediaBytes / 1024)}KB` : ''}
             </p>
+            {payload.previewOmitted ? (
+              <p className="text-[11px] text-zinc-500">
+                Preview omitido para reduzir peso da simulacao. O envio real continua com a midia completa.
+              </p>
+            ) : null}
             <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-white/5 bg-black/20 p-3 font-mono text-[12px] leading-relaxed text-zinc-200">
               {payload.caption || ''}
             </pre>
