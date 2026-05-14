@@ -68,6 +68,7 @@ jobs:
           test -n "$AWS_DEPLOY_SSH_KEY" || (echo "Missing secret AWS_DEPLOY_SSH_KEY" && exit 1)
 
       - name: Build release archive
+        id: build_release
         run: |
           set -euo pipefail
           npm ci --omit=dev --no-audit --no-fund
@@ -89,6 +90,9 @@ jobs:
             --exclude='./.wwebjs_cache' \
             --exclude='./release.tgz' \
             -czf "$ARCHIVE_PATH" .
+
+          test -s "$ARCHIVE_PATH" || (echo "Release archive not created: $ARCHIVE_PATH" && exit 1)
+          echo "archive_path=$ARCHIVE_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH
         env:
@@ -129,10 +133,12 @@ jobs:
         env:
           AWS_DEPLOY_HOST: ${{ secrets.AWS_DEPLOY_HOST }}
           AWS_DEPLOY_USER: ${{ secrets.AWS_DEPLOY_USER }}
+          ARCHIVE_PATH: ${{ steps.build_release.outputs.archive_path }}
         run: |
           set -euo pipefail
           SSH_OPTS="-o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o StrictHostKeyChecking=yes"
-          ARCHIVE_PATH="/tmp/telegram-whatsapp-bridge-release.tgz"
+          test -n "${ARCHIVE_PATH:-}" || (echo "archive_path output is empty" && exit 1)
+          test -s "$ARCHIVE_PATH" || (echo "Archive not found: $ARCHIVE_PATH" && ls -lah /tmp && exit 1)
           ARCHIVE_SIZE="$(wc -c < "$ARCHIVE_PATH")"
           ARCHIVE_SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
 
