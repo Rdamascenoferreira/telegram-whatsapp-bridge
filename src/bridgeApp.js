@@ -1,28 +1,23 @@
 import { appendActivityEvent, defaultMetrics, loadActivityForUser, saveActivityForUser } from './activityStore.js';
+import { getAffiliateState } from './affiliate/affiliate-store.js';
 import {
-  acceptAffiliateTerms,
-  getActiveAffiliateAutomationsBySource,
-  getAffiliateState,
-  setAffiliateAutomationActive,
-  updateAffiliateAutomationRules,
-  upsertAffiliateAccount,
-  upsertAffiliateAutomation
-} from './affiliate/affiliate-store.js';
-import { processAffiliateMessage } from './affiliate/affiliate-message-processor.js';
-import {
-  deleteUserAccount,
-  findUserById,
   listUsersForAdmin,
-  updateUserAdminSettings,
   userAccountStatusOptions,
   userBillingStatusOptions,
   userPlanOptions
 } from './authStore.js';
 import { BridgeManager } from './bridgeManager.js';
 import { loadConfigForUser } from './configStore.js';
-import { ensurePlanCount, ensurePlanFeature, getPlanLimits } from './planLimits.js';
+import { ensurePlanCount, getPlanLimits } from './planLimits.js';
+import { attachAdminRoutes } from './routes/adminRoutes.js';
+import { attachAffiliateRoutes } from './routes/affiliateRoutes.js';
+import {
+  computeAffiliateAutomationFieldErrors,
+  ensureTelegramSourceIsNotUsedByAffiliate,
+  isAmazonShortenerGloballyEnabled
+} from './services/affiliate/validation.js';
 
-const simulatorInlinePreviewMaxBytes = 320 * 1024;
+export { computeAffiliateAutomationFieldErrors };
 
 function isOperationalWhatsAppStatus(value) {
   return ['authenticated', 'ready'].includes(String(value ?? '').trim().toLowerCase());
@@ -346,206 +341,23 @@ export class BridgeApp {
       response.json({ ok: true });
     });
 
-    app.post('/api/affiliate/account', requireWriteAccess, async (request, response) => {
-      await runUserOperation(request, 'affiliate:account', async () => {
-        const affiliateState = await getAffiliateState(request.user.id);
-        ensureAffiliateTermsAccepted(affiliateState);
-        ensureAffiliateAccountPlan(request.user.plan, request.body || {});
-        ensureAffiliateAccountPayload(request.body || {}, affiliateState.account);
-        await upsertAffiliateAccount(request.user.id, request.body || {});
-      });
-      await respondWithState(request, response);
+    attachAffiliateRoutes({
+      app,
+      requireWriteAccess,
+      manager: this.manager,
+      runUserOperation,
+      respondWithState,
+      getRequestIp
     });
 
-    app.post('/api/affiliate/automations', requireWriteAccess, async (request, response) => {
-      await runUserOperation(request, 'affiliate:automation', async () => {
-        const runtime = await this.manager.getRuntimeForUser(request.user);
-        const affiliateState = await getAffiliateState(request.user.id);
-        const normalizedPayload = request.body || {};
-        await ensureAffiliateAutomationPayload({
-          user: request.user,
-          runtime,
-          affiliateState,
-          payload: normalizedPayload
-        });
-        const replaceTelegramBridgeSource = Boolean(request.body?.replaceTelegramBridgeSource);
-        ensureAffiliateSourceIsNotUsedByTelegram(
-          runtime.config.telegramChannel,
-          normalizedPayload.telegramSourceGroupId,
-          { allowReplacement: replaceTelegramBridgeSource }
-        );
-        await upsertAffiliateAutomation(request.user.id, normalizedPayload);
-        if (replaceTelegramBridgeSource && runtime.config.telegramChannel) {
-          await runtime.updateSettings({
-            ...runtime.config,
-            telegramMode: 'user',
-            telegramBotToken: '',
-            telegramChannel: ''
-          });
-        }
-      });
-      await respondWithState(request, response);
-    });
-
-    app.post('/api/affiliate/automations/:automationId/toggle', requireWriteAccess, async (request, response) => {
-      await runUserOperation(request, 'affiliate:toggle', async () => {
-        if (Boolean(request.body?.isActive)) {
-          ensureAffiliateTermsAccepted(await getAffiliateState(request.user.id));
-        }
-        await setAffiliateAutomationActive(
-          request.user.id,
-          String(request.params.automationId ?? '').trim(),
-          Boolean(request.body?.isActive)
-        );
-      });
-      await respondWithState(request, response);
-    });
-
-    app.post('/api/affiliate/automations/:automationId/rules', requireWriteAccess, async (request, response) => {
-      await runUserOperation(request, 'affiliate:rules', async () => {
-        ensureAffiliateTermsAccepted(await getAffiliateState(request.user.id));
-        await updateAffiliateAutomationRules(
-          request.user.id,
-          String(request.params.automationId ?? '').trim(),
-          request.body || {}
-        );
-      });
-      await respondWithState(request, response);
-    });
-
-    app.post('/api/affiliate/terms/accept', requireWriteAccess, async (request, response) => {
-      await runUserOperation(request, 'affiliate:terms', async () => {
-        await acceptAffiliateTerms(request.user.id, {
-          ipAddress: getRequestIp(request),
-          userAgent: request.headers['user-agent']
-        });
-      });
-      await respondWithState(request, response);
-    });
-
-    app.post('/api/affiliate/test', requireWriteAccess, async (request, response) => {
-      const result = await runUserOperation(request, 'affiliate:test', async () => {
-        const affiliateState = await getAffiliateState(request.user.id);
-        ensureAffiliateTermsAccepted(affiliateState);
-        const message = String(request.body?.message ?? '');
-        const automationId = String(request.body?.automationId ?? '').trim();
-        const draftAutomation = request.body?.automation
-          ? normalizeAffiliateAutomationDraft(request.user.id, request.body.automation)
-          : null;
-        const simulationResult = await processAffiliateMessage({
-          userId: request.user.id,
-          automationId: draftAutomation ? '' : automationId,
-          automation: draftAutomation,
-          message,
-          dryRun: true
-        });
-
-        const automationForSimulation =
-          draftAutomation
-          || (affiliateState.automations || []).find((automation) => String(automation.id || '') === automationId)
-          || normalizeAffiliateAutomationDraft(request.user.id, {});
-
-        let channelPayloads = null;
-
-        if (simulationResult?.shouldSend && simulationResult?.processedMessage) {
-          const runtime = await this.manager.getRuntimeForUser(request.user);
-          const payloads = await runtime.prepareAffiliateChannelPayloads({
-            originalMessageText: String(simulationResult.processedMessage || ''),
-            telegramMessage: null,
-            automation: automationForSimulation,
-            convertedUrls: Array.isArray(simulationResult.convertedUrls) ? simulationResult.convertedUrls : []
-          });
-          channelPayloads = {
-            whatsApp: serializeAffiliatePayloadForSimulation(payloads?.whatsApp),
-            telegram: serializeAffiliatePayloadForSimulation(payloads?.telegram)
-          };
-        }
-
-        return {
-          ...simulationResult,
-          channelPayloads
-        };
-      });
-
-      response.json(result);
-    });
-
-    app.get('/api/admin/users', requireAdmin, async (_request, response) => {
-      response.json(await this.buildAdminState());
-    });
-
-    app.post('/api/admin/users/:userId', requireAdmin, async (request, response) => {
-      const targetUserId = String(request.params.userId ?? '').trim();
-      const updatedUser = await updateUserAdminSettings(String(request.params.userId ?? '').trim(), {
-        plan: request.body?.plan,
-        accountStatus: request.body?.accountStatus,
-        billingStatus: request.body?.billingStatus,
-        internalNote: request.body?.internalNote
-      });
-
-      if (request.user?.id === updatedUser.id) {
-        Object.assign(request.user, updatedUser);
-      }
-
-      if (updatedUser.accountStatus === 'suspended') {
-        await this.auth?.forceLogoutUser(updatedUser.id);
-      }
-
-      await auditAdminAction(request, 'admin.update_user_settings', targetUserId, 'success', {
-        plan: request.body?.plan,
-        accountStatus: request.body?.accountStatus,
-        billingStatus: request.body?.billingStatus
-      });
-      await respondWithState(request, response);
-    });
-
-    app.post('/api/admin/users/:userId/restart-runtime', requireAdmin, async (request, response) => {
-      const targetUserId = String(request.params.userId ?? '').trim();
-      const targetUser = await findUserById(targetUserId);
-
-      if (!targetUser) {
-        await auditAdminAction(request, 'admin.restart_runtime', targetUserId, 'not_found');
-        response.status(404).json({
-          authenticated: true,
-          googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Usuário não encontrado.'
-        });
-        return;
-      }
-
-      await this.manager.restartRuntimeForUserId(targetUserId);
-      await auditAdminAction(request, 'admin.restart_runtime', targetUserId, 'success');
-      await respondWithState(request, response);
-    });
-
-    app.delete('/api/admin/users/:userId', requireAdmin, async (request, response) => {
-      const targetUserId = String(request.params.userId ?? '').trim();
-      const targetUser = await findUserById(targetUserId);
-
-      if (!targetUser) {
-        await auditAdminAction(request, 'admin.delete_user', targetUserId, 'not_found');
-        response.status(404).json({
-          authenticated: true,
-          googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Usuário não encontrado.'
-        });
-        return;
-      }
-
-      if (request.user?.id === targetUserId) {
-        await auditAdminAction(request, 'admin.delete_user', targetUserId, 'blocked_self_delete');
-        response.status(400).json({
-          authenticated: true,
-          googleEnabled: this.auth?.googleEnabled ?? false,
-          error: 'Você não pode excluir a propria conta pelo painel admin.'
-        });
-        return;
-      }
-
-      await this.manager.destroyRuntimeForUserId(targetUserId);
-      await (this.auth ? this.auth.deleteAccount(targetUserId) : deleteUserAccount(targetUserId));
-      await auditAdminAction(request, 'admin.delete_user', targetUserId, 'success');
-      await respondWithState(request, response);
+    attachAdminRoutes({
+      app,
+      requireAdmin,
+      auth: this.auth,
+      manager: this.manager,
+      buildAdminState: this.buildAdminState.bind(this),
+      respondWithState,
+      auditAdminAction
     });
   }
 
@@ -765,239 +577,6 @@ export class BridgeApp {
       logs: []
     };
   }
-}
-
-function ensureAffiliateAccountPlan(plan, payload = {}) {
-  if (payload.amazonEnabled) {
-    ensurePlanFeature({
-      plan,
-      key: 'amazonAffiliate',
-      message: 'Conversão Amazon está disponível a partir do plano Plus.'
-    });
-  }
-
-  if (payload.shopeeEnabled) {
-    ensurePlanFeature({
-      plan,
-      key: 'shopeeAffiliate',
-      message: 'Conversão Shopee está disponível a partir do plano Pro.'
-    });
-  }
-}
-
-function ensureAffiliateTermsAccepted(affiliateState = {}) {
-  if (!affiliateState.termsAccepted) {
-    throw new Error('Aceite os termos de afiliados antes de configurar ou testar o automatizador.');
-  }
-}
-
-function ensureAffiliateAccountPayload(payload = {}, existingAccount = null) {
-  if (payload.amazonEnabled) {
-    const amazonTag = String(payload.amazonTag ?? '').trim();
-
-    if (!amazonTag) {
-      throw new Error('Informe sua tag de afiliado da Amazon antes de ativar a conversão Amazon.');
-    }
-
-    if (/\s/.test(amazonTag) || amazonTag.length > 80) {
-      throw new Error('A tag de afiliado da Amazon não pode ter espaços e deve ter até 80 caracteres.');
-    }
-  }
-
-  if (payload.shopeeEnabled) {
-    const shopeeAppId = String(payload.shopeeAppId ?? '').trim();
-    const shopeeSecret = String(payload.shopeeSecret ?? '').trim();
-    const existingSecretConfigured = Boolean(existingAccount?.shopeeSecretConfigured);
-
-    if (!shopeeAppId) {
-      throw new Error('Informe o App ID da Shopee antes de ativar a conversão Shopee.');
-    }
-
-    if (/\s/.test(shopeeAppId) || shopeeAppId.length > 80) {
-      throw new Error('O App ID da Shopee não pode ter espaços e deve ter até 80 caracteres.');
-    }
-
-    if (!shopeeSecret && !existingSecretConfigured) {
-      throw new Error('Informe o Secret/API Secret da Shopee antes de ativar a conversão Shopee.');
-    }
-  }
-}
-
-function ensureAffiliateAutomationPlan(plan, payload = {}, automations = []) {
-  const automationId = String(payload.id ?? '').trim();
-  const existingAutomation = automations.find((automation) => String(automation.id) === automationId);
-  const creatingNewAutomation = !automationId || !existingAutomation;
-  const nextAutomationCount = creatingNewAutomation ? automations.length + 1 : automations.length;
-  const destinations = Array.isArray(payload.destinations) ? payload.destinations : [];
-
-  ensurePlanCount({
-    plan,
-    key: 'affiliateAutomations',
-    count: nextAutomationCount,
-    label: 'A quantidade de automacoes de afiliados'
-  });
-  ensurePlanCount({
-    plan,
-    key: 'whatsappDestinations',
-    count: destinations.length,
-    label: 'Os destinos WhatsApp desta automação'
-  });
-}
-
-function isAmazonShortenerGloballyEnabled() {
-  return ['1', 'true', 'yes', 'on'].includes(
-    String(process.env.URL_SHORTENER_ENABLED ?? '').trim().toLowerCase()
-  );
-}
-
-function normalizeAffiliateAutomationDraft(userId, payload = {}) {
-  const mediaSourceMode = String(payload.mediaSourceMode ?? 'telegram_media').trim().toLowerCase();
-  return {
-    id: 'manual-test',
-    userId,
-    name: String(payload.name ?? 'Teste manual').trim() || 'Teste manual',
-    telegramSourceGroupId: String(payload.telegramSourceGroupId ?? '').trim(),
-    telegramSourceGroupName: String(payload.telegramSourceGroupName ?? '').trim(),
-    unknownLinkBehavior: String(payload.unknownLinkBehavior ?? 'keep'),
-    customFooter: String(payload.customFooter ?? '').trim(),
-    removeOriginalFooter: Boolean(payload.removeOriginalFooter),
-    messageBeautifierEnabled: false,
-    messageBeautifierStyle: 'clean',
-    aiRewriteEnabled: false,
-    aiRewriteStyle: 'clean',
-    mediaSourceMode: ['telegram_media', 'product_image', 'system_layout'].includes(mediaSourceMode)
-      ? mediaSourceMode
-      : 'telegram_media',
-    preserveOriginalTextEnabled: true,
-    isActive: true,
-    destinations: []
-  };
-}
-
-function serializeAffiliatePayloadForSimulation(payload) {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  if (payload.type === 'media' && payload.base64) {
-    const mimeType = String(payload.mimeType || 'image/jpeg');
-    const base64 = String(payload.base64 || '');
-    const mediaBytes = Buffer.byteLength(base64, 'base64');
-    const mediaPreviewUrl =
-      mediaBytes <= simulatorInlinePreviewMaxBytes
-        ? `data:${mimeType};base64,${base64}`
-        : '';
-    return {
-      type: 'media',
-      caption: String(payload.caption || ''),
-      mimeType,
-      filename: String(payload.filename || ''),
-      mediaBytes,
-      previewOmitted: mediaBytes > simulatorInlinePreviewMaxBytes,
-      mediaPreviewUrl
-    };
-  }
-
-  return {
-    type: 'text',
-    text: String(payload.text || '')
-  };
-}
-
-async function ensureAffiliateAutomationPayload({ user, runtime, affiliateState, payload }) {
-  ensureAffiliateTermsAccepted(affiliateState);
-  ensureAffiliateAutomationPlan(user.plan, payload, affiliateState.automations || []);
-  const fieldErrors = computeAffiliateAutomationFieldErrors({
-    payload,
-    runtimeTelegramStatus: runtime.telegramStatus,
-    automations: affiliateState.automations || []
-  });
-
-  if (Object.keys(fieldErrors).length) {
-    throw createValidationError('Revise os campos destacados antes de salvar o fluxo.', fieldErrors, 'FLOW_VALIDATION_FAILED');
-  }
-}
-
-export function computeAffiliateAutomationFieldErrors({
-  payload = {},
-  runtimeTelegramStatus = '',
-  automations = []
-}) {
-  const fieldErrors = {};
-  const sourceId = normalizeRouteSourceId(payload.telegramSourceGroupId);
-  const destinations = Array.isArray(payload.destinations) ? payload.destinations : [];
-  const destinationIds = destinations
-    .map((destination) => String(destination?.whatsappGroupId ?? '').trim())
-    .filter(Boolean);
-
-  if (runtimeTelegramStatus !== 'listening') {
-    fieldErrors.telegram = 'Conclua o login do Telegram antes de salvar o fluxo.';
-  }
-
-  if (!sourceId) {
-    fieldErrors.telegramSourceGroupId = 'Escolha uma origem do Telegram para este fluxo.';
-  }
-
-  if (!destinationIds.length) {
-    fieldErrors.destinations = 'Selecione ao menos um grupo de destino no WhatsApp.';
-  }
-
-  if (sourceId) {
-    const payloadAutomationId = String(payload.id ?? '').trim();
-    const duplicateSourceAutomation = automations.find((automation) => {
-      const automationId = String(automation?.id ?? '').trim();
-      if (payloadAutomationId && automationId === payloadAutomationId) {
-        return false;
-      }
-      return normalizeRouteSourceId(automation?.telegramSourceGroupId) === sourceId;
-    });
-
-    if (duplicateSourceAutomation) {
-      fieldErrors.telegramSourceGroupId = `Esta origem já está em uso no fluxo "${duplicateSourceAutomation.name || 'Automatizador de Ofertas'}".`;
-    }
-  }
-
-  return fieldErrors;
-}
-
-async function ensureTelegramSourceIsNotUsedByAffiliate(userId, telegramChannel) {
-  const normalizedTelegramChannel = normalizeRouteSourceId(telegramChannel);
-
-  if (!normalizedTelegramChannel) {
-    return;
-  }
-
-  const automations = await getActiveAffiliateAutomationsBySource(userId, normalizedTelegramChannel);
-
-  if (automations.length) {
-    const automationName = automations[0]?.name || 'Automação de Afiliados';
-    throw new Error(`Este grupo já está sendo usado em "${automationName}". Escolha outra origem para o Telegram normal ou edite a automação de afiliados.`);
-  }
-}
-
-function ensureAffiliateSourceIsNotUsedByTelegram(telegramChannel, affiliateSourceGroupId, options = {}) {
-  const normalizedTelegramChannel = normalizeRouteSourceId(telegramChannel);
-  const normalizedAffiliateSource = normalizeRouteSourceId(affiliateSourceGroupId);
-
-  if (normalizedTelegramChannel && normalizedAffiliateSource && normalizedTelegramChannel === normalizedAffiliateSource) {
-    if (options.allowReplacement) {
-      return;
-    }
-
-    throw new Error('Este grupo já está configurado no fluxo Telegram normal. Escolha outra origem para Afiliados ou remova a origem na aba Telegram.');
-  }
-}
-
-function createValidationError(message, fieldErrors = {}, code = 'VALIDATION_ERROR') {
-  const error = new Error(message);
-  error.status = 400;
-  error.code = code;
-  error.fieldErrors = fieldErrors;
-  return error;
-}
-
-function normalizeRouteSourceId(value) {
-  return String(value ?? '').trim();
 }
 
 function getRequestIp(request) {
