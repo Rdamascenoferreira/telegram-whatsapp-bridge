@@ -1906,9 +1906,11 @@ export class UserBridgeRuntime {
       return null;
     }
 
-    const converted = Array.isArray(convertedUrls)
-      ? convertedUrls.filter((item) => item?.status === 'converted' && item?.affiliateUrl).slice(0, settings.maxProducts)
+    const convertedCandidates = Array.isArray(convertedUrls)
+      ? convertedUrls.filter((item) => item?.status === 'converted' && item?.affiliateUrl)
       : [];
+    const convertedProducts = convertedCandidates.filter((item) => !isLikelyCouponConvertedUrl(messageText, item));
+    const converted = (convertedProducts.length ? convertedProducts : convertedCandidates).slice(0, settings.maxProducts);
 
     if (!converted.length) {
       return null;
@@ -3814,6 +3816,27 @@ function extractPrimaryConvertedProduct(convertedUrls = []) {
   return Array.isArray(convertedUrls)
     ? convertedUrls.find((item) => item?.status === 'converted' && item?.affiliateUrl)
     : null;
+}
+
+function isLikelyCouponConvertedUrl(messageText, convertedUrl = {}) {
+  const lines = String(messageText ?? '').split('\n');
+  const affiliateUrl = String(convertedUrl?.affiliateUrl || '').trim();
+  const originalUrlFull = String(convertedUrl?.originalUrl || '').trim();
+  const originalUrl = originalUrlFull.replace(/^https?:\/\//i, '');
+  const lineIndex = findProductUrlLineIndex(lines, affiliateUrl, originalUrlFull, originalUrl);
+
+  if (lineIndex < 0) {
+    return false;
+  }
+
+  const couponPattern = /\b(?:cupom|cupons|coupon|cupon|resgate|resgatar|aplique|ative|desconto|off)\b/iu;
+  const currentLine = String(lines[lineIndex] ?? '');
+  const previousLine = String(lines[lineIndex - 1] ?? '');
+  const previousTwoLine = String(lines[lineIndex - 2] ?? '');
+  const nextLine = String(lines[lineIndex + 1] ?? '');
+  const context = [previousTwoLine, previousLine, currentLine, nextLine].join(' ').toLowerCase();
+
+  return couponPattern.test(context);
 }
 
 function extractPostLayoutProductDetails(messageText, convertedUrl, index, options = {}) {
