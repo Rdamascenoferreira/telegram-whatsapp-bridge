@@ -469,12 +469,16 @@ function buildHeroProductSvg(product, slot, settings) {
     slot.titleMaxLines || (slot.compact ? 1 : 2)
   );
   const fontSize = slot.titleFontSize || (slot.compact ? 20 : 24);
-  const safeLabelY = Math.max(slot.labelY || 0, slot.frameY + (slot.compact ? 24 : 20));
-  const safeTitleY = Math.max(
-    slot.titleY || 0,
-    safeLabelY + (slot.compact ? 32 : 36),
-    slot.frameY + (slot.compact ? 58 : 64)
+  const desiredLabelY = slot.labelY || (slot.frameY + (slot.compact ? 20 : 18));
+  const maxLabelY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 20 : 24);
+  const safeLabelY = Math.min(
+    Math.max(desiredLabelY, slot.frameY + (slot.compact ? 18 : 14)),
+    maxLabelY
   );
+  const desiredTitleY = slot.titleY || (safeLabelY + (slot.compact ? 28 : 34));
+  const minTitleY = safeLabelY + (slot.compact ? 20 : 26);
+  const maxTitleY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 8 : 12);
+  const safeTitleY = Math.min(Math.max(desiredTitleY, minTitleY), maxTitleY);
 
   return `
   <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="rgba(4,15,43,0.10)"/>
