@@ -129,6 +129,7 @@ export async function maybeProcessAffiliateAutomation(
   ];
   const automations = [];
   const seenAutomationIds = new Set();
+  let activeAutomationCount = 0;
 
   for (const candidate of sourceCandidates) {
     const candidateAutomations = await getActiveAffiliateAutomationsBySource(runtime.userId, candidate);
@@ -149,6 +150,7 @@ export async function maybeProcessAffiliateAutomation(
   if (!automations.length) {
     try {
       const affiliateState = await getAffiliateState(runtime.userId);
+      activeAutomationCount = (affiliateState?.automations || []).filter((automation) => automation?.isActive).length;
       const normalizedSources = new Set(sourceCandidates.map(normalizeTelegramChatRef).filter(Boolean));
       const fallbackMatches = (affiliateState?.automations || []).filter((automation) => {
         if (!automation?.isActive) {
@@ -168,6 +170,35 @@ export async function maybeProcessAffiliateAutomation(
   }
 
   if (!automations.length) {
+    const previewText = String(messageText || '').trim() || 'Mensagem recebida sem origem de automacao correspondente.';
+    if (activeAutomationCount > 0) {
+      runtime.upsertOffer([telegramMessage || { text: previewText, caption: previewText, chatId: sourceGroupId }], {
+        id: `affiliate:unmatched:${String(telegramMessageId || Date.now())}`,
+        status: 'ignored',
+        sourceLabel: `${sourceGroupName || sourceGroupId || 'Telegram'} [Afiliados]`,
+        preview: previewText,
+        messageCount: 1,
+        groupCount: 0,
+        deliveryCount: 0,
+        reason: 'Origem sem automacao ativa correspondente.',
+        metadata: {
+          channels: {
+            telegram: {
+              status: 'received',
+              detail: 'Mensagem recebida fora das origens configuradas na automacao ativa.'
+            },
+            whatsapp: {
+              status: 'ignored',
+              delivered: 0,
+              failed: 0,
+              skipped: 0,
+              targetGroups: 0
+            }
+          }
+        }
+      });
+    }
+
     runtime.log('Mensagem recebida sem automacao de afiliados correspondente para a origem.', {
       type: 'affiliate_source_unmatched',
       metadata: {

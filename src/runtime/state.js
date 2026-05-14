@@ -52,7 +52,7 @@ export function buildRuntimeState(runtime) {
     },
     issue: runtime.whatsAppIssue,
     activity: visibleEvents.slice(0, 24),
-    offers: visibleOffers.slice(0, 10),
+    offers: visibleOffers.slice(0, 80),
     diagnostics: runtime.groupDiagnostics,
     groups: runtime.availableGroups.map((group) => ({
       ...group,
