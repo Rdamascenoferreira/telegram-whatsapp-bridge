@@ -184,7 +184,12 @@ export function PostLayoutPanel({
                   <div
                     key={index}
                     className="absolute rounded-2xl border border-[#0b173433] bg-[#0b17331a] px-3 py-2"
-                    style={{ left: slot.x, top: slot.y, width: slot.w, height: slot.h }}
+                    style={{
+                      left: `${slot.x}%`,
+                      top: `${slot.y}%`,
+                      width: `${slot.w}%`,
+                      height: `${slot.h}%`
+                    }}
                   >
                     <p className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: accentColor }}>PRODUTO</p>
                     <div className="mt-2 h-[calc(100%-24px)] rounded-xl border border-[#0b173433] bg-[#ffffffcc]" />
@@ -206,26 +211,26 @@ export function PostLayoutPanel({
 
 function buildPreviewSlots(count: number) {
   if (count <= 1) {
-    return [{ x: 54, y: 24, w: 252, h: 290 }];
+    return [{ x: 15, y: 7, w: 70, h: 80 }];
   }
   if (count === 2) {
     return [
-      { x: 14, y: 34, w: 156, h: 274 },
-      { x: 190, y: 34, w: 156, h: 274 }
+      { x: 4, y: 10, w: 43, h: 76 },
+      { x: 53, y: 10, w: 43, h: 76 }
     ];
   }
   if (count === 3) {
     return [
-      { x: 104, y: 16, w: 148, h: 152 },
-      { x: 18, y: 182, w: 148, h: 152 },
-      { x: 190, y: 182, w: 148, h: 152 }
+      { x: 29, y: 4, w: 42, h: 42 },
+      { x: 5, y: 51, w: 42, h: 42 },
+      { x: 53, y: 51, w: 42, h: 42 }
     ];
   }
   return [
-    { x: 18, y: 20, w: 148, h: 152 },
-    { x: 190, y: 20, w: 148, h: 152 },
-    { x: 18, y: 188, w: 148, h: 152 },
-    { x: 190, y: 188, w: 148, h: 152 }
+    { x: 5, y: 6, w: 42, h: 42 },
+    { x: 53, y: 6, w: 42, h: 42 },
+    { x: 5, y: 53, w: 42, h: 42 },
+    { x: 53, y: 53, w: 42, h: 42 }
   ];
 }
 
