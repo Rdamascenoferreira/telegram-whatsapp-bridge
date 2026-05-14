@@ -318,8 +318,8 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 300,
-      labelY: 194,
-      titleY: 222,
+      labelY: 190,
+      titleY: 228,
       titleMaxChars: 16,
       titleMaxLines: 1,
       titleFontSize: 20,
@@ -338,8 +338,8 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 900,
-      labelY: 194,
-      titleY: 222,
+      labelY: 190,
+      titleY: 228,
       titleMaxChars: 16,
       titleMaxLines: 1,
       titleFontSize: 20,
@@ -358,8 +358,8 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 300,
-      labelY: 506,
-      titleY: 534,
+      labelY: 502,
+      titleY: 540,
       titleMaxChars: 16,
       titleMaxLines: 1,
       titleFontSize: 20,
@@ -378,8 +378,8 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 900,
-      labelY: 506,
-      titleY: 534,
+      labelY: 502,
+      titleY: 540,
       titleMaxChars: 16,
       titleMaxLines: 1,
       titleFontSize: 20,
@@ -504,11 +504,15 @@ function extractPriceCandidates(value) {
     return [];
   }
 
-  const matches = Array.from(source.matchAll(/R\$\s?[\d.]+(?:,\d{2})?/gi));
+  const matches = [
+    ...Array.from(source.matchAll(/R\$\s?[\d.]+(?:,\d{2})?/gi)),
+    ...Array.from(source.matchAll(/(?:^|[^\d])(\d{1,3}(?:\.\d{3})*,\d{2})(?=\D|$)/g))
+  ];
   const result = [];
 
   for (const match of matches) {
-    const amount = parseBrazilianCurrency(match[0]);
+    const rawValue = match[1] || match[0];
+    const amount = parseBrazilianCurrency(rawValue);
     if (!Number.isFinite(amount)) {
       continue;
     }
@@ -597,10 +601,6 @@ function wrapText(value, maxChars, maxLines) {
 
   if (!lines.length) {
     lines.push('Produto em destaque');
-  }
-
-  if (words.join(' ').length > lines.join(' ').length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].replace(/[.]+$/g, '')}...`;
   }
 
   return lines;
