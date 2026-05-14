@@ -27,14 +27,7 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
       continue;
     }
 
-    const image = await sharp(product.imageBuffer)
-      .rotate()
-      .resize(slot.imageWidth, slot.imageHeight, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
-      })
-      .png()
-      .toBuffer();
+    const image = await buildProductImageWithTransparentBackground(product.imageBuffer, slot);
 
     composites.push({
       input: image,
@@ -54,6 +47,128 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
       quality: 82
     })
     .toBuffer();
+}
+
+async function buildProductImageWithTransparentBackground(imageBuffer, slot) {
+  const trimmed = sharp(imageBuffer)
+    .rotate()
+    .trim({
+      background: { r: 255, g: 255, b: 255 },
+      threshold: 14
+    });
+
+  const transparent = await removeLightBackgroundFromEdges(trimmed);
+
+  return await sharp(transparent)
+    .resize(slot.imageWidth, slot.imageHeight, {
+      fit: 'contain',
+      background: { r: 255, g: 255, b: 255, alpha: 0 }
+    })
+    .png()
+    .toBuffer();
+}
+
+async function removeLightBackgroundFromEdges(imageSharp) {
+  const { data, info } = await imageSharp
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const { width, height, channels } = info;
+  if (!width || !height || channels < 4) {
+    return await imageSharp.png().toBuffer();
+  }
+
+  const visited = new Uint8Array(width * height);
+  const queue = [];
+  let qIndex = 0;
+
+  const indexOf = (x, y) => y * width + x;
+  const pixelOffset = (x, y) => (y * width + x) * channels;
+
+  const isLikelyBackground = (x, y) => {
+    const offset = pixelOffset(x, y);
+    const r = data[offset];
+    const g = data[offset + 1];
+    const b = data[offset + 2];
+    const a = data[offset + 3];
+
+    if (a < 8) {
+      return true;
+    }
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const brightness = (r + g + b) / 3;
+    const saturation = max === 0 ? 0 : (max - min) / max;
+
+    return brightness >= 228 && saturation <= 0.17;
+  };
+
+  const pushIfBackground = (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) {
+      return;
+    }
+
+    const idx = indexOf(x, y);
+    if (visited[idx]) {
+      return;
+    }
+    visited[idx] = 1;
+
+    if (isLikelyBackground(x, y)) {
+      queue.push([x, y]);
+    }
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    pushIfBackground(x, 0);
+    pushIfBackground(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    pushIfBackground(0, y);
+    pushIfBackground(width - 1, y);
+  }
+
+  while (qIndex < queue.length) {
+    const [x, y] = queue[qIndex++];
+    const neighbors = [
+      [x - 1, y],
+      [x + 1, y],
+      [x, y - 1],
+      [x, y + 1]
+    ];
+
+    for (const [nx, ny] of neighbors) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+        continue;
+      }
+      const nIdx = indexOf(nx, ny);
+      if (visited[nIdx]) {
+        continue;
+      }
+      visited[nIdx] = 1;
+      if (isLikelyBackground(nx, ny)) {
+        queue.push([nx, ny]);
+      }
+    }
+  }
+
+  const rgba = Buffer.from(data);
+  let removed = 0;
+  for (const [x, y] of queue) {
+    const offset = pixelOffset(x, y);
+    if (rgba[offset + 3] > 0) {
+      rgba[offset + 3] = 0;
+      removed += 1;
+    }
+  }
+
+  if (removed < width * height * 0.01) {
+    return await imageSharp.png().toBuffer();
+  }
+
+  return await sharp(rgba, { raw: { width, height, channels } }).png().toBuffer();
 }
 
 function buildHeroSlots(count) {
