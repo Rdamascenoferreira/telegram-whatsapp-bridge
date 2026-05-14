@@ -469,12 +469,18 @@ function buildHeroProductSvg(product, slot, settings) {
     slot.titleMaxLines || (slot.compact ? 1 : 2)
   );
   const fontSize = slot.titleFontSize || (slot.compact ? 20 : 24);
+  const safeLabelY = Math.max(slot.labelY || 0, slot.frameY + (slot.compact ? 24 : 20));
+  const safeTitleY = Math.max(
+    slot.titleY || 0,
+    safeLabelY + (slot.compact ? 32 : 36),
+    slot.frameY + (slot.compact ? 58 : 64)
+  );
 
   return `
   <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="rgba(4,15,43,0.10)"/>
   <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="none" stroke="rgba(11,23,52,0.18)" stroke-width="2"/>
-  <text x="${slot.labelX}" y="${slot.labelY}" text-anchor="${slot.labelAnchor}" fill="${settings.accentColor}" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${slot.compact ? 14 : 16}" font-weight="900" letter-spacing="${slot.compact ? 2 : 2.4}">${escapeXml(marketplace)}</text>
-  ${titleLines.map((line, index) => `<text x="${slot.labelX}" y="${(slot.titleY || (slot.labelY + 30)) + index * (fontSize + 5)}" text-anchor="${slot.labelAnchor}" fill="#0f172a" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${fontSize}" font-weight="800">${escapeXml(line)}</text>`).join('\n')}
+  <text x="${slot.labelX}" y="${safeLabelY}" text-anchor="${slot.labelAnchor}" fill="${settings.accentColor}" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${slot.compact ? 14 : 16}" font-weight="900" letter-spacing="${slot.compact ? 2 : 2.4}">${escapeXml(marketplace)}</text>
+  ${titleLines.map((line, index) => `<text x="${slot.labelX}" y="${safeTitleY + index * (fontSize + 5)}" text-anchor="${slot.labelAnchor}" fill="#0f172a" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${fontSize}" font-weight="800">${escapeXml(line)}</text>`).join('\n')}
   `;
 }
 
