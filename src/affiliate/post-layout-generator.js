@@ -323,10 +323,7 @@ function buildLayoutSvg({ products, slots, settings, pricing }) {
     </filter>
   </defs>
   <rect width="${canvasWidth}" height="${canvasHeight}" fill="#060d24"/>
-  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="${settings.backgroundColor}"/>
-  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#stageGlowA)"/>
-  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#stageGlowB)"/>
-  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#premiumGrid)" opacity="0.5"/>
+  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="#ffffff"/>
 
   <rect width="${canvasWidth}" height="${headerHeight}" fill="url(#headerGrad)"/>
   <rect y="${headerHeight - 3}" width="${canvasWidth}" height="3" fill="${settings.accentColor}" filter="url(#accentGlow)"/>
