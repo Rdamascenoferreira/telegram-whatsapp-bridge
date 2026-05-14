@@ -1548,6 +1548,29 @@ export class UserBridgeRuntime {
     }
 
     if (!automations.length) {
+      // Fallback: handle source id format differences (-100..., -..., plain numeric)
+      // by comparing normalized ids from active automations.
+      try {
+        const affiliateState = await getAffiliateState(this.userId);
+        const normalizedSource = normalizeTelegramChatRef(sourceGroupId);
+        const fallbackMatches = (affiliateState?.automations || []).filter((automation) => {
+          if (!automation?.isActive) {
+            return false;
+          }
+          return normalizeTelegramChatRef(automation.telegramSourceGroupId) === normalizedSource;
+        });
+
+        for (const automation of fallbackMatches) {
+          if (seenAutomationIds.has(automation.id)) {
+            continue;
+          }
+          seenAutomationIds.add(automation.id);
+          automations.push(automation);
+        }
+      } catch {}
+    }
+
+    if (!automations.length) {
       this.log('Mensagem recebida sem automação de afiliados correspondente para a origem.', {
         type: 'affiliate_source_unmatched',
         metadata: {
