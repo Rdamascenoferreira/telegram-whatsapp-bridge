@@ -3843,11 +3843,15 @@ function isLikelyCouponConvertedUrl(messageText, convertedUrl = {}) {
   }
 
   const couponPattern = /\b(?:cupom|cupons|coupon|cupon|resgate|resgatar|aplique|ative|desconto|off)\b/iu;
+  const productHintPattern = /\b(?:ps5|playstation|xbox|switch|nintendo|pc|produto|jogo|game|monitor|tv|smartphone|notebook)\b/iu;
   const currentLine = String(lines[lineIndex] ?? '');
   const previousLine = String(lines[lineIndex - 1] ?? '');
   const previousTwoLine = String(lines[lineIndex - 2] ?? '');
-  const nextLine = String(lines[lineIndex + 1] ?? '');
-  const context = [previousTwoLine, previousLine, currentLine, nextLine].join(' ').toLowerCase();
+  const context = [previousTwoLine, previousLine, currentLine].join(' ').toLowerCase();
+
+  if (productHintPattern.test(context)) {
+    return false;
+  }
 
   return couponPattern.test(context);
 }
