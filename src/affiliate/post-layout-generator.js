@@ -201,18 +201,18 @@ function buildHeroSlots(count) {
     return [
       {
         imageX: 104,
-        imageY: 258,
+        imageY: 286,
         imageWidth: 468,
-        imageHeight: 500,
+        imageHeight: 472,
         frameX: 78,
         frameY: 242,
         frameWidth: 520,
         frameHeight: 532,
         labelX: 338,
-        labelY: 228,
-        titleY: 264,
-        titleMaxChars: 28,
-        titleMaxLines: 2,
+        labelY: 226,
+        titleY: 258,
+        titleMaxChars: 24,
+        titleMaxLines: 1,
         titleFontSize: 28,
         labelAnchor: 'middle',
         compact: false,
@@ -221,18 +221,18 @@ function buildHeroSlots(count) {
       },
       {
         imageX: 628,
-        imageY: 258,
+        imageY: 286,
         imageWidth: 468,
-        imageHeight: 500,
+        imageHeight: 472,
         frameX: 602,
         frameY: 242,
         frameWidth: 520,
         frameHeight: 532,
         labelX: 862,
-        labelY: 228,
-        titleY: 264,
-        titleMaxChars: 28,
-        titleMaxLines: 2,
+        labelY: 226,
+        titleY: 258,
+        titleMaxChars: 24,
+        titleMaxLines: 1,
         titleFontSize: 28,
         labelAnchor: 'middle',
         compact: false,
@@ -469,6 +469,8 @@ function buildHeroProductSvg(product, slot, settings) {
     slot.titleMaxLines || (slot.compact ? 1 : 2)
   );
   const fontSize = slot.titleFontSize || (slot.compact ? 20 : 24);
+  const titleLineStep = fontSize + 5;
+  const titleBlockExtraHeight = Math.max(0, titleLines.length - 1) * titleLineStep;
   const desiredLabelY = slot.labelY || (slot.frameY + (slot.compact ? 20 : 18));
   const maxLabelY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 20 : 24);
   const safeLabelY = Math.min(
@@ -477,7 +479,7 @@ function buildHeroProductSvg(product, slot, settings) {
   );
   const desiredTitleY = slot.titleY || (safeLabelY + (slot.compact ? 28 : 34));
   const minTitleY = safeLabelY + (slot.compact ? 20 : 26);
-  const maxTitleY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 8 : 12);
+  const maxTitleY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 8 : 12) - titleBlockExtraHeight;
   const safeTitleY = Math.min(Math.max(desiredTitleY, minTitleY), maxTitleY);
 
   return `
