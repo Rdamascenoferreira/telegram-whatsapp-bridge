@@ -59,6 +59,10 @@ export async function routeTelegramUserMessage(runtime, event) {
   const sourceChatRefs = getTelegramUserMessageChatRefs(message);
   const sourceChatId = sourceChatRefs[0] || '';
   const chat = await message.getChat().catch(() => null);
+  const sourceGroupIds = [
+    ...sourceChatRefs,
+    ...getTelegramEntityChatRefs(chat)
+  ];
   const runtimeMessage = {
     __telegramSource: 'user_session',
     id: Number(message.id ?? 0),
@@ -70,6 +74,7 @@ export async function routeTelegramUserMessage(runtime, event) {
 
   const affiliateHandled = await maybeProcessAffiliateAutomation(runtime, {
     sourceGroupId: sourceChatId,
+    sourceGroupIds,
     sourceGroupName: describeTelegramEntity(chat, sourceChatId),
     telegramMessageId: String(message.id ?? ''),
     messageText: runtimeMessage.text || runtimeMessage.caption || fallbackText(runtimeMessage),
@@ -110,9 +115,18 @@ export async function routeTelegramUserMessage(runtime, event) {
 
 export async function maybeProcessAffiliateAutomation(
   runtime,
-  { sourceGroupId, sourceGroupName, telegramMessageId, messageText, telegramMessage }
+  { sourceGroupId, sourceGroupIds, sourceGroupName, telegramMessageId, messageText, telegramMessage }
 ) {
-  const sourceCandidates = buildTelegramChatRefCandidates(sourceGroupId);
+  const sourceRefs = Array.isArray(sourceGroupIds) && sourceGroupIds.length
+    ? sourceGroupIds
+    : [sourceGroupId];
+  const sourceCandidates = [
+    ...new Set(
+      sourceRefs
+        .flatMap((sourceRef) => buildTelegramChatRefCandidates(sourceRef))
+        .filter(Boolean)
+    )
+  ];
   const automations = [];
   const seenAutomationIds = new Set();
 
@@ -135,12 +149,12 @@ export async function maybeProcessAffiliateAutomation(
   if (!automations.length) {
     try {
       const affiliateState = await getAffiliateState(runtime.userId);
-      const normalizedSource = normalizeTelegramChatRef(sourceGroupId);
+      const normalizedSources = new Set(sourceCandidates.map(normalizeTelegramChatRef).filter(Boolean));
       const fallbackMatches = (affiliateState?.automations || []).filter((automation) => {
         if (!automation?.isActive) {
           return false;
         }
-        return normalizeTelegramChatRef(automation.telegramSourceGroupId) === normalizedSource;
+        return normalizedSources.has(normalizeTelegramChatRef(automation.telegramSourceGroupId));
       });
 
       for (const automation of fallbackMatches) {
@@ -471,6 +485,9 @@ function buildAffiliateIgnoredReason(result) {
 
 function getTelegramUserMessageChatRefs(message) {
   const candidates = [
+    message?.peerId,
+    message?.inputChat,
+    message?.inputSender,
     message?.chatId,
     message?.peerId?.channelId,
     message?.peerId?.chatId,
@@ -481,7 +498,7 @@ function getTelegramUserMessageChatRefs(message) {
     message?.inputSender?.chatId
   ];
 
-  return [...new Set(candidates.map(serializeTelegramChatRef).filter(Boolean))];
+  return [...new Set(candidates.flatMap((candidate) => serializeTelegramChatRefs(candidate)).filter(Boolean))];
 }
 
 function matchesTelegramUserMessage(message, configuredChannel) {
@@ -501,11 +518,48 @@ function describeTelegramEntity(chat, fallbackId = '') {
 }
 
 function serializeTelegramChatRef(value) {
+  return serializeTelegramChatRefs(value)[0] || '';
+}
+
+function serializeTelegramChatRefs(value, seen = new Set()) {
   if (value === undefined || value === null) {
-    return '';
+    return [];
   }
 
-  return String(value).trim();
+  if (['string', 'number', 'bigint', 'boolean'].includes(typeof value)) {
+    return [String(value).trim()].filter(Boolean);
+  }
+
+  const direct = String(value).trim();
+  const refs = [];
+
+  if (direct && direct !== '[object Object]') {
+    refs.push(direct);
+  }
+
+  if (typeof value !== 'object') {
+    return refs;
+  }
+
+  if (seen.has(value)) {
+    return refs;
+  }
+  seen.add(value);
+
+  for (const key of ['channelId', 'chatId', 'userId', 'id', 'value']) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      refs.push(...serializeTelegramChatRefs(value[key], seen));
+    }
+  }
+
+  return [...new Set(refs.filter(Boolean))];
+}
+
+function getTelegramEntityChatRefs(chat) {
+  return [
+    chat?.id,
+    chat?.username ? `@${String(chat.username).trim().toLowerCase()}` : ''
+  ].flatMap((candidate) => serializeTelegramChatRefs(candidate));
 }
 
 function buildTelegramChatRefCandidates(value) {
@@ -528,3 +582,9 @@ function buildTelegramChatRefCandidates(value) {
 
   return [...candidates];
 }
+
+export const __telegramRoutingTestUtils = {
+  buildTelegramChatRefCandidates,
+  getTelegramUserMessageChatRefs,
+  normalizeTelegramChatRef
+};
