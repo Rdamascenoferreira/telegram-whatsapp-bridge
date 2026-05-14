@@ -3,6 +3,8 @@ import { normalizePostLayoutConfig } from './post-layout-config.js';
 
 const canvasWidth = 1200;
 const canvasHeight = 1000;
+const headerHeight = 176;
+const footerHeight = 124;
 
 export async function generateCleanPostLayoutImage({ products = [], settings = {} } = {}) {
   const layout = normalizePostLayoutConfig({ ...settings, enabled: true });
@@ -14,14 +16,14 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
     return null;
   }
 
-  const slots = buildSlots(items.length);
+  const slots = buildHeroSlots(items.length);
   const composites = [];
 
   for (let index = 0; index < items.length; index += 1) {
     const product = items[index];
     const slot = slots[index];
 
-    if (!product?.imageBuffer) {
+    if (!product?.imageBuffer || !slot) {
       continue;
     }
 
@@ -41,7 +43,8 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
     });
   }
 
-  const svg = buildLayoutSvg({ products: items, slots, settings: layout });
+  const pricing = resolveLowestPricing(items);
+  const svg = buildLayoutSvg({ products: items, slots, settings: layout, pricing });
   return await sharp(Buffer.from(svg))
     .composite(composites)
     .png({
@@ -53,18 +56,22 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
     .toBuffer();
 }
 
-function buildSlots(count) {
-  if (count === 1) {
+function buildHeroSlots(count) {
+  if (count <= 1) {
     return [
       {
-        x: 220,
-        y: 245,
-        width: 760,
-        height: 610,
-        imageX: 300,
-        imageY: 390,
-        imageWidth: 600,
-        imageHeight: 270
+        imageX: 248,
+        imageY: 232,
+        imageWidth: 704,
+        imageHeight: 574,
+        frameX: 208,
+        frameY: 216,
+        frameWidth: 784,
+        frameHeight: 600,
+        labelX: 600,
+        labelY: 206,
+        labelAnchor: 'middle',
+        compact: false
       }
     ];
   }
@@ -72,78 +79,181 @@ function buildSlots(count) {
   if (count === 2) {
     return [
       {
-        x: 70,
-        y: 245,
-        width: 500,
-        height: 610,
-        imageX: 140,
-        imageY: 388,
-        imageWidth: 360,
-        imageHeight: 250
+        imageX: 104,
+        imageY: 258,
+        imageWidth: 468,
+        imageHeight: 500,
+        frameX: 78,
+        frameY: 242,
+        frameWidth: 520,
+        frameHeight: 532,
+        labelX: 338,
+        labelY: 232,
+        labelAnchor: 'middle',
+        compact: false
       },
       {
-        x: 630,
-        y: 245,
-        width: 500,
-        height: 610,
-        imageX: 700,
-        imageY: 388,
-        imageWidth: 360,
-        imageHeight: 250
+        imageX: 628,
+        imageY: 258,
+        imageWidth: 468,
+        imageHeight: 500,
+        frameX: 602,
+        frameY: 242,
+        frameWidth: 520,
+        frameHeight: 532,
+        labelX: 862,
+        labelY: 232,
+        labelAnchor: 'middle',
+        compact: false
       }
     ];
   }
 
-  const slots = [];
-  const width = 500;
-  const height = 330;
-  const positions = [
-    [70, 220],
-    [630, 220],
-    [70, 585],
-    [630, 585]
-  ];
-
-  for (let index = 0; index < Math.min(count, 4); index += 1) {
-    const [x, y] = positions[index];
-    slots.push({
-      x,
-      y,
-      width,
-      height,
-      imageX: x + 34,
-      imageY: y + 82,
-      imageWidth: 230,
-      imageHeight: 220
-    });
+  if (count === 3) {
+    return [
+      {
+        imageX: 410,
+        imageY: 208,
+        imageWidth: 380,
+        imageHeight: 302,
+        frameX: 378,
+        frameY: 194,
+        frameWidth: 444,
+        frameHeight: 334,
+        labelX: 600,
+        labelY: 184,
+        labelAnchor: 'middle',
+        compact: true
+      },
+      {
+        imageX: 120,
+        imageY: 500,
+        imageWidth: 384,
+        imageHeight: 302,
+        frameX: 88,
+        frameY: 486,
+        frameWidth: 448,
+        frameHeight: 334,
+        labelX: 312,
+        labelY: 476,
+        labelAnchor: 'middle',
+        compact: true
+      },
+      {
+        imageX: 696,
+        imageY: 500,
+        imageWidth: 384,
+        imageHeight: 302,
+        frameX: 664,
+        frameY: 486,
+        frameWidth: 448,
+        frameHeight: 334,
+        labelX: 888,
+        labelY: 476,
+        labelAnchor: 'middle',
+        compact: true
+      }
+    ];
   }
 
-  return slots;
+  return [
+    {
+      imageX: 124,
+      imageY: 222,
+      imageWidth: 352,
+      imageHeight: 252,
+      frameX: 92,
+      frameY: 208,
+      frameWidth: 416,
+      frameHeight: 284,
+      labelX: 300,
+      labelY: 198,
+      labelAnchor: 'middle',
+      compact: true
+    },
+    {
+      imageX: 724,
+      imageY: 222,
+      imageWidth: 352,
+      imageHeight: 252,
+      frameX: 692,
+      frameY: 208,
+      frameWidth: 416,
+      frameHeight: 284,
+      labelX: 900,
+      labelY: 198,
+      labelAnchor: 'middle',
+      compact: true
+    },
+    {
+      imageX: 124,
+      imageY: 534,
+      imageWidth: 352,
+      imageHeight: 252,
+      frameX: 92,
+      frameY: 520,
+      frameWidth: 416,
+      frameHeight: 284,
+      labelX: 300,
+      labelY: 510,
+      labelAnchor: 'middle',
+      compact: true
+    },
+    {
+      imageX: 724,
+      imageY: 534,
+      imageWidth: 352,
+      imageHeight: 252,
+      frameX: 692,
+      frameY: 520,
+      frameWidth: 416,
+      frameHeight: 284,
+      labelX: 900,
+      labelY: 510,
+      labelAnchor: 'middle',
+      compact: true
+    }
+  ];
 }
 
-function buildLayoutSvg({ products, slots, settings }) {
+function buildLayoutSvg({ products, slots, settings, pricing }) {
   const brandName = settings.brandName || 'Oferta do dia';
   const headline = settings.headline || 'Ofertas selecionadas';
+  const stageTop = headerHeight;
+  const stageHeight = canvasHeight - headerHeight - footerHeight;
+  const footerY = canvasHeight - footerHeight;
+  const footerBadgeWidth = 388;
+  const footerBadgeHeight = 92;
+  const footerBadgeX = canvasWidth - footerBadgeWidth - 28;
+  const footerBadgeY = footerY + 16;
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
   <defs>
-    <pattern id="gridPattern" width="28" height="28" patternUnits="userSpaceOnUse">
-      <path d="M28 0H0V28" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    <pattern id="premiumGrid" width="26" height="26" patternUnits="userSpaceOnUse">
+      <path d="M26 0H0V26" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
     </pattern>
-    <radialGradient id="bgGlowA" cx="20%" cy="18%" r="62%">
-      <stop offset="0%" stop-color="rgba(37,211,102,0.18)"/>
-      <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
-    </radialGradient>
-    <radialGradient id="bgGlowB" cx="86%" cy="74%" r="48%">
-      <stop offset="0%" stop-color="rgba(34,158,217,0.15)"/>
-      <stop offset="100%" stop-color="rgba(34,158,217,0)"/>
-    </radialGradient>
     <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${settings.primaryColor}"/>
-      <stop offset="100%" stop-color="#0b132f"/>
+      <stop offset="100%" stop-color="#0a1435"/>
     </linearGradient>
-    <filter id="headerLineGlow" x="-40%" y="-900%" width="180%" height="1900%">
+    <linearGradient id="footerGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#07112e"/>
+      <stop offset="100%" stop-color="#0a1a42"/>
+    </linearGradient>
+    <radialGradient id="stageGlowA" cx="18%" cy="24%" r="58%">
+      <stop offset="0%" stop-color="rgba(37,211,102,0.13)"/>
+      <stop offset="100%" stop-color="rgba(37,211,102,0)"/>
+    </radialGradient>
+    <radialGradient id="stageGlowB" cx="88%" cy="78%" r="42%">
+      <stop offset="0%" stop-color="rgba(34,158,217,0.14)"/>
+      <stop offset="100%" stop-color="rgba(34,158,217,0)"/>
+    </radialGradient>
+    <linearGradient id="priceBadgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${settings.primaryColor}"/>
+      <stop offset="100%" stop-color="#133f73"/>
+    </linearGradient>
+    <filter id="accentGlow" x="-40%" y="-1000%" width="180%" height="2000%">
       <feGaussianBlur stdDeviation="6" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
@@ -151,52 +261,117 @@ function buildLayoutSvg({ products, slots, settings }) {
       </feMerge>
     </filter>
   </defs>
-  <rect width="1200" height="1000" fill="#0b132f"/>
-  <rect width="1200" height="1000" fill="url(#bgGlowA)"/>
-  <rect width="1200" height="1000" fill="url(#bgGlowB)"/>
-  <rect width="1200" height="1000" fill="url(#gridPattern)" opacity="0.45"/>
-  <rect width="1200" height="170" fill="url(#headerGrad)"/>
-  <rect y="170" width="1200" height="3" fill="${settings.accentColor}" filter="url(#headerLineGlow)"/>
-  <text x="70" y="78" fill="#f3f4f6" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="800">${escapeXml(brandName)}</text>
-  <text x="70" y="122" fill="rgba(255,255,255,0.72)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">${escapeXml(headline)}</text>
-  ${products.map((product, index) => buildProductCardSvg(product, slots[index], settings, products.length)).join('\n')}
+  <rect width="${canvasWidth}" height="${canvasHeight}" fill="#060d24"/>
+  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="${settings.backgroundColor}"/>
+  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#stageGlowA)"/>
+  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#stageGlowB)"/>
+  <rect y="${stageTop}" width="${canvasWidth}" height="${stageHeight}" fill="url(#premiumGrid)" opacity="0.5"/>
+
+  <rect width="${canvasWidth}" height="${headerHeight}" fill="url(#headerGrad)"/>
+  <rect y="${headerHeight - 3}" width="${canvasWidth}" height="3" fill="${settings.accentColor}" filter="url(#accentGlow)"/>
+  <text x="64" y="78" fill="#f3f4f6" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="900">${escapeXml(brandName)}</text>
+  <text x="64" y="126" fill="rgba(255,255,255,0.74)" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">${escapeXml(headline)}</text>
+
+  ${products.map((product, index) => buildHeroProductSvg(product, slots[index], settings)).join('\n')}
+
+  <rect y="${footerY}" width="${canvasWidth}" height="${footerHeight}" fill="url(#footerGrad)"/>
+  <text x="52" y="${footerY + 52}" fill="rgba(255,255,255,0.78)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Selecao premium de ofertas</text>
+  <text x="52" y="${footerY + 88}" fill="rgba(255,255,255,0.58)" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">Valores ja convertidos pela automacao</text>
+
+  <rect x="${footerBadgeX}" y="${footerBadgeY}" width="${footerBadgeWidth}" height="${footerBadgeHeight}" rx="24" fill="url(#priceBadgeGrad)"/>
+  <text x="${footerBadgeX + 26}" y="${footerBadgeY + 34}" fill="rgba(255,255,255,0.72)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800">a partir de</text>
+  <text x="${footerBadgeX + 26}" y="${footerBadgeY + 74}" fill="#f7e7a5" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="900">${escapeXml(pricing.label)}</text>
 </svg>`;
 }
 
-function buildProductCardSvg(product, slot, settings, total) {
-  const compact = total > 2;
-  const titleSize = compact ? 22 : 26;
-  const priceSize = compact ? 30 : 42;
-  const titleLines = wrapText(product.title || 'Produto em oferta', compact ? 28 : 30, compact ? 2 : 3);
-  const price = compactPriceForBadge(product.price || '');
-  const installment = product.installment || '';
+function buildHeroProductSvg(product, slot, settings) {
+  if (!slot) {
+    return '';
+  }
+
   const marketplace = product.marketplace ? String(product.marketplace).toUpperCase() : 'OFERTA';
-  const titleY = slot.y + (compact ? 46 : 54);
-  const detailsX = compact ? slot.x + 245 : slot.x + 36;
-  const detailsY = compact ? slot.y + 126 : slot.y + slot.height - 168;
-  const priceBoxWidth = compact ? 220 : slot.width - 72;
-  const priceBoxHeight = compact ? 112 : 126;
-  // Keep frame locked to the real image slot so the border never drifts.
-  const imageFramePaddingX = compact ? 10 : 16;
-  const imageFramePaddingY = compact ? 10 : 14;
-  const imageFrameX = slot.imageX - imageFramePaddingX;
-  const imageFrameY = slot.imageY - imageFramePaddingY;
-  const imageFrameW = slot.imageWidth + imageFramePaddingX * 2;
-  const imageFrameH = slot.imageHeight + imageFramePaddingY * 2;
+  const title = cleanTitleForHero(product.title || 'Produto em destaque');
+  const titleLines = wrapText(title, slot.compact ? 26 : 30, slot.compact ? 1 : 2);
+  const fontSize = slot.compact ? 20 : 24;
 
   return `
-  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="rgba(255,255,255,0.10)"/>
-  <rect x="${slot.x}" y="${slot.y}" width="${slot.width}" height="${slot.height}" rx="28" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
-  <rect x="${slot.x + 2}" y="${slot.y + 2}" width="${slot.width - 4}" height="${slot.height - 4}" rx="26" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-  <text x="${slot.x + 36}" y="${slot.y + 34}" fill="${settings.accentColor}" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" letter-spacing="2">${escapeXml(marketplace)}</text>
-  ${titleLines.map((line, lineIndex) => `<text x="${slot.x + 36}" y="${titleY + lineIndex * (titleSize + 7)}" fill="${settings.textColor}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800">${escapeXml(line)}</text>`).join('\n')}
-  <rect x="${imageFrameX}" y="${imageFrameY}" width="${imageFrameW}" height="${imageFrameH}" rx="${compact ? 18 : 24}" fill="rgba(255,255,255,0.06)"/>
-  <rect x="${imageFrameX}" y="${imageFrameY}" width="${imageFrameW}" height="${imageFrameH}" rx="${compact ? 18 : 24}" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
-  <rect x="${detailsX}" y="${detailsY}" width="${priceBoxWidth}" height="${priceBoxHeight}" rx="24" fill="${settings.primaryColor}"/>
-  <text x="${detailsX + 24}" y="${detailsY + 44}" fill="rgba(255,255,255,0.70)" font-family="Arial, Helvetica, sans-serif" font-size="${compact ? 15 : 18}" font-weight="800">a partir de</text>
-  <text x="${detailsX + 24}" y="${detailsY + (compact ? 84 : 92)}" fill="#f7e7a5" font-family="Arial, Helvetica, sans-serif" font-size="${priceSize}" font-weight="900">${escapeXml(price)}</text>
-  ${installment ? `<text x="${detailsX + 24}" y="${detailsY + priceBoxHeight + 34}" fill="${settings.textColor}" opacity="0.75" font-family="Arial, Helvetica, sans-serif" font-size="${compact ? 16 : 20}" font-weight="700">${escapeXml(installment)}</text>` : ''}
+  <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="rgba(4,15,43,0.10)"/>
+  <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="none" stroke="rgba(11,23,52,0.18)" stroke-width="2"/>
+  <text x="${slot.labelX}" y="${slot.labelY}" text-anchor="${slot.labelAnchor}" fill="${settings.accentColor}" font-family="Arial, Helvetica, sans-serif" font-size="${slot.compact ? 14 : 16}" font-weight="900" letter-spacing="${slot.compact ? 2 : 2.4}">${escapeXml(marketplace)}</text>
+  ${titleLines.map((line, index) => `<text x="${slot.labelX}" y="${slot.labelY + 30 + index * (fontSize + 5)}" text-anchor="${slot.labelAnchor}" fill="${settings.textColor}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900">${escapeXml(line)}</text>`).join('\n')}
   `;
+}
+
+function resolveLowestPricing(products = []) {
+  const candidates = [];
+
+  for (const product of products) {
+    candidates.push(...extractPriceCandidates(product?.price));
+    candidates.push(...extractPriceCandidates(product?.installment));
+  }
+
+  if (!candidates.length) {
+    const fallback = compactPriceForBadge(products[0]?.price || '');
+    return { label: fallback || 'Confira no link' };
+  }
+
+  candidates.sort((a, b) => a.value - b.value);
+  const winner = candidates[0];
+  return {
+    label: formatCurrencyBR(winner.value)
+  };
+}
+
+function extractPriceCandidates(value) {
+  const source = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!source) {
+    return [];
+  }
+
+  const matches = Array.from(source.matchAll(/R\$\s?[\d.]+(?:,\d{2})?/gi));
+  const result = [];
+
+  for (const match of matches) {
+    const amount = parseBrazilianCurrency(match[0]);
+    if (!Number.isFinite(amount)) {
+      continue;
+    }
+    result.push({ value: amount });
+  }
+
+  return result;
+}
+
+function parseBrazilianCurrency(value) {
+  const normalized = String(value || '')
+    .replace(/R\$/gi, '')
+    .replace(/\s+/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .trim();
+
+  const number = Number.parseFloat(normalized);
+  return Number.isFinite(number) ? number : Number.NaN;
+}
+
+function formatCurrencyBR(value) {
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  } catch {
+    return `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
+  }
+}
+
+function cleanTitleForHero(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[-–-]\s*\((?:amazon|shopee)\)\s*$/i, '')
+    .trim();
 }
 
 function compactPriceForBadge(value) {
@@ -215,7 +390,11 @@ function compactPriceForBadge(value) {
 }
 
 function wrapText(value, maxChars, maxLines) {
-  const words = String(value || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const words = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
   const lines = [];
   let current = '';
 
@@ -241,7 +420,7 @@ function wrapText(value, maxChars, maxLines) {
   }
 
   if (!lines.length) {
-    lines.push('Produto em oferta');
+    lines.push('Produto em destaque');
   }
 
   if (words.join(' ').length > lines.join(' ').length) {

@@ -48,6 +48,7 @@ export function PostLayoutPanel({
   const [maxProducts, setMaxProducts] = useState(String(current.maxProducts || defaults.maxProducts));
   const [busy, setBusy] = useState(false);
   const previewCount = Math.max(1, Math.min(4, Number(maxProducts) || defaults.maxProducts));
+  const previewSlots = buildPreviewSlots(previewCount);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -167,9 +168,9 @@ export function PostLayoutPanel({
         </div>
         
         <div className="flex flex-1 items-center justify-center rounded-[20px] bg-black/40 p-4 sm:p-6 border border-white/[0.02]">
-          <div className="relative w-full max-w-[360px] overflow-hidden rounded-[20px] border border-white/10 bg-[#0b132f] shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(37,211,102,0.18),transparent_52%),radial-gradient(circle_at_86%_74%,rgba(34,158,217,0.15),transparent_44%)]" />
-            <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:28px_28px]" />
+          <div className="relative w-full max-w-[360px] overflow-hidden rounded-[20px] border border-white/10 bg-[#060d24] shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(37,211,102,0.15),transparent_56%),radial-gradient(circle_at_88%_80%,rgba(34,158,217,0.14),transparent_44%)]" />
+            <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:24px_24px]" />
             <div className="relative z-10">
               <div className="relative overflow-hidden px-5 py-5" style={{ backgroundColor: primaryColor }}>
                 <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-white/10 to-transparent" />
@@ -177,20 +178,23 @@ export function PostLayoutPanel({
                 <p className="relative mt-1 text-sm font-bold text-white/80">{headline || defaults.headline}</p>
               </div>
               <div className="h-[3px] w-full" style={{ backgroundColor: accentColor }} />
-              <div className={`grid gap-3 p-4 ${previewCount === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {Array.from({ length: previewCount }).map((_, item) => (
-                  <div key={item} className="rounded-2xl border border-white/20 bg-white/10 p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: accentColor }}>AMAZON</p>
-                    <p className="mt-0.5 text-sm font-black leading-tight" style={{ color: textColor }}>Produto {item + 1}</p>
-                    <div className="mt-2 rounded-xl border border-white/20 bg-white/10 p-2">
-                      <div className="aspect-[1/1] w-full rounded-lg bg-white/70" />
-                    </div>
-                    <div className="mt-2 rounded-xl px-3 py-2" style={{ backgroundColor: primaryColor }}>
-                      <p className="text-[10px] font-bold text-white/70">a partir de</p>
-                      <p className="mt-0.5 text-[22px] font-black leading-none text-[#f7e7a5]">R$ 111,50</p>
-                    </div>
+
+              <div className="relative h-[360px] bg-[rgba(248,250,252,0.92)]">
+                {previewSlots.map((slot, index) => (
+                  <div
+                    key={index}
+                    className="absolute rounded-2xl border border-[#0b173433] bg-[#0b17331a] px-3 py-2"
+                    style={{ left: slot.x, top: slot.y, width: slot.w, height: slot.h }}
+                  >
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: accentColor }}>PRODUTO</p>
+                    <div className="mt-2 h-[calc(100%-24px)] rounded-xl border border-[#0b173433] bg-[#ffffffcc]" />
                   </div>
                 ))}
+              </div>
+
+              <div className="relative h-[86px] bg-gradient-to-r from-[#07112e] to-[#0a1a42]">
+                <p className="absolute left-4 top-4 text-[11px] font-bold text-white/70">a partir de</p>
+                <p className="absolute left-4 top-8 text-[30px] font-black leading-none text-[#f7e7a5]">R$ 111,50</p>
               </div>
             </div>
           </div>
@@ -198,6 +202,31 @@ export function PostLayoutPanel({
       </aside>
     </div>
   );
+}
+
+function buildPreviewSlots(count: number) {
+  if (count <= 1) {
+    return [{ x: 54, y: 24, w: 252, h: 290 }];
+  }
+  if (count === 2) {
+    return [
+      { x: 14, y: 34, w: 156, h: 274 },
+      { x: 190, y: 34, w: 156, h: 274 }
+    ];
+  }
+  if (count === 3) {
+    return [
+      { x: 104, y: 16, w: 148, h: 152 },
+      { x: 18, y: 182, w: 148, h: 152 },
+      { x: 190, y: 182, w: 148, h: 152 }
+    ];
+  }
+  return [
+    { x: 18, y: 20, w: 148, h: 152 },
+    { x: 190, y: 20, w: 148, h: 152 },
+    { x: 18, y: 188, w: 148, h: 152 },
+    { x: 190, y: 188, w: 148, h: 152 }
+  ];
 }
 
 function ColorField({
