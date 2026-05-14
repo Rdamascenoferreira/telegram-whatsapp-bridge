@@ -608,6 +608,14 @@ function wrapText(value, maxChars, maxLines) {
 
 function fitFooterPriceLabel(value, maxChars) {
   const source = String(value || '').trim();
+  const extracted = extractPriceCandidates(source);
+  if (extracted.length) {
+    const minValue = extracted.sort((a, b) => a.value - b.value)[0]?.value;
+    if (Number.isFinite(minValue)) {
+      return formatCurrencyBR(minValue);
+    }
+  }
+
   if (source.length <= maxChars) {
     return source;
   }
