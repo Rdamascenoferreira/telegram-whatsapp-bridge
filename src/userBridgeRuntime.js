@@ -1967,7 +1967,7 @@ export class UserBridgeRuntime {
         })
       );
       const imageBuffer = await withTimeout(
-        generateCleanPostLayoutImage({ products, settings }),
+        generateCleanPostLayoutImage({ products, settings, messageText }),
         postLayoutRenderTimeoutMs
       );
 

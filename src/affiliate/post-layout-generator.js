@@ -6,7 +6,7 @@ const canvasHeight = 1000;
 const headerHeight = 176;
 const footerHeight = 124;
 
-export async function generateCleanPostLayoutImage({ products = [], settings = {} } = {}) {
+export async function generateCleanPostLayoutImage({ products = [], settings = {}, messageText = '' } = {}) {
   const layout = normalizePostLayoutConfig({ ...settings, enabled: true });
   const items = products
     .filter((product) => product && (product.title || product.price || product.imageBuffer))
@@ -36,7 +36,7 @@ export async function generateCleanPostLayoutImage({ products = [], settings = {
     });
   }
 
-  const pricing = resolveLowestPricing(items);
+  const pricing = resolveLowestPricing(items, messageText);
   const svg = buildLayoutSvg({ products: items, slots, settings: layout, pricing });
   return await sharp(Buffer.from(svg))
     .composite(composites)
@@ -478,13 +478,14 @@ function buildHeroProductSvg(product, slot, settings) {
   `;
 }
 
-function resolveLowestPricing(products = []) {
+function resolveLowestPricing(products = [], messageText = '') {
   const candidates = [];
 
   for (const product of products) {
     candidates.push(...extractPriceCandidates(product?.price));
     candidates.push(...extractPriceCandidates(product?.installment));
   }
+  candidates.push(...extractMessagePriceCandidates(messageText));
 
   if (!candidates.length) {
     const fallback = compactPriceForBadge(products[0]?.price || '');
@@ -496,6 +497,26 @@ function resolveLowestPricing(products = []) {
   return {
     label: formatCurrencyBR(winner.value)
   };
+}
+
+function extractMessagePriceCandidates(messageText) {
+  const lines = String(messageText || '').split('\n');
+  const candidates = [];
+
+  for (const rawLine of lines) {
+    const line = String(rawLine || '').trim();
+    if (!line) {
+      continue;
+    }
+
+    if (/(?:cupom|coupon|cupon|desconto|off\b)/i.test(line)) {
+      continue;
+    }
+
+    candidates.push(...extractPriceCandidates(line));
+  }
+
+  return candidates;
 }
 
 function extractPriceCandidates(value) {
