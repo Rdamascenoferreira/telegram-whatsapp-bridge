@@ -1946,7 +1946,8 @@ export class UserBridgeRuntime {
       const sourceFallbackImageBuffer = await this.getPostLayoutSourceFallbackImageBuffer(options.telegramMessage, converted);
       const products = await Promise.all(
         converted.map(async (item, index) => {
-          const imageUrl = await this.fetchPreferredProductImageUrl(item);
+          const metadata = await this.fetchPreferredProductMetadata(item);
+          const imageUrl = metadata.imageUrl;
           let imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
 
           if (
@@ -1959,7 +1960,8 @@ export class UserBridgeRuntime {
           }
 
           const details = extractPostLayoutProductDetails(messageText, item, index, {
-            sharedPriceLines
+            sharedPriceLines,
+            pageTitle: metadata.title
           });
           return {
             ...details,
@@ -2001,16 +2003,24 @@ export class UserBridgeRuntime {
   }
 
   async fetchPreferredProductImageUrl(conversionItem = {}) {
+    const metadata = await this.fetchPreferredProductMetadata(conversionItem);
+    return metadata.imageUrl || '';
+  }
+
+  async fetchPreferredProductMetadata(conversionItem = {}) {
     const candidates = resolvePostLayoutMetadataUrls(conversionItem);
 
     for (const targetUrl of candidates) {
-      const imageUrl = await this.fetchOpenGraphImageUrl(targetUrl);
-      if (imageUrl) {
-        return imageUrl;
+      const metadata = await this.fetchOpenGraphMetadata(targetUrl);
+      if (metadata.imageUrl || metadata.title) {
+        return metadata;
       }
     }
 
-    return '';
+    return {
+      imageUrl: '',
+      title: ''
+    };
   }
 
   async getPostLayoutSourceFallbackImageBuffer(telegramMessage, convertedUrls = []) {
@@ -2109,11 +2119,11 @@ export class UserBridgeRuntime {
     }
   }
 
-  async fetchOpenGraphImageUrl(targetUrl) {
+  async fetchOpenGraphMetadata(targetUrl) {
     const url = String(targetUrl ?? '').trim();
 
     if (!url) {
-      return '';
+      return { imageUrl: '', title: '' };
     }
 
     const userAgents = resolveOpenGraphUserAgents(url);
@@ -2149,21 +2159,24 @@ export class UserBridgeRuntime {
 
         const html = await response.text();
         const rawImageUrl = extractProductImageUrlFromHtml(html);
+        const rawTitle = extractProductTitleFromHtml(html);
+        const normalizedTitle = cleanPostLayoutTitle(rawTitle);
 
-        if (!rawImageUrl) {
+        if (!rawImageUrl && !normalizedTitle) {
           continue;
         }
 
-        const resolved = new URL(rawImageUrl, url).toString();
-        if (resolved) {
-          return resolved;
-        }
+        const resolved = rawImageUrl ? new URL(rawImageUrl, url).toString() : '';
+        return {
+          imageUrl: resolved || '',
+          title: normalizedTitle || ''
+        };
       } catch {
         continue;
       }
     }
 
-    return '';
+    return { imageUrl: '', title: '' };
   }
 
   async downloadExternalImageAsMediaPayload(imageUrl, caption) {
@@ -3849,7 +3862,8 @@ function extractPostLayoutProductDetails(messageText, convertedUrl, index, optio
   const sameLine = lineIndex >= 0 ? lines[lineIndex] : '';
   const inlineTitle = cleanPostLayoutTitle(removeKnownUrlsFromLine(sameLine, [affiliateUrl, originalUrlFull, originalUrl]));
   const previousTitle = cleanPostLayoutTitle(findPreviousProductTitleLine(lines, contextStart));
-  const title = resolvePostLayoutTitle(inlineTitle, previousTitle, index);
+  const pageTitle = cleanPostLayoutTitle(options.pageTitle || '');
+  const title = resolvePostLayoutTitle(pageTitle, inlineTitle, previousTitle, index);
   const priceLines = collectNearbyPriceLines(lines, contextStart);
   const sharedPriceLines = Array.isArray(options.sharedPriceLines) ? options.sharedPriceLines : [];
   const resolvedPriceLines = priceLines.length ? priceLines : sharedPriceLines;
@@ -3862,7 +3876,11 @@ function extractPostLayoutProductDetails(messageText, convertedUrl, index, optio
   };
 }
 
-function resolvePostLayoutTitle(inlineTitle, previousTitle, index) {
+function resolvePostLayoutTitle(pageTitle, inlineTitle, previousTitle, index) {
+  if (pageTitle) {
+    return pageTitle;
+  }
+
   if (inlineTitle && previousTitle) {
     if (looksLikeSizeOnlyVariant(inlineTitle)) {
       return cleanPostLayoutTitle(
@@ -4129,6 +4147,34 @@ function extractProductImageUrlFromHtml(html) {
   const knownHostCandidate = sanitizeImageCandidate(knownHostMatch?.[0]);
   if (knownHostCandidate) {
     return knownHostCandidate;
+  }
+
+  return '';
+}
+
+function extractProductTitleFromHtml(html) {
+  const source = decodeEmbeddedUrlSource(String(html ?? ''));
+  const candidatePatterns = [
+    /<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:title["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+    /<title[^>]*>([^<]+)<\/title>/i,
+    /"name"\s*:\s*"([^"]+)"/i,
+    /"title"\s*:\s*"([^"]+)"/i
+  ];
+
+  for (const pattern of candidatePatterns) {
+    const match = source.match(pattern);
+    const candidate = decodeEmbeddedUrlSource(match?.[1] || '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!candidate) {
+      continue;
+    }
+    if (/^shopee\b/i.test(candidate) || /^amazon\b/i.test(candidate)) {
+      continue;
+    }
+    return candidate;
   }
 
   return '';

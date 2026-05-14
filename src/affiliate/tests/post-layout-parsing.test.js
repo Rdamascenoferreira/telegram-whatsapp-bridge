@@ -43,6 +43,30 @@ test('splitPostLayoutPriceLines preserves pix qualifier when there is a single p
   assert.equal(details.installment, 'no Pix ou NuPay');
 });
 
+test('extractPostLayoutProductDetails prefers product page title when available', () => {
+  const message = [
+    'Resgate o cupom de R$ 90',
+    'https://s.shopee.com.br/cupom123',
+    '',
+    'Ative o cupom da loja',
+    'https://s.shopee.com.br/produto456'
+  ].join('\n');
+
+  const details = extractPostLayoutProductDetails(
+    message,
+    {
+      affiliateUrl: 'https://s.shopee.com.br/produto456',
+      originalUrl: 'https://s.shopee.com.br/produto456'
+    },
+    0,
+    {
+      pageTitle: 'Volante Logitech G923 com TRUEFORCE para Xbox Series X|S, Xbox One e PC'
+    }
+  );
+
+  assert.equal(details.title, 'Volante Logitech G923 com TRUEFORCE para Xbox Series X|S, Xbox One e PC');
+});
+
 test('extractProductImageUrlFromHtml accepts Shopee CDN images without file extension', () => {
   const html = `
     <html>

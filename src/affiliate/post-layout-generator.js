@@ -176,19 +176,19 @@ function buildHeroSlots(count) {
     return [
       {
         imageX: 248,
-        imageY: 232,
+        imageY: 252,
         imageWidth: 704,
-        imageHeight: 574,
+        imageHeight: 554,
         frameX: 208,
         frameY: 216,
         frameWidth: 784,
         frameHeight: 600,
         labelX: 600,
-        labelY: 206,
-        titleY: 252,
+        labelY: 204,
+        titleY: 270,
         titleMaxChars: 34,
         titleMaxLines: 1,
-        titleFontSize: 44,
+        titleFontSize: 34,
         labelAnchor: 'middle',
         compact: false,
         imageAnchorX: 600,
@@ -472,7 +472,7 @@ function buildHeroProductSvg(product, slot, settings) {
   const titleLineStep = fontSize + 5;
   const titleBlockExtraHeight = Math.max(0, titleLines.length - 1) * titleLineStep;
   const desiredLabelY = slot.labelY || (slot.frameY + (slot.compact ? 20 : 18));
-  const minGapLabelToTitle = slot.compact ? 20 : 34;
+  const minGapLabelToTitle = slot.compact ? 20 : 44;
   const maxLabelY = (slot.imageY || (slot.frameY + 120)) - (slot.compact ? 20 : 24);
   const safeLabelY = Math.min(
     Math.max(desiredLabelY, slot.frameY + (slot.compact ? 18 : 14)),
