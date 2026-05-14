@@ -1548,10 +1548,48 @@ export class UserBridgeRuntime {
     }
 
     if (!automations.length) {
+      this.log('Mensagem recebida sem automação de afiliados correspondente para a origem.', {
+        type: 'affiliate_source_unmatched',
+        metadata: {
+          sourceGroupId,
+          sourceCandidates
+        }
+      });
       return false;
     }
 
     for (const automation of automations) {
+      const offerId = `affiliate:${automation.id}:${String(telegramMessageId || Date.now())}`;
+      const baseSourceMessage = telegramMessage || { text: messageText, caption: messageText, chatId: sourceGroupId };
+
+      // Always register reception first so dashboard/history never misses the event.
+      this.upsertOffer([baseSourceMessage], {
+        id: offerId,
+        status: 'captured',
+        sourceLabel: `${sourceGroupName || sourceGroupId || 'Telegram'} [Afiliados]`,
+        preview: String(messageText || 'Mensagem captada do Telegram.'),
+        messageCount: 1,
+        groupCount: 0,
+        deliveryCount: 0,
+        metadata: {
+          channels: {
+            telegram: {
+              status: 'received',
+              detail: 'Mensagem recebida pela automação de afiliados.'
+            },
+            whatsapp: {
+              status: 'pending',
+              delivered: 0,
+              failed: 0,
+              skipped: 0,
+              targetGroups: 0
+            }
+          },
+          automationId: automation.id,
+          automationName: automation.name
+        }
+      });
+
       const result = await processAffiliateMessage({
         userId: this.userId,
         automationId: automation.id,
@@ -1563,10 +1601,8 @@ export class UserBridgeRuntime {
 
       if (!result.shouldSend) {
         const ignoredReason = buildAffiliateIgnoredReason(result);
-        const ignoredSourceMessage =
-          telegramMessage || { text: messageText, caption: messageText, chatId: sourceGroupId };
-        this.upsertOffer([ignoredSourceMessage], {
-          id: `affiliate:${automation.id}:${String(telegramMessageId || Date.now())}`,
+        this.upsertOffer([baseSourceMessage], {
+          id: offerId,
           status: 'ignored',
           sourceLabel: `${sourceGroupName || sourceGroupId || 'Telegram'} [Afiliados]`,
           preview: String(result.processedMessage || messageText || 'Mensagem ignorada pela automacao de afiliados.'),
