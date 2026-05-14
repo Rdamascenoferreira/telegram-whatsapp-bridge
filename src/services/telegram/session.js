@@ -2,7 +2,21 @@ import { Api, TelegramClient } from 'telegram';
 import { NewMessage } from 'telegram/events/index.js';
 import { computeCheck } from 'telegram/Password.js';
 import { StringSession } from 'telegram/sessions/index.js';
+import { getAffiliateState } from '../../affiliate/affiliate-store.js';
 import { saveConfigForUser } from '../../configStore.js';
+
+const telegramFallbackPollIntervalMs = normalizeBoundedInt(
+  process.env.TELEGRAM_FALLBACK_POLL_INTERVAL_MS,
+  12000,
+  3000,
+  120000
+);
+const telegramFallbackPollBatchSize = normalizeBoundedInt(
+  process.env.TELEGRAM_FALLBACK_POLL_BATCH_SIZE,
+  12,
+  3,
+  50
+);
 
 export async function startTelegram(runtime) {
   await stopTelegramTransport(runtime);
@@ -13,6 +27,8 @@ export async function startTelegram(runtime) {
 }
 
 export async function stopTelegramTransport(runtime) {
+  stopTelegramFallbackPolling(runtime);
+
   if (runtime.telegramClient) {
     if (runtime.telegramMessageHandler) {
       runtime.telegramClient.removeEventHandler(runtime.telegramMessageHandler);
@@ -86,6 +102,7 @@ export async function startTelegramUser(runtime) {
   };
 
   client.addEventHandler(runtime.telegramMessageHandler, new NewMessage({}));
+  startTelegramFallbackPolling(runtime);
   runtime.telegramStatus = 'listening';
   runtime.telegramAuthFlow = null;
   runtime.log('Telegram conectado pela sua conta. Agora a ponte pode ler mensagens do grupo sem bot.', {
@@ -308,4 +325,241 @@ function resolveTelegramDialogRole(dialog) {
   const isAdmin = Boolean(dialog?.isAdmin ?? entity?.admin ?? entity?.isAdmin ?? adminRights);
 
   return isCreator || isAdmin ? 'admin' : 'member';
+}
+
+function startTelegramFallbackPolling(runtime) {
+  stopTelegramFallbackPolling(runtime);
+
+  runtime.telegramSourceCursor = runtime.telegramSourceCursor && typeof runtime.telegramSourceCursor.set === 'function'
+    ? runtime.telegramSourceCursor
+    : new Map();
+  runtime.telegramFallbackPollState = {
+    timer: setInterval(() => {
+      void pollTelegramSources(runtime);
+    }, telegramFallbackPollIntervalMs),
+    inProgress: false,
+    warmupDoneBySource: new Set()
+  };
+
+  void pollTelegramSources(runtime, { primeOnly: true });
+}
+
+function stopTelegramFallbackPolling(runtime) {
+  if (!runtime.telegramFallbackPollState) {
+    return;
+  }
+
+  if (runtime.telegramFallbackPollState.timer) {
+    clearInterval(runtime.telegramFallbackPollState.timer);
+  }
+
+  runtime.telegramFallbackPollState = null;
+}
+
+async function pollTelegramSources(runtime, options = {}) {
+  const state = runtime.telegramFallbackPollState;
+
+  if (!state || state.inProgress) {
+    return;
+  }
+  if (!runtime.telegramClient || runtime.telegramStatus !== 'listening') {
+    return;
+  }
+
+  state.inProgress = true;
+  const primeOnly = Boolean(options.primeOnly);
+
+  try {
+    const sources = await collectOperationalTelegramSources(runtime);
+
+    if (!sources.length) {
+      return;
+    }
+
+    for (const source of sources) {
+      const cursorKey = toTelegramSourceCursorKey(source);
+      const cursorMap = runtime.telegramSourceCursor;
+      const lastSeenId = Number(cursorMap.get(cursorKey) || 0);
+      const messages = await fetchSourceMessages(runtime, source, lastSeenId);
+
+      if (!messages.length) {
+        continue;
+      }
+
+      const sorted = [...messages]
+        .map((message) => ({ message, id: Number(message?.id ?? 0) }))
+        .filter((item) => Number.isFinite(item.id) && item.id > 0)
+        .sort((left, right) => left.id - right.id);
+
+      if (!sorted.length) {
+        continue;
+      }
+
+      const highestId = sorted[sorted.length - 1].id;
+      cursorMap.set(cursorKey, Math.max(lastSeenId, highestId));
+
+      if (!state.warmupDoneBySource.has(cursorKey)) {
+        state.warmupDoneBySource.add(cursorKey);
+        if (primeOnly || lastSeenId === 0) {
+          continue;
+        }
+      }
+
+      if (primeOnly) {
+        continue;
+      }
+
+      const freshMessages = sorted
+        .filter((item) => item.id > lastSeenId)
+        .map((item) => item.message)
+        .filter((message) => message && !message.out);
+
+      for (const message of freshMessages) {
+        try {
+          await runtime.routeTelegramUserMessage({ message });
+        } catch (error) {
+          runtime.log(`Falha ao processar fallback de mensagem do Telegram (${source}): ${error.message}`, {
+            level: 'error',
+            type: 'telegram_poll_forward_error',
+            increments: { errors: 1 },
+            metadata: {
+              sourceId: source
+            }
+          });
+        }
+      }
+    }
+  } catch (error) {
+    runtime.log(`Falha no fallback de captura do Telegram: ${error.message}`, {
+      level: 'error',
+      type: 'telegram_poll_error',
+      increments: { errors: 1 }
+    });
+  } finally {
+    state.inProgress = false;
+  }
+}
+
+async function collectOperationalTelegramSources(runtime) {
+  const sources = new Set();
+  const bridgeSource = String(runtime.config?.telegramChannel || '').trim();
+
+  if (bridgeSource) {
+    sources.add(bridgeSource);
+  }
+
+  try {
+    const affiliateState = await getAffiliateState(runtime.userId);
+    const activeAutomations = Array.isArray(affiliateState?.automations)
+      ? affiliateState.automations.filter((automation) => automation?.isActive)
+      : [];
+
+    for (const automation of activeAutomations) {
+      const sourceId = String(automation?.telegramSourceGroupId || '').trim();
+      if (sourceId) {
+        sources.add(sourceId);
+      }
+    }
+  } catch {
+    // Ignore affiliate state failures: bridge source may still be enough.
+  }
+
+  return [...sources];
+}
+
+async function fetchSourceMessages(runtime, sourceId, lastSeenId) {
+  const candidates = buildSourceCandidates(sourceId);
+  let lastError = null;
+
+  for (const candidate of candidates) {
+    try {
+      const params = {
+        limit: telegramFallbackPollBatchSize
+      };
+      if (lastSeenId > 0) {
+        params.minId = lastSeenId;
+      }
+
+      const messages = await runtime.telegramClient.getMessages(candidate, params);
+      return Array.isArray(messages) ? messages : [];
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return [];
+}
+
+function buildSourceCandidates(sourceId) {
+  const raw = String(sourceId || '').trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  const candidates = new Set([raw]);
+  const normalized = normalizeTelegramSourceRef(raw);
+
+  if (!normalized) {
+    return [...candidates];
+  }
+
+  if (normalized.startsWith('@')) {
+    candidates.add(normalized);
+    return [...candidates];
+  }
+
+  candidates.add(normalized);
+  candidates.add(`-${normalized}`);
+  if (/^\d+$/.test(normalized)) {
+    candidates.add(`-100${normalized}`);
+  }
+
+  return [...candidates];
+}
+
+function normalizeTelegramSourceRef(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.startsWith('@')) {
+    return normalized;
+  }
+  if (/^-100\d+$/.test(normalized)) {
+    return normalized.slice(4);
+  }
+  if (/^-\d+$/.test(normalized)) {
+    return normalized.slice(1);
+  }
+
+  return normalized;
+}
+
+function toTelegramSourceCursorKey(value) {
+  const normalized = normalizeTelegramSourceRef(value);
+
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.startsWith('@')) {
+    return `username:${normalized}`;
+  }
+
+  return `id:${normalized}`;
+}
+
+function normalizeBoundedInt(value, fallback, min, max) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+
+  if (!Number.isFinite(parsed) || parsed < min) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
 }

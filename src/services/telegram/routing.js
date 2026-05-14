@@ -63,6 +63,7 @@ export async function routeTelegramUserMessage(runtime, event) {
     ...sourceChatRefs,
     ...getTelegramEntityChatRefs(chat)
   ];
+  rememberTelegramSourceCursor(runtime, sourceGroupIds, Number(message.id ?? 0));
   const runtimeMessage = {
     __telegramSource: 'user_session',
     id: Number(message.id ?? 0),
@@ -612,6 +613,42 @@ function buildTelegramChatRefCandidates(value) {
   }
 
   return [...candidates];
+}
+
+function rememberTelegramSourceCursor(runtime, sourceGroupIds, messageId) {
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    return;
+  }
+
+  if (!runtime.telegramSourceCursor || typeof runtime.telegramSourceCursor.set !== 'function') {
+    runtime.telegramSourceCursor = new Map();
+  }
+
+  const refs = Array.isArray(sourceGroupIds) ? sourceGroupIds : [sourceGroupIds];
+
+  for (const ref of refs) {
+    for (const candidate of buildTelegramChatRefCandidates(ref)) {
+      const key = toTelegramSourceCursorKey(candidate);
+      const previous = Number(runtime.telegramSourceCursor.get(key) || 0);
+      if (messageId > previous) {
+        runtime.telegramSourceCursor.set(key, messageId);
+      }
+    }
+  }
+}
+
+function toTelegramSourceCursorKey(value) {
+  const normalized = normalizeTelegramChatRef(value);
+
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.startsWith('@')) {
+    return `username:${normalized}`;
+  }
+
+  return `id:${normalized}`;
 }
 
 export const __telegramRoutingTestUtils = {
