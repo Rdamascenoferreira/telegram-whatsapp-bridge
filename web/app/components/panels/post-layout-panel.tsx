@@ -18,7 +18,7 @@ const defaults: PostLayoutConfig = {
   headline: 'Ofertas selecionadas',
   primaryColor: '#0f172a',
   accentColor: '#25D366',
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#ffffff',
   textColor: '#111827',
   maxProducts: 4
 };
@@ -43,7 +43,6 @@ export function PostLayoutPanel({
   const [headline, setHeadline] = useState(current.headline || defaults.headline);
   const [primaryColor, setPrimaryColor] = useState(current.primaryColor || defaults.primaryColor);
   const [accentColor, setAccentColor] = useState(current.accentColor || defaults.accentColor);
-  const [backgroundColor, setBackgroundColor] = useState(current.backgroundColor || defaults.backgroundColor);
   const [textColor, setTextColor] = useState(current.textColor || defaults.textColor);
   const [maxProducts, setMaxProducts] = useState(String(current.maxProducts || defaults.maxProducts));
   const [busy, setBusy] = useState(false);
@@ -63,7 +62,6 @@ export function PostLayoutPanel({
           headline,
           primaryColor,
           accentColor,
-          backgroundColor,
           textColor,
           maxProducts: Number(maxProducts)
         },
@@ -118,10 +116,9 @@ export function PostLayoutPanel({
             <Field label="Chamada" value={headline} onChange={setHeadline} placeholder="Ofertas selecionadas" disabled={readOnlyAccount} />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
             <ColorField label="Cor principal" value={primaryColor} onChange={setPrimaryColor} disabled={readOnlyAccount} />
             <ColorField label="Cor de destaque" value={accentColor} onChange={setAccentColor} disabled={readOnlyAccount} />
-            <ColorField label="Fundo" value={backgroundColor} onChange={setBackgroundColor} disabled={readOnlyAccount} />
             <ColorField label="Texto" value={textColor} onChange={setTextColor} disabled={readOnlyAccount} />
           </div>
 
@@ -174,12 +171,12 @@ export function PostLayoutPanel({
             <div className="relative z-10">
               <div className="relative overflow-hidden px-5 py-5" style={{ backgroundColor: primaryColor }}>
                 <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-white/10 to-transparent" />
-                <p className="relative text-[22px] font-black tracking-tight text-white">{brandName || 'Oferta do dia'}</p>
-                <p className="relative mt-1 text-sm font-bold text-white/80">{headline || defaults.headline}</p>
+                <p className="relative text-[22px] font-black tracking-tight" style={{ color: textColor }}>{brandName || 'Oferta do dia'}</p>
+                <p className="relative mt-1 text-sm font-bold" style={{ color: `${textColor}CC` }}>{headline || defaults.headline}</p>
               </div>
               <div className="h-[3px] w-full" style={{ backgroundColor: accentColor }} />
 
-              <div className="relative h-[360px] bg-[rgba(248,250,252,0.92)]">
+              <div className="relative h-[360px] bg-[#ffffffeb]">
                 {previewSlots.map((slot, index) => (
                   <div
                     key={index}
@@ -192,7 +189,8 @@ export function PostLayoutPanel({
                     }}
                   >
                     <p className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: accentColor }}>PRODUTO</p>
-                    <div className="mt-2 h-[calc(100%-24px)] rounded-xl border border-[#0b173433] bg-[#ffffffcc]" />
+                    <p className="mt-1 text-[10px] font-black leading-tight" style={{ color: textColor }}>Item {index + 1}</p>
+                    <div className="mt-2 h-[calc(100%-40px)] rounded-xl border border-[#0b173433] bg-[#ffffffcc]" />
                   </div>
                 ))}
               </div>

@@ -4,7 +4,7 @@ export const defaultPostLayoutConfig = {
   headline: 'Ofertas selecionadas',
   primaryColor: '#0f172a',
   accentColor: '#25D366',
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#ffffff',
   textColor: '#111827',
   maxProducts: 4
 };
@@ -18,7 +18,8 @@ export function normalizePostLayoutConfig(value = {}) {
     headline: cleanText(source.headline, 64) || defaultPostLayoutConfig.headline,
     primaryColor: normalizeHexColor(source.primaryColor, defaultPostLayoutConfig.primaryColor),
     accentColor: normalizeHexColor(source.accentColor, defaultPostLayoutConfig.accentColor),
-    backgroundColor: normalizeHexColor(source.backgroundColor, defaultPostLayoutConfig.backgroundColor),
+    // Background is intentionally fixed to white for a clean and consistent layout.
+    backgroundColor: defaultPostLayoutConfig.backgroundColor,
     textColor: normalizeHexColor(source.textColor, defaultPostLayoutConfig.textColor),
     maxProducts: clampInteger(source.maxProducts, 1, 4, defaultPostLayoutConfig.maxProducts)
   };
