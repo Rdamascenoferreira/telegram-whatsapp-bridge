@@ -19,9 +19,10 @@ export function createAuthenticatedShellState(auth: AppState['auth']): AppState 
         enabled: false,
         brandName: '',
         headline: 'Ofertas selecionadas',
+        footerText: 'Seleção premium de ofertas',
         primaryColor: '#0f172a',
         accentColor: '#25D366',
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#ffffff',
         textColor: '#111827',
         maxProducts: 2
       },

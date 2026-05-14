@@ -109,6 +109,7 @@ export type PostLayoutConfig = {
   enabled: boolean;
   brandName: string;
   headline: string;
+  footerText: string;
   primaryColor: string;
   accentColor: string;
   backgroundColor: string;

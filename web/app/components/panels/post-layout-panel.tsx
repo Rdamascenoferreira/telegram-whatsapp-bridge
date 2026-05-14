@@ -16,12 +16,14 @@ const defaults: PostLayoutConfig = {
   enabled: false,
   brandName: '',
   headline: 'Ofertas selecionadas',
+  footerText: 'Seleção premium de ofertas',
   primaryColor: '#0f172a',
   accentColor: '#25D366',
   backgroundColor: '#ffffff',
   textColor: '#111827',
   maxProducts: 4
 };
+const footerTextLimit = 44;
 
 function isReadOnlyAccount(state: AppState) {
   return state.auth.user?.accountStatus === 'trial' && !state.auth.user?.isAdmin;
@@ -41,6 +43,7 @@ export function PostLayoutPanel({
   const [enabled, setEnabled] = useState(Boolean(current.enabled));
   const [brandName, setBrandName] = useState(current.brandName || '');
   const [headline, setHeadline] = useState(current.headline || defaults.headline);
+  const [footerText, setFooterText] = useState(current.footerText || defaults.footerText);
   const [primaryColor, setPrimaryColor] = useState(current.primaryColor || defaults.primaryColor);
   const [accentColor, setAccentColor] = useState(current.accentColor || defaults.accentColor);
   const [textColor, setTextColor] = useState(current.textColor || defaults.textColor);
@@ -60,6 +63,7 @@ export function PostLayoutPanel({
           enabled,
           brandName,
           headline,
+          footerText,
           primaryColor,
           accentColor,
           textColor,
@@ -115,6 +119,21 @@ export function PostLayoutPanel({
             <Field label="Nome exibido" value={brandName} onChange={setBrandName} placeholder="Ex.: Achadinhos VIP" disabled={readOnlyAccount} />
             <Field label="Chamada" value={headline} onChange={setHeadline} placeholder="Ofertas selecionadas" disabled={readOnlyAccount} />
           </div>
+
+          <label className="grid gap-2 text-sm font-semibold text-[#F8FAFC]">
+            Mensagem do rodapé
+            <input
+              value={footerText}
+              disabled={readOnlyAccount}
+              maxLength={footerTextLimit}
+              onChange={(event) => setFooterText(event.target.value)}
+              className={secondaryInput}
+              placeholder="Seleção premium de ofertas"
+            />
+            <span className="text-xs font-normal text-[#8D9C96]">
+              {footerText.length}/{footerTextLimit} caracteres
+            </span>
+          </label>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
             <ColorField label="Cor principal" value={primaryColor} onChange={setPrimaryColor} disabled={readOnlyAccount} />
@@ -196,6 +215,10 @@ export function PostLayoutPanel({
               </div>
 
               <div className="relative h-[86px] bg-gradient-to-r from-[#07112e] to-[#0a1a42]">
+                <p className="absolute left-4 top-1 text-[12px] font-semibold text-white/75">
+                  {(footerText || defaults.footerText).slice(0, 34)}
+                  {(footerText || defaults.footerText).length > 34 ? '...' : ''}
+                </p>
                 <p className="absolute left-4 top-4 text-[11px] font-bold text-white/70">a partir de</p>
                 <p className="absolute left-4 top-8 text-[30px] font-black leading-none text-[#f7e7a5]">R$ 111,50</p>
               </div>

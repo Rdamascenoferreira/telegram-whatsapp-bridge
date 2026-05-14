@@ -2,6 +2,7 @@ export const defaultPostLayoutConfig = {
   enabled: false,
   brandName: '',
   headline: 'Ofertas selecionadas',
+  footerText: 'Seleção premium de ofertas',
   primaryColor: '#0f172a',
   accentColor: '#25D366',
   backgroundColor: '#ffffff',
@@ -16,6 +17,7 @@ export function normalizePostLayoutConfig(value = {}) {
     enabled: Boolean(source.enabled),
     brandName: cleanText(source.brandName, 48),
     headline: cleanText(source.headline, 64) || defaultPostLayoutConfig.headline,
+    footerText: cleanText(source.footerText, 44) || defaultPostLayoutConfig.footerText,
     primaryColor: normalizeHexColor(source.primaryColor, defaultPostLayoutConfig.primaryColor),
     accentColor: normalizeHexColor(source.accentColor, defaultPostLayoutConfig.accentColor),
     // Background is intentionally fixed to white for a clean and consistent layout.

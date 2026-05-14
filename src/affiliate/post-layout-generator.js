@@ -69,9 +69,15 @@ function buildHeroSlots(count) {
         frameWidth: 784,
         frameHeight: 600,
         labelX: 600,
-        labelY: 206,
+        labelY: 202,
+        titleY: 244,
+        titleMaxChars: 34,
+        titleMaxLines: 2,
+        titleFontSize: 34,
         labelAnchor: 'middle',
-        compact: false
+        compact: false,
+        imageAnchorX: 600,
+        imageAnchorY: 526
       }
     ];
   }
@@ -88,9 +94,15 @@ function buildHeroSlots(count) {
         frameWidth: 520,
         frameHeight: 532,
         labelX: 338,
-        labelY: 232,
+        labelY: 228,
+        titleY: 264,
+        titleMaxChars: 28,
+        titleMaxLines: 2,
+        titleFontSize: 28,
         labelAnchor: 'middle',
-        compact: false
+        compact: false,
+        imageAnchorX: 338,
+        imageAnchorY: 508
       },
       {
         imageX: 628,
@@ -102,9 +114,15 @@ function buildHeroSlots(count) {
         frameWidth: 520,
         frameHeight: 532,
         labelX: 862,
-        labelY: 232,
+        labelY: 228,
+        titleY: 264,
+        titleMaxChars: 28,
+        titleMaxLines: 2,
+        titleFontSize: 28,
         labelAnchor: 'middle',
-        compact: false
+        compact: false,
+        imageAnchorX: 862,
+        imageAnchorY: 508
       }
     ];
   }
@@ -121,9 +139,15 @@ function buildHeroSlots(count) {
         frameWidth: 444,
         frameHeight: 334,
         labelX: 600,
-        labelY: 184,
+        labelY: 180,
+        titleY: 210,
+        titleMaxChars: 24,
+        titleMaxLines: 2,
+        titleFontSize: 22,
         labelAnchor: 'middle',
-        compact: true
+        compact: true,
+        imageAnchorX: 600,
+        imageAnchorY: 359
       },
       {
         imageX: 120,
@@ -135,9 +159,15 @@ function buildHeroSlots(count) {
         frameWidth: 448,
         frameHeight: 334,
         labelX: 312,
-        labelY: 476,
+        labelY: 472,
+        titleY: 502,
+        titleMaxChars: 24,
+        titleMaxLines: 2,
+        titleFontSize: 22,
         labelAnchor: 'middle',
-        compact: true
+        compact: true,
+        imageAnchorX: 312,
+        imageAnchorY: 651
       },
       {
         imageX: 696,
@@ -149,9 +179,15 @@ function buildHeroSlots(count) {
         frameWidth: 448,
         frameHeight: 334,
         labelX: 888,
-        labelY: 476,
+        labelY: 472,
+        titleY: 502,
+        titleMaxChars: 24,
+        titleMaxLines: 2,
+        titleFontSize: 22,
         labelAnchor: 'middle',
-        compact: true
+        compact: true,
+        imageAnchorX: 888,
+        imageAnchorY: 651
       }
     ];
   }
@@ -167,9 +203,15 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 300,
-      labelY: 198,
+      labelY: 194,
+      titleY: 222,
+      titleMaxChars: 18,
+      titleMaxLines: 2,
+      titleFontSize: 20,
       labelAnchor: 'middle',
-      compact: true
+      compact: true,
+      imageAnchorX: 300,
+      imageAnchorY: 348
     },
     {
       imageX: 724,
@@ -181,9 +223,15 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 900,
-      labelY: 198,
+      labelY: 194,
+      titleY: 222,
+      titleMaxChars: 18,
+      titleMaxLines: 2,
+      titleFontSize: 20,
       labelAnchor: 'middle',
-      compact: true
+      compact: true,
+      imageAnchorX: 900,
+      imageAnchorY: 348
     },
     {
       imageX: 124,
@@ -195,9 +243,15 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 300,
-      labelY: 510,
+      labelY: 506,
+      titleY: 534,
+      titleMaxChars: 18,
+      titleMaxLines: 2,
+      titleFontSize: 20,
       labelAnchor: 'middle',
-      compact: true
+      compact: true,
+      imageAnchorX: 300,
+      imageAnchorY: 660
     },
     {
       imageX: 724,
@@ -209,9 +263,15 @@ function buildHeroSlots(count) {
       frameWidth: 416,
       frameHeight: 284,
       labelX: 900,
-      labelY: 510,
+      labelY: 506,
+      titleY: 534,
+      titleMaxChars: 18,
+      titleMaxLines: 2,
+      titleFontSize: 20,
       labelAnchor: 'middle',
-      compact: true
+      compact: true,
+      imageAnchorX: 900,
+      imageAnchorY: 660
     }
   ];
 }
@@ -219,13 +279,14 @@ function buildHeroSlots(count) {
 function buildLayoutSvg({ products, slots, settings, pricing }) {
   const brandName = settings.brandName || 'Oferta do dia';
   const headline = settings.headline || 'Ofertas selecionadas';
+  const footerText = fitFooterMessage(settings.footerText || 'Seleção premium de ofertas', 34);
   const stageTop = headerHeight;
   const stageHeight = canvasHeight - headerHeight - footerHeight;
   const footerY = canvasHeight - footerHeight;
-  const footerBadgeWidth = 388;
-  const footerBadgeHeight = 92;
-  const footerBadgeX = canvasWidth - footerBadgeWidth - 28;
-  const footerBadgeY = footerY + 16;
+  const footerBadgeWidth = 350;
+  const footerBadgeHeight = 96;
+  const footerBadgeX = canvasWidth - footerBadgeWidth - 24;
+  const footerBadgeY = footerY + 14;
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">
@@ -275,12 +336,11 @@ function buildLayoutSvg({ products, slots, settings, pricing }) {
   ${products.map((product, index) => buildHeroProductSvg(product, slots[index], settings)).join('\n')}
 
   <rect y="${footerY}" width="${canvasWidth}" height="${footerHeight}" fill="url(#footerGrad)"/>
-  <text x="52" y="${footerY + 52}" fill="rgba(255,255,255,0.78)" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700">Selecao premium de ofertas</text>
-  <text x="52" y="${footerY + 88}" fill="rgba(255,255,255,0.58)" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">Valores ja convertidos pela automacao</text>
+  <text x="52" y="${footerY + 52}" fill="rgba(255,255,255,0.78)" font-family="'Segoe UI', 'Arial', sans-serif" font-size="24" font-weight="700">${escapeXml(footerText)}</text>
 
   <rect x="${footerBadgeX}" y="${footerBadgeY}" width="${footerBadgeWidth}" height="${footerBadgeHeight}" rx="24" fill="url(#priceBadgeGrad)"/>
-  <text x="${footerBadgeX + 26}" y="${footerBadgeY + 34}" fill="rgba(255,255,255,0.72)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800">a partir de</text>
-  <text x="${footerBadgeX + 26}" y="${footerBadgeY + 74}" fill="#f7e7a5" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="900">${escapeXml(pricing.label)}</text>
+  <text x="${footerBadgeX + 24}" y="${footerBadgeY + 36}" fill="rgba(255,255,255,0.8)" font-family="'Segoe UI', 'Arial', sans-serif" font-size="20" font-weight="700">a partir de</text>
+  <text x="${footerBadgeX + 24}" y="${footerBadgeY + 76}" fill="#f7e7a5" font-family="'Segoe UI', 'Arial', sans-serif" font-size="34" font-weight="900">${escapeXml(fitFooterPriceLabel(pricing.label, 14))}</text>
 </svg>`;
 }
 
@@ -291,14 +351,18 @@ function buildHeroProductSvg(product, slot, settings) {
 
   const marketplace = product.marketplace ? String(product.marketplace).toUpperCase() : 'OFERTA';
   const title = cleanTitleForHero(product.title || 'Produto em destaque');
-  const titleLines = wrapText(title, slot.compact ? 26 : 30, slot.compact ? 1 : 2);
-  const fontSize = slot.compact ? 20 : 24;
+  const titleLines = wrapText(
+    title,
+    slot.titleMaxChars || (slot.compact ? 26 : 30),
+    slot.titleMaxLines || (slot.compact ? 1 : 2)
+  );
+  const fontSize = slot.titleFontSize || (slot.compact ? 20 : 24);
 
   return `
   <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="rgba(4,15,43,0.10)"/>
   <rect x="${slot.frameX}" y="${slot.frameY}" width="${slot.frameWidth}" height="${slot.frameHeight}" rx="${slot.compact ? 22 : 28}" fill="none" stroke="rgba(11,23,52,0.18)" stroke-width="2"/>
-  <text x="${slot.labelX}" y="${slot.labelY}" text-anchor="${slot.labelAnchor}" fill="${settings.accentColor}" font-family="Arial, Helvetica, sans-serif" font-size="${slot.compact ? 14 : 16}" font-weight="900" letter-spacing="${slot.compact ? 2 : 2.4}">${escapeXml(marketplace)}</text>
-  ${titleLines.map((line, index) => `<text x="${slot.labelX}" y="${slot.labelY + 30 + index * (fontSize + 5)}" text-anchor="${slot.labelAnchor}" fill="${settings.textColor}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="900">${escapeXml(line)}</text>`).join('\n')}
+  <text x="${slot.labelX}" y="${slot.labelY}" text-anchor="${slot.labelAnchor}" fill="${settings.accentColor}" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${slot.compact ? 14 : 16}" font-weight="900" letter-spacing="${slot.compact ? 2 : 2.4}">${escapeXml(marketplace)}</text>
+  ${titleLines.map((line, index) => `<text x="${slot.labelX}" y="${(slot.titleY || (slot.labelY + 30)) + index * (fontSize + 5)}" text-anchor="${slot.labelAnchor}" fill="#0f172a" font-family="'Segoe UI', 'Arial', sans-serif" font-size="${fontSize}" font-weight="800">${escapeXml(line)}</text>`).join('\n')}
   `;
 }
 
@@ -428,6 +492,27 @@ function wrapText(value, maxChars, maxLines) {
   }
 
   return lines;
+}
+
+function fitFooterPriceLabel(value, maxChars) {
+  const source = String(value || '').trim();
+  if (source.length <= maxChars) {
+    return source;
+  }
+
+  return 'Confira no link';
+}
+
+function fitFooterMessage(value, maxChars) {
+  const source = String(value || '').trim();
+  if (!source) {
+    return 'Seleção premium de ofertas';
+  }
+  if (source.length <= maxChars) {
+    return source;
+  }
+
+  return `${source.slice(0, Math.max(8, maxChars - 3)).trim()}...`;
 }
 
 function escapeXml(value) {
