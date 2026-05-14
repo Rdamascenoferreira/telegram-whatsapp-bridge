@@ -67,12 +67,24 @@ test('sanitizeImageCandidate accepts protocol-relative Shopee CDN urls', () => {
   );
 });
 
-test('selectPostLayoutMetadataUrl prefers expanded product urls over affiliate short links', () => {
+test('selectPostLayoutMetadataUrl prefers shopee affiliate short link first for social og:image', () => {
   assert.equal(
     selectPostLayoutMetadataUrl({
+      marketplace: 'shopee',
       expandedUrl: 'https://shopee.com.br/produto-i.123.456',
       affiliateUrl: 'https://s.shopee.com.br/abc123'
     }),
-    'https://shopee.com.br/produto-i.123.456'
+    'https://s.shopee.com.br/abc123'
+  );
+});
+
+test('selectPostLayoutMetadataUrl keeps expanded url first for non-shopee marketplaces', () => {
+  assert.equal(
+    selectPostLayoutMetadataUrl({
+      marketplace: 'amazon',
+      expandedUrl: 'https://www.amazon.com.br/dp/B0ABC12345?tag=abc-20',
+      affiliateUrl: 'https://amzn.to/abc123'
+    }),
+    'https://www.amazon.com.br/dp/B0ABC12345?tag=abc-20'
   );
 });

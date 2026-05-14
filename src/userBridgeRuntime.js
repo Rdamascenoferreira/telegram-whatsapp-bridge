@@ -74,6 +74,12 @@ const postLayoutMaxGenerationsPerMinute = parseBoundedInteger(
 );
 const modernChromeUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
+const socialPreviewUserAgents = [
+  'WhatsApp/2.24.0 N',
+  'TelegramBot (like TwitterBot)',
+  'Twitterbot/1.0',
+  'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+];
 const defaultWhatsAppHeadless = !['0', 'false', 'no', 'off'].includes(
   String(process.env.WHATSAPP_HEADLESS ?? 'true').trim().toLowerCase()
 );
@@ -1881,19 +1887,14 @@ export class UserBridgeRuntime {
       }
     }
 
-    const productUrl = extractPrimaryConvertedProductUrl(convertedUrls);
+    const convertedItem = extractPrimaryConvertedProduct(convertedUrls);
+    const productUrl = convertedItem ? await this.fetchPreferredProductImageUrl(convertedItem) : extractPrimaryConvertedProductUrl(convertedUrls);
 
     if (!productUrl) {
       return null;
     }
 
-    const imageUrl = await this.fetchOpenGraphImageUrl(productUrl);
-
-    if (!imageUrl) {
-      return null;
-    }
-
-    const mediaPayload = await this.downloadExternalImageAsMediaPayload(imageUrl, messageText);
+    const mediaPayload = await this.downloadExternalImageAsMediaPayload(productUrl, messageText);
     return mediaPayload;
   }
 
@@ -1943,8 +1944,7 @@ export class UserBridgeRuntime {
       const sourceFallbackImageBuffer = await this.getPostLayoutSourceFallbackImageBuffer(options.telegramMessage, converted);
       const products = await Promise.all(
         converted.map(async (item, index) => {
-          const metadataUrl = selectPostLayoutMetadataUrl(item);
-          const imageUrl = metadataUrl ? await this.fetchOpenGraphImageUrl(metadataUrl) : '';
+          const imageUrl = await this.fetchPreferredProductImageUrl(item);
           let imageBuffer = imageUrl ? await this.downloadExternalImageBuffer(imageUrl) : null;
 
           if (
@@ -1996,6 +1996,19 @@ export class UserBridgeRuntime {
       });
       return null;
     }
+  }
+
+  async fetchPreferredProductImageUrl(conversionItem = {}) {
+    const candidates = resolvePostLayoutMetadataUrls(conversionItem);
+
+    for (const targetUrl of candidates) {
+      const imageUrl = await this.fetchOpenGraphImageUrl(targetUrl);
+      if (imageUrl) {
+        return imageUrl;
+      }
+    }
+
+    return '';
   }
 
   async getPostLayoutSourceFallbackImageBuffer(telegramMessage, convertedUrls = []) {
@@ -2095,44 +2108,60 @@ export class UserBridgeRuntime {
   }
 
   async fetchOpenGraphImageUrl(targetUrl) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), ogImageFetchTimeoutMs);
-      let response;
+    const url = String(targetUrl ?? '').trim();
 
-      try {
-        response = await fetch(targetUrl, {
-          method: 'GET',
-          signal: controller.signal,
-          headers: {
-            'user-agent': modernChromeUserAgent
-          }
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-
-      if (!response?.ok) {
-        return '';
-      }
-
-      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-
-      if (!contentType.includes('text/html')) {
-        return '';
-      }
-
-      const html = await response.text();
-      const rawImageUrl = extractProductImageUrlFromHtml(html);
-
-      if (!rawImageUrl) {
-        return '';
-      }
-
-      return new URL(rawImageUrl, targetUrl).toString();
-    } catch {
+    if (!url) {
       return '';
     }
+
+    const userAgents = resolveOpenGraphUserAgents(url);
+
+    for (const userAgent of userAgents) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), ogImageFetchTimeoutMs);
+        let response;
+
+        try {
+          response = await fetch(url, {
+            method: 'GET',
+            signal: controller.signal,
+            redirect: 'follow',
+            headers: {
+              'user-agent': userAgent
+            }
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (!response?.ok) {
+          continue;
+        }
+
+        const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+
+        if (!contentType.includes('text/html')) {
+          continue;
+        }
+
+        const html = await response.text();
+        const rawImageUrl = extractProductImageUrlFromHtml(html);
+
+        if (!rawImageUrl) {
+          continue;
+        }
+
+        const resolved = new URL(rawImageUrl, url).toString();
+        if (resolved) {
+          return resolved;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return '';
   }
 
   async downloadExternalImageAsMediaPayload(imageUrl, caption) {
@@ -3781,6 +3810,12 @@ function extractPrimaryConvertedProductUrl(convertedUrls = []) {
   return converted ? String(converted.affiliateUrl).trim() : '';
 }
 
+function extractPrimaryConvertedProduct(convertedUrls = []) {
+  return Array.isArray(convertedUrls)
+    ? convertedUrls.find((item) => item?.status === 'converted' && item?.affiliateUrl)
+    : null;
+}
+
 function extractPostLayoutProductDetails(messageText, convertedUrl, index, options = {}) {
   const lines = String(messageText ?? '').split('\n');
   const affiliateUrl = String(convertedUrl?.affiliateUrl || '').trim();
@@ -4111,16 +4146,53 @@ function decodeEmbeddedUrlSource(value) {
 }
 
 function selectPostLayoutMetadataUrl(item) {
+  const marketplace = String(item?.marketplace || '').trim().toLowerCase();
   const preferred = [
-    item?.expandedUrl,
-    item?.originalExpandedUrl,
-    item?.affiliateUrl,
+    ...(marketplace === 'shopee'
+      ? [item?.affiliateUrl, item?.expandedUrl, item?.originalExpandedUrl]
+      : [item?.expandedUrl, item?.originalExpandedUrl, item?.affiliateUrl]),
     item?.originalUrl
   ]
     .map((value) => String(value ?? '').trim())
     .filter(Boolean);
 
   return preferred[0] || '';
+}
+
+function resolvePostLayoutMetadataUrls(item) {
+  const marketplace = String(item?.marketplace || '').trim().toLowerCase();
+  const ordered = [
+    ...(marketplace === 'shopee'
+      ? [item?.affiliateUrl, item?.expandedUrl, item?.originalExpandedUrl]
+      : [item?.expandedUrl, item?.originalExpandedUrl, item?.affiliateUrl]),
+    item?.originalUrl
+  ]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean);
+
+  return [...new Set(ordered)];
+}
+
+function resolveOpenGraphUserAgents(targetUrl) {
+  const url = String(targetUrl ?? '').trim();
+
+  if (!url) {
+    return [modernChromeUserAgent];
+  }
+
+  let hostname = '';
+
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return [modernChromeUserAgent];
+  }
+
+  if (hostname.includes('shopee.')) {
+    return [...socialPreviewUserAgents, modernChromeUserAgent];
+  }
+
+  return [modernChromeUserAgent];
 }
 
 function fallbackText(message) {
