@@ -90,6 +90,18 @@ const groupCacheMaxAgeMs = parseBoundedTimeout(
   60 * 1000,
   24 * 60 * 60 * 1000
 );
+const whatsAppGroupsWarmupMs = parseBoundedTimeout(
+  process.env.WHATSAPP_GROUPS_WARMUP_MS,
+  45 * 1000,
+  5 * 1000,
+  5 * 60 * 1000
+);
+const whatsAppAutoRefreshGroupsOnReady = ['1', 'true', 'yes', 'on'].includes(
+  String(process.env.WHATSAPP_AUTO_REFRESH_GROUPS_ON_READY ?? 'false').trim().toLowerCase()
+);
+const whatsAppProgressiveAdminCheck = !['0', 'false', 'no', 'off'].includes(
+  String(process.env.WHATSAPP_PROGRESSIVE_ADMIN_CHECK ?? 'true').trim().toLowerCase()
+);
 const deliveryReceiptTtlMs = 6 * 60 * 60 * 1000;
 const maxRecentDeliveryReceipts = 4000;
 const deliveryReceiptsFilename = 'delivery-receipts.json';
@@ -203,6 +215,7 @@ export class UserBridgeRuntime {
     this.telegramStatus = 'not_configured';
     this.albumBuffers = new Map();
     this.whatsAppIssue = null;
+    this.whatsAppReadyAt = 0;
     this.whatsAppReconnectInProgress = false;
     this.whatsAppResetInProgress = false;
     this.isRefreshingGroups = false;
@@ -229,6 +242,7 @@ export class UserBridgeRuntime {
     };
     this.groupCacheRefreshedAt = '';
     this.groupRefreshPromise = null;
+    this.groupAdminVerificationPromise = null;
     this.persistActivityPromise = Promise.resolve();
     this.recentDeliveryReceipts = new Map();
     this.deliveryStats = {
@@ -635,6 +649,7 @@ export class UserBridgeRuntime {
       this.qrDataUrl = qrDataUrl;
       this.whatsAppStatus = 'qr_required';
       this.whatsAppIssue = null;
+      this.whatsAppReadyAt = 0;
       this.clearWhatsAppStartupWatchdog();
       this.whatsAppPhone = null;
       this.log('Escaneie o QR Code do WhatsApp no painel.', {
@@ -663,6 +678,7 @@ export class UserBridgeRuntime {
 
       this.qrDataUrl = null;
       this.whatsAppStatus = 'ready';
+      this.whatsAppReadyAt = Date.now();
       this.whatsAppRestartAttempts = 0;
       this.whatsAppIssue = null;
       this.clearWhatsAppStartupWatchdog();
@@ -680,27 +696,36 @@ export class UserBridgeRuntime {
           increments: { errors: 1 }
         });
       });
-      setTimeout(() => {
-        if (!isCurrent()) {
-          return;
-        }
-
-        // Skip auto-refresh if cache is fresh (< groupCacheMaxAgeMs)
-        if (this.availableGroups.length > 0 && !this.isGroupCacheStale()) {
-          this.log(`Cache de grupos reutilizado (${this.availableGroups.length} grupos, atualizado em ${this.groupCacheRefreshedAt}).`, {
-            type: 'groups_cache_reused'
-          });
-          return;
-        }
-
-        this.refreshAvailableGroups({ waitForCompletion: false }).catch((error) => {
-          this.log(`Falha ao atualizar grupos apos login: ${error.message}`, {
-            level: 'error',
-            type: 'whatsapp_groups_error',
-            increments: { errors: 1 }
-          });
+      if (!whatsAppAutoRefreshGroupsOnReady) {
+        this.log('Auto-atualizacao de grupos apos login desativada. Use "Atualizar grupos" quando quiser sincronizar.', {
+          type: 'groups_auto_refresh_disabled'
         });
-      }, 1500);
+      } else {
+        setTimeout(() => {
+          if (!isCurrent()) {
+            return;
+          }
+
+          // Skip auto-refresh if cache is fresh (< groupCacheMaxAgeMs)
+          if (this.availableGroups.length > 0 && !this.isGroupCacheStale()) {
+            this.log(`Cache de grupos reutilizado (${this.availableGroups.length} grupos, atualizado em ${this.groupCacheRefreshedAt}).`, {
+              type: 'groups_cache_reused'
+            });
+            return;
+          }
+
+          this.refreshAvailableGroups({
+            waitForCompletion: false,
+            skipWarmupCheck: true
+          }).catch((error) => {
+            this.log(`Falha ao atualizar grupos apos login: ${error.message}`, {
+              level: 'error',
+              type: 'whatsapp_groups_error',
+              increments: { errors: 1 }
+            });
+          });
+        }, Math.max(1500, whatsAppGroupsWarmupMs));
+      }
     });
 
     client.on('auth_failure', (message) => {
@@ -709,6 +734,7 @@ export class UserBridgeRuntime {
       }
 
       this.whatsAppStatus = 'auth_failure';
+      this.whatsAppReadyAt = 0;
       this.whatsAppIssue = {
         status: 'auth_failure',
         canResetSession: true,
@@ -740,6 +766,7 @@ export class UserBridgeRuntime {
       }
 
       this.whatsAppStatus = 'disconnected';
+      this.whatsAppReadyAt = 0;
       this.whatsAppIssue = null;
       this.clearWhatsAppStartupWatchdog();
       this.log(`WhatsApp desconectado: ${reason}`, {
@@ -812,6 +839,7 @@ export class UserBridgeRuntime {
     this.clearWhatsAppAutoReconnect();
     this.clearWhatsAppStartupWatchdog();
     this.whatsAppStatus = 'resetting';
+    this.whatsAppReadyAt = 0;
     this.whatsAppIssue = null;
     this.qrDataUrl = null;
     this.whatsAppPhone = null;
@@ -1781,15 +1809,29 @@ export class UserBridgeRuntime {
   async refreshAvailableGroups(options = {}) {
     await refreshWhatsAppGroups(this, options, {
       groupAdminCheckBatchSize,
-      defaultWhatsAppProtocolTimeoutMs
+      defaultWhatsAppProtocolTimeoutMs,
+      whatsAppGroupsWarmupMs,
+      progressiveAdminCheckEnabled: whatsAppProgressiveAdminCheck
     });
   }
 
   async performAvailableGroupsRefresh() {
     await performWhatsAppGroupsRefresh(this, {
       groupAdminCheckBatchSize,
-      defaultWhatsAppProtocolTimeoutMs
+      defaultWhatsAppProtocolTimeoutMs,
+      whatsAppGroupsWarmupMs,
+      progressiveAdminCheckEnabled: whatsAppProgressiveAdminCheck
     });
+  }
+
+  getWhatsAppGroupsWarmupRemainingMs() {
+    const readyAt = Number(this.whatsAppReadyAt || 0);
+
+    if (!readyAt) {
+      return 0;
+    }
+
+    return Math.max(0, whatsAppGroupsWarmupMs - (Date.now() - readyAt));
   }
 
   async fetchGroupSummaries() {

@@ -70,6 +70,27 @@ export function getGroupsPage(runtime, { search = '', page = 1, pageSize = 50, f
 
 export async function refreshAvailableGroups(runtime, options = {}, serviceOptions = {}) {
   const waitForCompletion = options.waitForCompletion !== false;
+  const skipWarmupCheck = Boolean(options.skipWarmupCheck);
+  const warmupRemainingMs = skipWarmupCheck
+    ? 0
+    : Number(runtime.getWhatsAppGroupsWarmupRemainingMs?.() || 0);
+
+  if (warmupRemainingMs > 0) {
+    runtime.log(
+      `Sincronizacao de grupos adiada para estabilizar o WhatsApp (${Math.ceil(warmupRemainingMs / 1000)}s restantes).`,
+      {
+        type: 'groups_refresh_warmup',
+        metadata: {
+          warmupRemainingMs
+        }
+      }
+    );
+    throw new Error(
+      `Aguarde ${Math.ceil(
+        warmupRemainingMs / 1000
+      )}s apos o login do WhatsApp antes de atualizar grupos. Isso evita travamentos da sessao na AWS.`
+    );
+  }
 
   if (runtime.groupRefreshPromise) {
     if (waitForCompletion) {
@@ -97,6 +118,7 @@ export async function refreshAvailableGroups(runtime, options = {}, serviceOptio
 export async function performAvailableGroupsRefresh(runtime, options = {}) {
   const groupAdminCheckBatchSize = Number(options.groupAdminCheckBatchSize || 12);
   const defaultWhatsAppProtocolTimeoutMs = Number(options.defaultWhatsAppProtocolTimeoutMs || 600000);
+  const progressiveAdminCheckEnabled = options.progressiveAdminCheckEnabled !== false;
 
   if (!runtime.whatsAppClient || runtime.whatsAppStatus !== 'ready') {
     throw new Error('O WhatsApp ainda está finalizando a conexão. Aguarde o status "Pronto" e tente atualizar os grupos novamente.');
@@ -147,6 +169,23 @@ export async function performAvailableGroupsRefresh(runtime, options = {}) {
     let foundAdmins = 0;
 
     const cachedMap = new Map(runtime.availableGroups.map((group) => [group.id, group]));
+
+    if (progressiveAdminCheckEnabled) {
+      runtime.groupAdminVerificationPromise = verifyGroupAdminsInBackground(runtime, {
+        groups,
+        provisionalGroups,
+        cachedMap,
+        myCanonicalIds,
+        groupAdminCheckBatchSize
+      }).catch((error) => {
+        runtime.log(`Falha na verificacao progressiva de admin dos grupos: ${error.message}`, {
+          level: 'error',
+          type: 'groups_admin_progressive_error',
+          increments: { errors: 1 }
+        });
+      });
+      return;
+    }
 
     for (let index = 0; index < groups.length; index += 1) {
       const chat = groups[index];
@@ -281,8 +320,146 @@ export async function performAvailableGroupsRefresh(runtime, options = {}) {
       increments: { errors: 1 }
     });
   } finally {
+    if (!runtime.groupAdminVerificationPromise) {
+      runtime.isRefreshingGroups = false;
+    }
+  }
+}
+
+async function verifyGroupAdminsInBackground(runtime, options = {}) {
+  const {
+    groups = [],
+    provisionalGroups = [],
+    cachedMap = new Map(),
+    myCanonicalIds = new Set(),
+    groupAdminCheckBatchSize = 12
+  } = options;
+  const diagnosticSample = [];
+  const groupsWithAdminFlag = [];
+  let foundAdmins = 0;
+
+  try {
+    for (let index = 0; index < groups.length; index += 1) {
+      const chat = groups[index];
+      const cached = cachedMap.get(chat.id);
+      const participants = chat.participants;
+      let isAdmin = cached?.hasAdminAccess;
+
+      if (isAdmin === undefined || isAdmin === null) {
+        const adminParticipant = participants.find((participant) => {
+          const participantIds = buildCanonicalIds(participant.id);
+          return (
+            intersects(participantIds, myCanonicalIds) &&
+            (participant.isAdmin || participant.isSuperAdmin)
+          );
+        });
+        isAdmin = Boolean(adminParticipant);
+      }
+
+      if (diagnosticSample.length < 6) {
+        diagnosticSample.push({
+          name: chat.name || 'Grupo sem nome',
+          id: chat.id,
+          participantCount: participants.length,
+          matchedAdmin: isAdmin,
+          sampleParticipantIds: participants.slice(0, 5).map((participant) => ({
+            id: serializeWid(participant.id),
+            canonical: [...buildCanonicalIds(participant.id)],
+            isAdmin: Boolean(participant.isAdmin),
+            isSuperAdmin: Boolean(participant.isSuperAdmin)
+          }))
+        });
+      }
+
+      groupsWithAdminFlag.push({
+        id: chat.id,
+        name: chat.name || 'Grupo sem nome',
+        kind: chat.kind,
+        isAnnouncement: chat.isAnnouncement,
+        isCommunityLinked: chat.isCommunityLinked,
+        parentGroupId: chat.parentGroupId,
+        hasAdminAccess: isAdmin
+      });
+      if (isAdmin) {
+        foundAdmins += 1;
+      }
+
+      const processed = index + 1;
+      const shouldUpdateProgress =
+        processed === groups.length ||
+        processed === 1 ||
+        processed % 5 === 0;
+
+      if (shouldUpdateProgress) {
+        runtime.groupRefreshProgress = {
+          phase: 'checking_admins',
+          total: groups.length,
+          processed,
+          percent: groups.length
+            ? Math.max(10, Math.min(99, Math.round((processed / groups.length) * 100)))
+            : 100,
+          foundAdmins
+        };
+      }
+
+      if (processed % groupAdminCheckBatchSize === 0 || processed === groups.length) {
+        // Persist incremental visibility so the UI stays responsive under large accounts.
+        const mergedGroups = mergeAdminFlags(provisionalGroups, groupsWithAdminFlag);
+        runtime.availableGroups = mergedGroups.sort((left, right) =>
+          left.name.localeCompare(right.name, 'pt-BR')
+        );
+        runtime.groupCacheRefreshedAt = new Date().toISOString();
+        await persistGroupCache(runtime, runtime.availableGroups, runtime.groupDiagnostics, runtime.groupCacheRefreshedAt);
+      }
+
+      if (processed % groupAdminCheckBatchSize === 0 && processed < groups.length) {
+        await wait(0);
+      }
+    }
+
+    runtime.availableGroups = groupsWithAdminFlag.sort((left, right) =>
+      left.name.localeCompare(right.name, 'pt-BR')
+    );
+    const groupsWithAdminMatch = countAdminGroups(runtime.availableGroups);
+    runtime.groupCacheRefreshedAt = new Date().toISOString();
+    runtime.groupRefreshProgress = {
+      phase: 'done',
+      total: groups.length,
+      processed: groups.length,
+      percent: 100,
+      foundAdmins: groupsWithAdminMatch
+    };
+    runtime.groupDiagnostics = {
+      totalGroupsSeen: groups.length,
+      groupsWithAdminMatch,
+      myCanonicalIds: [...myCanonicalIds],
+      sample: diagnosticSample
+    };
+    await persistGroupCache(runtime, runtime.availableGroups, runtime.groupDiagnostics, runtime.groupCacheRefreshedAt);
+
+    runtime.log(
+      `Lista de grupos atualizada. Total vistos: ${groups.length}. Grupos com admin detectado: ${groupsWithAdminMatch}.`,
+      {
+        type: 'groups_refresh_success',
+        increments: { groupRefreshes: 1 },
+        metadata: {
+          totalGroupsSeen: groups.length,
+          groupsWithAdminMatch
+        }
+      }
+    );
+  } finally {
+    runtime.groupAdminVerificationPromise = null;
     runtime.isRefreshingGroups = false;
   }
+}
+
+function mergeAdminFlags(baseGroups = [], verifiedGroups = []) {
+  const verifiedById = new Map(verifiedGroups.map((group) => [group.id, group]));
+  return baseGroups.map((group) => {
+    const verified = verifiedById.get(group.id);
+    return verified ? { ...group, hasAdminAccess: verified.hasAdminAccess } : group;
+  });
 }
 
 export async function fetchGroupSummaries(runtime) {
