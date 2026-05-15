@@ -118,6 +118,17 @@ export async function maybeProcessAffiliateAutomation(
   runtime,
   { sourceGroupId, sourceGroupIds, sourceGroupName, telegramMessageId, messageText, telegramMessage }
 ) {
+  if (!runtime.config?.bridgeEnabled) {
+    runtime.log('Mensagem de afiliados recebida, mas o sistema esta desligado. Encaminhamento ignorado.', {
+      type: 'affiliate_forward_skipped',
+      metadata: {
+        sourceGroupId: String(sourceGroupId || ''),
+        sourceGroupName: String(sourceGroupName || '')
+      }
+    });
+    return false;
+  }
+
   const sourceRefs = Array.isArray(sourceGroupIds) && sourceGroupIds.length
     ? sourceGroupIds
     : [sourceGroupId];
