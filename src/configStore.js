@@ -39,6 +39,7 @@ export function getWorkspacePaths(userId) {
   const activityPath = path.join(workspaceDir, 'activity.json');
   const authClientId = buildAuthClientId(normalizedUserId);
   const authSessionDir = path.join(authRootDir, `session-${authClientId}`);
+  const baileysAuthSessionDir = path.join(authRootDir, `baileys-${authClientId}`);
   const previousAuthClientId = `user-${normalizedUserId}`.replace(/[^a-z0-9_-]/gi, '-');
   const previousAuthSessionDir = path.join(authRootDir, `session-${previousAuthClientId}`);
 
@@ -50,6 +51,7 @@ export function getWorkspacePaths(userId) {
     authRootDir,
     authClientId,
     authSessionDir,
+    baileysAuthSessionDir,
     previousAuthSessionDir
   };
 }

@@ -32,6 +32,11 @@ export async function sendAffiliateMessageToWhatsAppGroups(runtime, whatsAppPayl
           return;
         }
 
+        if (runtime.whatsAppClient?.provider === 'baileys') {
+          await runtime.whatsAppClient.sendMediaMessage(groupId, whatsAppPayload);
+          return;
+        }
+
         const media = new MessageMedia(whatsAppPayload.mimeType, whatsAppPayload.base64, whatsAppPayload.filename);
         await runtime.whatsAppClient.sendMessage(groupId, media, {
           caption: whatsAppPayload.caption || undefined
@@ -91,6 +96,11 @@ export async function forwardPreparedMessagesToWhatsAppGroups(runtime, { prepare
           }
 
           if (item.type === 'media') {
+            if (runtime.whatsAppClient?.provider === 'baileys') {
+              await runtime.whatsAppClient.sendMediaMessage(groupId, item);
+              return;
+            }
+
             const media = new MessageMedia(item.mimeType, item.base64, item.filename);
             await runtime.whatsAppClient.sendMessage(groupId, media, {
               caption: item.caption || undefined

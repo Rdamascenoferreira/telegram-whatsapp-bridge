@@ -8,7 +8,7 @@ Programa local para ler novos posts de um canal do Telegram e encaminhar para gr
 - O usu?rio pode criar conta com email e senha.
 - O login com Google pode ser habilitado por configura??o no servidor.
 - O lado Telegram usa um bot.
-- O lado WhatsApp usa sua sess?o do WhatsApp Web via QR Code.
+- O lado WhatsApp usa QR Code com Baileys por padrao, sem abrir Chromium.
 - O painel local mostra apenas grupos onde sua conta atual aparece como admin.
 - Voce marca os grupos desejados e salva.
 - Quando chegar um novo post no canal configurado, a mensagem e encaminhada para esses grupos.
@@ -81,6 +81,7 @@ APP_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 PORT=3100
 NODE_ENV=production
 WHATSAPP_HEADLESS=true
+WHATSAPP_PROVIDER=baileys
 WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 ```
 
@@ -96,7 +97,13 @@ Se n?o definir essas variaveis, o painel continua funcionando com cadastro por e
 
 ## Ajuste para servidor AWS/Linux
 
-Se a conta tiver muitos chats e a leitura dos grupos do WhatsApp demorar no servidor, aumente o tempo do protocolo do Chromium:
+O padrao atual usa Baileys (`WHATSAPP_PROVIDER=baileys`), que evita abrir Chromium e reduz bastante o uso de RAM/CPU apos escanear o QR Code. Se precisar voltar ao motor antigo por emergencia, configure:
+
+```env
+WHATSAPP_PROVIDER=web
+```
+
+No modo antigo com Chromium, se a conta tiver muitos chats e a leitura dos grupos demorar no servidor, aumente o tempo do protocolo:
 
 ```env
 WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
@@ -182,13 +189,13 @@ Depois disso, cada `push` na `main` atualiza o servidor automaticamente.
 - Cada workspace fica em `data/workspaces/<userId>/config.json`
 - Hist?rico e m?tricas ficam em `data/workspaces/<userId>/activity.json`
 - A migracao da ponte antiga fica registrada em `data/migrations/legacy-workspace-owner.json`
-- As sess?es do WhatsApp ficam separadas em `.wwebjs_auth/session-user-<userId>`
+- As sessoes do WhatsApp ficam separadas em `.wwebjs_auth/baileys-user-<userId>` no provider Baileys e em `.wwebjs_auth/session-user-<userId>` no provider antigo.
 
 Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configurados, usu?rios e perfis passam a ser lidos e gravados no Supabase. O schema esperado fica em `scripts/supabase-auth-schema.sql`.
 
 ## Observacoes importantes
 
-- Esta ponte usa `whatsapp-web.js`, que opera em cima do WhatsApp Web. Segundo a documentacao do projeto, isso reduz risco, mas n?o garante que a conta nunca sera bloqueada.
+- Esta ponte usa Baileys por padrao e mantem `whatsapp-web.js` como fallback via `WHATSAPP_PROVIDER=web`. Ambos operam em cima de sessao web/multi-device e nao garantem que a conta nunca sera bloqueada.
 - A API oficial do WhatsApp Business/Cloud API e focada em mensagens para usu?rios/contatos; eu n?o encontrei, nas fontes oficiais que consultei, uma documentacao primaria equivalente para esse caso de encaminhar para grupos arbitrarios escolhidos no seu WhatsApp pessoal. Por isso esta vers?o local usa sess?o web.
 - O modo antigo com bot do Telegram foi removido; o runtime atual usa sess?o de usu?rio do Telegram.
 - Primeira vers?o: n?o tenta sincronizar edicoes posteriores do post no Telegram. Ela encaminha novos posts.
@@ -196,6 +203,7 @@ Quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estiverem configurados, usu?
 ## Fontes consultadas
 
 - Telegram user sessions / GramJS: [gram.js.org](https://gram.js.org/)
+- Baileys: [github.com/WhiskeySockets/Baileys](https://github.com/WhiskeySockets/Baileys)
 - `whatsapp-web.js`: [wwebjs.dev](https://wwebjs.dev/)
 - `LocalAuth`: [docs.wwebjs.dev/LocalAuth.html](https://docs.wwebjs.dev/LocalAuth.html)
 - `GroupChat.participants` e flags de admin: [docs.wwebjs.dev/GroupChat.html](https://docs.wwebjs.dev/GroupChat.html)

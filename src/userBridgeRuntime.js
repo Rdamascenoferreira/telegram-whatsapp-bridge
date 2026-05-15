@@ -77,9 +77,11 @@ import {
   persistGroupCache as persistWhatsAppGroupCache,
   refreshAvailableGroups as refreshWhatsAppGroups
 } from './services/whatsapp/groups.js';
+import { createBaileysWhatsAppClient } from './services/whatsapp/baileysClient.js';
 import { WhatsAppDeliveryQueue } from './whatsAppDeliveryQueue.js';
 
 const { Client, LocalAuth } = pkg;
+const whatsAppProvider = normalizeWhatsAppProvider(process.env.WHATSAPP_PROVIDER || process.env.WHATSAPP_ENGINE || 'baileys');
 const albumFlushDelayMs = 1800;
 const pendingTelegramMessageLimit = 60;
 const pendingTelegramMessageTtlMs = 5 * 60 * 1000;
@@ -204,6 +206,7 @@ export class UserBridgeRuntime {
     this.logs = [];
     this.qrDataUrl = null;
     this.whatsAppClient = null;
+    this.whatsAppProvider = whatsAppProvider;
     this.whatsAppStatus = 'starting';
     this.whatsAppPhone = null;
     this.availableGroups = [];
@@ -603,26 +606,7 @@ export class UserBridgeRuntime {
     this.whatsAppStatus = 'connecting';
     this.whatsAppIssue = null;
     this.scheduleWhatsAppStartupWatchdog('inicializacao');
-    const client = new Client({
-      authStrategy: new LocalAuth({
-        clientId: this.paths.authClientId,
-        dataPath: this.paths.authRootDir
-      }),
-      authTimeoutMs: whatsAppAuthTimeoutMs,
-      qrMaxRetries: whatsAppQrMaxRetries,
-      takeoverOnConflict: whatsAppTakeoverOnConflict,
-      takeoverTimeoutMs: whatsAppTakeoverTimeoutMs,
-      userAgent: modernChromeUserAgent,
-      puppeteer: {
-        headless: defaultWhatsAppHeadless,
-        protocolTimeout: defaultWhatsAppProtocolTimeoutMs,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          ...backgroundBrowserArgs
-        ]
-      }
-    });
+    const client = await this.createWhatsAppProviderClient();
 
     this.whatsAppClient = client;
     const isCurrent = () => this.isCurrentWhatsAppClient(client, sessionToken);
@@ -784,6 +768,42 @@ export class UserBridgeRuntime {
     });
   }
 
+  async createWhatsAppProviderClient() {
+    if (this.whatsAppProvider === 'baileys') {
+      this.log('Inicializando WhatsApp com Baileys (sem Chromium).', {
+        type: 'whatsapp_provider_start',
+        metadata: {
+          provider: this.whatsAppProvider
+        }
+      });
+      return await createBaileysWhatsAppClient({
+        authDir: this.paths.baileysAuthSessionDir,
+        defaultQueryTimeoutMs: defaultWhatsAppProtocolTimeoutMs
+      });
+    }
+
+    return new Client({
+      authStrategy: new LocalAuth({
+        clientId: this.paths.authClientId,
+        dataPath: this.paths.authRootDir
+      }),
+      authTimeoutMs: whatsAppAuthTimeoutMs,
+      qrMaxRetries: whatsAppQrMaxRetries,
+      takeoverOnConflict: whatsAppTakeoverOnConflict,
+      takeoverTimeoutMs: whatsAppTakeoverTimeoutMs,
+      userAgent: modernChromeUserAgent,
+      puppeteer: {
+        headless: defaultWhatsAppHeadless,
+        protocolTimeout: defaultWhatsAppProtocolTimeoutMs,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          ...backgroundBrowserArgs
+        ]
+      }
+    });
+  }
+
   isCurrentWhatsAppClient(client, sessionToken = this.whatsAppSessionToken) {
     return this.whatsAppClient === client && this.whatsAppSessionToken === sessionToken;
   }
@@ -830,7 +850,9 @@ export class UserBridgeRuntime {
       return;
     }
 
-    if (!isPathInside(this.paths.authSessionDir, this.paths.authRootDir)) {
+    const providerSessionDir = this.getWhatsAppProviderSessionDir();
+
+    if (!isPathInside(providerSessionDir, this.paths.authRootDir)) {
       throw new Error('Diretório de sessão fora do escopo permitido.');
     }
 
@@ -850,18 +872,22 @@ export class UserBridgeRuntime {
     try {
       await this.stopWhatsAppClient();
 
-      if (await pathExists(this.paths.authSessionDir)) {
-        const backupPath = buildSessionBackupPath(this.paths.authSessionDir);
-        await fs.rename(this.paths.authSessionDir, backupPath);
+      if (await pathExists(providerSessionDir)) {
+        const backupPath = buildSessionBackupPath(providerSessionDir);
+        await fs.rename(providerSessionDir, backupPath);
         this.log('Sessão anterior do WhatsApp movida para backup. Um novo QR Code será gerado.', {
           type: 'whatsapp_session_reset',
           metadata: {
-            backupPath
+            backupPath,
+            provider: this.whatsAppProvider
           }
         });
       } else {
         this.log('Preparando uma nova sessão do WhatsApp. Um novo QR Code será gerado.', {
-          type: 'whatsapp_session_reset'
+          type: 'whatsapp_session_reset',
+          metadata: {
+            provider: this.whatsAppProvider
+          }
         });
       }
 
@@ -902,6 +928,11 @@ export class UserBridgeRuntime {
   }
 
   async destroyWhatsAppClient(client) {
+    if (this.whatsAppProvider === 'baileys' || client?.provider === 'baileys') {
+      await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch(() => {});
+      return;
+    }
+
     const browser = client?.pupBrowser;
 
     await withTimeout(client.destroy().catch(() => {}), whatsAppDestroyTimeoutMs).catch(async (error) => {
@@ -953,6 +984,10 @@ export class UserBridgeRuntime {
 
   async inspectWhatsAppIssue(error, client = this.whatsAppClient, sessionToken = this.whatsAppSessionToken) {
     if (!this.isCurrentWhatsAppClient(client, sessionToken)) {
+      return null;
+    }
+
+    if (this.whatsAppProvider === 'baileys' || client?.provider === 'baileys') {
       return null;
     }
 
@@ -1995,6 +2030,10 @@ export class UserBridgeRuntime {
   }
 
   attachWhatsAppBrowserLifecycle(client = this.whatsAppClient, sessionToken = this.whatsAppSessionToken) {
+    if (this.whatsAppProvider === 'baileys' || client?.provider === 'baileys') {
+      return;
+    }
+
     const browser = client?.pupBrowser;
 
     if (!browser || browser.__bridgeLifecycleAttached) {
@@ -2012,6 +2051,10 @@ export class UserBridgeRuntime {
   }
 
   isWhatsAppBrowserAlive() {
+    if (this.whatsAppProvider === 'baileys' || this.whatsAppClient?.provider === 'baileys') {
+      return Boolean(this.whatsAppClient?.isAlive?.());
+    }
+
     const browser = this.whatsAppClient?.pupBrowser;
     const page = this.whatsAppClient?.pupPage;
 
@@ -2048,6 +2091,19 @@ export class UserBridgeRuntime {
     );
     this.scheduleWhatsAppAutoReconnect(context);
   }
+
+  getWhatsAppProviderSessionDir() {
+    return this.whatsAppProvider === 'baileys'
+      ? this.paths.baileysAuthSessionDir
+      : this.paths.authSessionDir;
+  }
+}
+
+function normalizeWhatsAppProvider(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'web' || normalized === 'whatsapp-web' || normalized === 'whatsapp-web.js'
+    ? 'web'
+    : 'baileys';
 }
 
 function serializeWid(wid) {
