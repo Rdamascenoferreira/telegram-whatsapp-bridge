@@ -584,7 +584,7 @@ function formatCurrencyBR(value) {
 function cleanTitleForHero(value) {
   return String(value || '')
     .replace(/\s+/g, ' ')
-    .replace(/\s*[-–-]\s*\((?:amazon|shopee)\)\s*$/i, '')
+    .replace(/\s*[-–-]\s*\((?:amazon|shopee|mercado\s*livre|mercadolivre)\)\s*$/i, '')
     .trim();
 }
 

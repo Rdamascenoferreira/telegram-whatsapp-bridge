@@ -530,6 +530,7 @@ export function OverviewPanel({
             featureBadges={[
               { label: 'Amazon', enabled: Boolean(state.planLimits?.amazonAffiliate) },
               { label: 'Shopee', enabled: Boolean(state.planLimits?.shopeeAffiliate) },
+              { label: 'Mercado Livre', enabled: Boolean(state.planLimits?.mercadoLivreAffiliate) },
               { label: 'Histórico', enabled: Boolean((state.planLimits?.historyDays || 0) > 1), value: `${state.planLimits?.historyDays || 0} dias` },
               { label: 'Mensagens/dia', enabled: true, value: formatNumber(state.planLimits?.dailyMessages || 0) }
             ]}

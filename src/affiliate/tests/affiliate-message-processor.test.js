@@ -298,6 +298,71 @@ test('processAffiliateMessage converts Shopee coupon and product links in the sa
   assert.equal(result.convertedUrls.filter((item) => item.status === 'converted').length, 2);
 });
 
+test('processAffiliateMessage converts Mercado Livre links from cache without browser automation', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account: {
+      ...account,
+      amazonEnabled: false,
+      shopeeEnabled: false,
+      mercadoLivreEnabled: true,
+      mercadoLivreAutoEnabled: false,
+      defaultSubId: 'vip'
+    },
+    dryRun: true,
+    message: 'Oferta https://mercadolivre.com.br/oferta-curta',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: 'https://produto.mercadolivre.com.br/MLB-1234567890-produto-_JM',
+      success: true
+    }),
+    getAffiliateLinkCacheFn: async ({ productKey, label }) => ({
+      productKey,
+      label,
+      affiliateUrl: 'https://www.mercadolivre.com.br/afiliado/cacheado',
+      source: 'manual'
+    }),
+    generateMercadoLivreAffiliateUrlFn: async () => {
+      throw new Error('should not call browser worker');
+    }
+  });
+
+  assert.equal(result.status, 'converted');
+  assert.equal(result.processedMessage, 'Oferta https://www.mercadolivre.com.br/afiliado/cacheado');
+  assert.equal(result.convertedUrls[0].marketplace, 'mercadolivre');
+  assert.equal(result.convertedUrls[0].productKey, 'MLB1234567890');
+});
+
+test('processAffiliateMessage keeps Mercado Livre link when cache misses and browser automation is disabled', async () => {
+  const result = await processAffiliateMessage({
+    userId: 'user-1',
+    automationId: 'automation-1',
+    automation,
+    account: {
+      ...account,
+      amazonEnabled: false,
+      shopeeEnabled: false,
+      mercadoLivreEnabled: true,
+      mercadoLivreAutoEnabled: false
+    },
+    dryRun: true,
+    message: 'Oferta https://produto.mercadolivre.com.br/MLB-1234567890-produto-_JM',
+    expandUrlFn: async (url) => ({
+      originalUrl: url,
+      expandedUrl: url,
+      success: true
+    }),
+    getAffiliateLinkCacheFn: async () => null
+  });
+
+  assert.equal(result.status, 'ignored');
+  assert.equal(result.shouldSend, false);
+  assert.match(result.processedMessage, /produto\.mercadolivre\.com\.br/);
+  assert.equal(result.convertedUrls[0].status, 'ignored');
+});
+
 test('processAffiliateMessage accepts marketplace provider override for extensibility', async () => {
   const result = await processAffiliateMessage({
     userId: 'user-1',

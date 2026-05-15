@@ -1,5 +1,12 @@
 import { convertAmazonLink } from './converters/amazon-affiliate-converter.js';
+import { convertMercadoLivreLink } from './converters/mercadolivre-affiliate-converter.js';
 import { convertShopeeLink } from './converters/shopee-affiliate-converter.js';
+import {
+  generateMercadoLivreAffiliateUrlWithPython,
+  getMercadoLivreStorageStatePath,
+  isMercadoLivreBrowserAutomationEnabled
+} from './mercadolivre-browser-automation.js';
+import { getAffiliateLinkCache, upsertAffiliateLinkCache } from './affiliate-store.js';
 import { createUrlShortenerFromEnv } from './url-shortener.js';
 
 function buildIgnoredConversion(originalUrl, expandedUrl, marketplace, error = '') {
@@ -15,7 +22,12 @@ function buildIgnoredConversion(originalUrl, expandedUrl, marketplace, error = '
 export function createMarketplaceProviders(options = {}) {
   const convertAmazonLinkFn = options.convertAmazonLinkFn || convertAmazonLink;
   const convertShopeeLinkFn = options.convertShopeeLinkFn || convertShopeeLink;
+  const convertMercadoLivreLinkFn = options.convertMercadoLivreLinkFn || convertMercadoLivreLink;
   const shortenUrlFn = options.shortenUrlFn || createUrlShortenerFromEnv();
+  const getAffiliateLinkCacheFn = options.getAffiliateLinkCacheFn || getAffiliateLinkCache;
+  const upsertAffiliateLinkCacheFn = options.upsertAffiliateLinkCacheFn || upsertAffiliateLinkCache;
+  const generateMercadoLivreAffiliateUrlFn =
+    options.generateMercadoLivreAffiliateUrlFn || generateMercadoLivreAffiliateUrlWithPython;
 
   return {
     amazon: async (context) => {
@@ -82,6 +94,50 @@ export function createMarketplaceProviders(options = {}) {
         utmContent: shopeeResult.utmContent,
         status: shopeeResult.success ? 'converted' : 'error',
         error: shopeeResult.error
+      };
+    },
+    mercadolivre: async (context) => {
+      if (!context.account?.mercadoLivreEnabled) {
+        return buildIgnoredConversion(context.originalUrl, context.expandedUrl, 'mercadolivre');
+      }
+
+      const mercadoLivreResult = await convertMercadoLivreLinkFn(context.expandedUrl, {
+        userId: context.userId,
+        label: context.account.defaultSubId,
+        automationEnabled: Boolean(context.account?.mercadoLivreAutoEnabled) && isMercadoLivreBrowserAutomationEnabled(),
+        storageStatePath: getMercadoLivreStorageStatePath(context.userId),
+        lookupAffiliateLinkFn: async ({ marketplace, productKey, label }) => await getAffiliateLinkCacheFn({
+          userId: context.userId,
+          marketplace,
+          productKey,
+          label
+        }),
+        saveAffiliateLinkFn: async ({ marketplace, productKey, label, originalUrl, affiliateUrl, source }) => await upsertAffiliateLinkCacheFn({
+          userId: context.userId,
+          marketplace,
+          productKey,
+          label,
+          originalUrl,
+          affiliateUrl,
+          source
+        }),
+        generateAffiliateUrlFn: generateMercadoLivreAffiliateUrlFn
+      });
+
+      return {
+        originalUrl: context.originalUrl,
+        expandedUrl: context.expandedUrl,
+        marketplace: 'mercadolivre',
+        affiliateUrl: mercadoLivreResult.affiliateUrl,
+        productKey: mercadoLivreResult.productKey,
+        label: mercadoLivreResult.label,
+        source: mercadoLivreResult.source,
+        status: mercadoLivreResult.success
+          ? 'converted'
+          : mercadoLivreResult.status === 'ignored'
+            ? 'ignored'
+            : 'error',
+        error: mercadoLivreResult.error
       };
     }
   };

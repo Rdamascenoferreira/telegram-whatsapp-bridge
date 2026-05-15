@@ -1,6 +1,10 @@
 import { appendActivityEvent, defaultMetrics, loadActivityForUser, saveActivityForUser } from './activityStore.js';
 import { getAffiliateState } from './affiliate/affiliate-store.js';
 import {
+  hasMercadoLivreStorageState,
+  isMercadoLivreBrowserAutomationEnabled
+} from './affiliate/mercadolivre-browser-automation.js';
+import {
   listUsersForAdmin,
   userAccountStatusOptions,
   userBillingStatusOptions,
@@ -475,6 +479,10 @@ export class BridgeApp {
         ...affiliateState,
         shortener: {
           amazonEnabled: isAmazonShortenerGloballyEnabled()
+        },
+        mercadoLivre: {
+          browserAutomationEnabled: isMercadoLivreBrowserAutomationEnabled(),
+          sessionConfigured: await hasMercadoLivreStorageState(userId).catch(() => false)
         }
       };
     } catch (error) {
@@ -485,6 +493,10 @@ export class BridgeApp {
         termsAccepted: false,
         shortener: {
           amazonEnabled: isAmazonShortenerGloballyEnabled()
+        },
+        mercadoLivre: {
+          browserAutomationEnabled: isMercadoLivreBrowserAutomationEnabled(),
+          sessionConfigured: false
         },
         error: error.message
       };

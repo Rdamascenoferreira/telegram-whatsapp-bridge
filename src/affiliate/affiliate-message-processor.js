@@ -21,6 +21,10 @@ export async function processAffiliateMessage(params = {}) {
     ...createMarketplaceProviders({
       convertAmazonLinkFn: params.convertAmazonLinkFn,
       convertShopeeLinkFn: params.convertShopeeLinkFn,
+      convertMercadoLivreLinkFn: params.convertMercadoLivreLinkFn,
+      getAffiliateLinkCacheFn: params.getAffiliateLinkCacheFn,
+      upsertAffiliateLinkCacheFn: params.upsertAffiliateLinkCacheFn,
+      generateMercadoLivreAffiliateUrlFn: params.generateMercadoLivreAffiliateUrlFn,
       shortenUrlFn: params.shortenUrlFn
     }),
     ...(params.marketplaceProviders && typeof params.marketplaceProviders === 'object'

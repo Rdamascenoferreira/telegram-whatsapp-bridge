@@ -107,7 +107,7 @@ export function PostLayoutPanel({
             <span>
               <span className="block text-base font-semibold text-white">Ativar arte limpa</span>
               <span className="mt-1 block text-sm leading-relaxed text-[#8D9C96]">
-                Quando a regra buscar imagem na Amazon/Shopee, o sistema tenta gerar a arte antes dos fallbacks atuais.
+                Quando a regra buscar imagem na Amazon/Shopee/Mercado Livre, o sistema tenta gerar a arte antes dos fallbacks atuais.
               </span>
             </span>
             <div className={`relative flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors duration-300 ease-in-out ${enabled ? 'bg-[var(--accent)]' : 'border border-[rgba(255,255,255,0.1)] bg-zinc-800'}`}>

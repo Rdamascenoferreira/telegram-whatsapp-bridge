@@ -57,13 +57,39 @@ create table if not exists public.affiliate_accounts (
   default_sub_id text,
   amazon_enabled boolean not null default false,
   shopee_enabled boolean not null default false,
+  mercadolivre_enabled boolean not null default false,
+  mercadolivre_auto_enabled boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint affiliate_accounts_user_unique unique (user_id)
 );
 
 alter table if exists public.affiliate_accounts
-  add column if not exists amazon_shortener_enabled boolean not null default false;
+  add column if not exists amazon_shortener_enabled boolean not null default false,
+  add column if not exists mercadolivre_enabled boolean not null default false,
+  add column if not exists mercadolivre_auto_enabled boolean not null default false;
+
+create table if not exists public.affiliate_link_cache (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  marketplace text not null,
+  product_key text not null,
+  label text not null default '',
+  original_url text,
+  affiliate_url text not null,
+  source text not null default 'browser_automation',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint affiliate_link_cache_user_marketplace_product_label_unique
+    unique (user_id, marketplace, product_key, label),
+  constraint affiliate_link_cache_marketplace_check
+    check (marketplace in ('amazon', 'shopee', 'mercadolivre')),
+  constraint affiliate_link_cache_source_check
+    check (source in ('manual', 'browser_automation', 'api'))
+);
+
+alter table if exists public.affiliate_link_cache
+  enable row level security;
 
 create table if not exists public.affiliate_messages_log (
   id uuid primary key default gen_random_uuid(),
@@ -94,10 +120,15 @@ create table if not exists public.affiliate_conversion_logs (
   error_message text,
   created_at timestamptz not null default now(),
   constraint affiliate_conversion_logs_marketplace_check
-    check (marketplace in ('amazon', 'shopee', 'unknown')),
+    check (marketplace in ('amazon', 'shopee', 'mercadolivre', 'unknown')),
   constraint affiliate_conversion_logs_status_check
     check (status in ('converted', 'ignored', 'error'))
 );
+
+alter table if exists public.affiliate_conversion_logs
+  drop constraint if exists affiliate_conversion_logs_marketplace_check,
+  add constraint affiliate_conversion_logs_marketplace_check
+    check (marketplace in ('amazon', 'shopee', 'mercadolivre', 'unknown'));
 
 create table if not exists public.affiliate_terms_acceptance (
   id uuid primary key default gen_random_uuid(),
@@ -116,6 +147,8 @@ create index if not exists idx_affiliate_automation_destinations_automation_id
   on public.affiliate_automation_destinations(automation_id);
 create index if not exists idx_affiliate_accounts_user_id
   on public.affiliate_accounts(user_id);
+create index if not exists idx_affiliate_link_cache_user_marketplace_product
+  on public.affiliate_link_cache(user_id, marketplace, product_key);
 create index if not exists idx_affiliate_messages_log_automation_id
   on public.affiliate_messages_log(automation_id);
 create index if not exists idx_affiliate_messages_log_user_id

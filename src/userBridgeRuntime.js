@@ -2496,7 +2496,7 @@ function extractProductImageUrlFromHtml(html) {
     return jsonLdCandidate;
   }
 
-  const knownHostMatch = decodedSource.match(/(?:https?:)?\/\/[^\s"'<>]+(?:susercontent\.com|images(?:-na)?\.ssl-images-amazon\.com)[^\s"'<>]*/i);
+  const knownHostMatch = decodedSource.match(/(?:https?:)?\/\/[^\s"'<>]+(?:susercontent\.com|images(?:-na)?\.ssl-images-amazon\.com|mlstatic\.com)[^\s"'<>]*/i);
   const knownHostCandidate = sanitizeImageCandidate(knownHostMatch?.[0]);
   if (knownHostCandidate) {
     return knownHostCandidate;
@@ -2553,6 +2553,10 @@ function sanitizeImageCandidate(value) {
   }
 
   if (/(?:^|\/\/)(?:[a-z-]+\.)?img\.susercontent\.com\/.+/i.test(candidate)) {
+    return candidate;
+  }
+
+  if (/(?:^|\/\/)(?:[a-z0-9-]+\.)?mlstatic\.com\/.+/i.test(candidate)) {
     return candidate;
   }
 

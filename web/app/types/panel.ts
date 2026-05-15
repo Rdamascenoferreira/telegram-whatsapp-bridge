@@ -79,6 +79,8 @@ export type AffiliateAccount = {
   defaultSubId?: string;
   amazonEnabled?: boolean;
   shopeeEnabled?: boolean;
+  mercadoLivreEnabled?: boolean;
+  mercadoLivreAutoEnabled?: boolean;
 };
 
 export type AffiliateAutomation = {
@@ -125,7 +127,7 @@ export type AffiliateLog = {
   convertedUrls?: Array<{
     originalUrl: string;
     expandedUrl: string;
-    marketplace: 'amazon' | 'shopee' | 'unknown';
+    marketplace: 'amazon' | 'shopee' | 'mercadolivre' | 'unknown';
     affiliateUrl: string;
     affiliateId?: string;
     subIds?: Record<string, string>;
@@ -146,6 +148,7 @@ export type PlanLimits = {
   affiliateAutomations: number;
   amazonAffiliate: boolean;
   shopeeAffiliate: boolean;
+  mercadoLivreAffiliate: boolean;
   dailyMessages: number;
   historyDays: number;
 };
@@ -302,6 +305,10 @@ export type AppState = {
     termsVersion?: string;
     shortener?: {
       amazonEnabled?: boolean;
+    };
+    mercadoLivre?: {
+      browserAutomationEnabled?: boolean;
+      sessionConfigured?: boolean;
     };
     error?: string;
   };

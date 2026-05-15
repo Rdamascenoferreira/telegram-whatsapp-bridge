@@ -17,6 +17,14 @@ export function ensureAffiliateAccountPlan(plan, payload = {}) {
       message: 'Conversão Shopee está disponível a partir do plano Pro.'
     });
   }
+
+  if (payload.mercadoLivreEnabled) {
+    ensurePlanFeature({
+      plan,
+      key: 'mercadoLivreAffiliate',
+      message: 'Conversao Mercado Livre esta disponivel a partir do plano Pro.'
+    });
+  }
 }
 
 export function ensureAffiliateTermsAccepted(affiliateState = {}) {
@@ -54,6 +62,10 @@ export function ensureAffiliateAccountPayload(payload = {}, existingAccount = nu
     if (!shopeeSecret && !existingSecretConfigured) {
       throw new Error('Informe o Secret/API Secret da Shopee antes de ativar a conversão Shopee.');
     }
+  }
+
+  if (payload.mercadoLivreAutoEnabled && !payload.mercadoLivreEnabled) {
+    throw new Error('Ative a conversao Mercado Livre antes de ligar a automacao por navegador.');
   }
 }
 

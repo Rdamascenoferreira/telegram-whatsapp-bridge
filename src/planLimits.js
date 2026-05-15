@@ -11,6 +11,7 @@ const planLimits = {
     affiliateAutomations: 0,
     amazonAffiliate: false,
     shopeeAffiliate: false,
+    mercadoLivreAffiliate: false,
     dailyMessages: 100,
     historyDays: 1
   },
@@ -22,6 +23,7 @@ const planLimits = {
     affiliateAutomations: 1,
     amazonAffiliate: true,
     shopeeAffiliate: false,
+    mercadoLivreAffiliate: false,
     dailyMessages: 500,
     historyDays: 7
   },
@@ -33,6 +35,7 @@ const planLimits = {
     affiliateAutomations: 3,
     amazonAffiliate: true,
     shopeeAffiliate: true,
+    mercadoLivreAffiliate: true,
     dailyMessages: 2000,
     historyDays: 30
   },
@@ -44,6 +47,7 @@ const planLimits = {
     affiliateAutomations: 10,
     amazonAffiliate: true,
     shopeeAffiliate: true,
+    mercadoLivreAffiliate: true,
     dailyMessages: 10000,
     historyDays: 90
   }

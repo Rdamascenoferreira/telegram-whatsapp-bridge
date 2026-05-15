@@ -111,6 +111,26 @@ WHATSAPP_PROTOCOL_TIMEOUT_MS=600000
 
 O valor e em milissegundos. Nesta vers?o, o padr?o ja foi elevado para `600000` (10 minutos), o que costuma ajudar em instancias Linux mais lentas.
 
+## Mercado Livre Afiliados (beta opcional)
+
+A conversao do Mercado Livre fica isolada e desligada por padrao. Para testar o worker de navegador em um ambiente controlado:
+
+```powershell
+python -m pip install -r scripts/requirements-mercadolivre.txt
+python -m playwright install chromium
+python scripts/mercadolivre_affiliate_worker.py login --storage-state data/mercadolivre-sessions/SEU_USER_ID.json
+```
+
+Depois habilite no `.env`:
+
+```env
+MERCADOLIVRE_BROWSER_AUTOMATION_ENABLED=true
+MERCADOLIVRE_SESSION_DIR=data/mercadolivre-sessions
+MERCADOLIVRE_PYTHON_COMMAND=python
+```
+
+Se o worker falhar, pedir login ou a sessao expirar, a conversao e ignorada de forma segura e o erro fica no log. Os links gerados sao salvos em `affiliate_link_cache` por usuario, marketplace, produto e SUBID.
+
 ## Deploy na AWS
 
 Esta vers?o agora ja vem com:

@@ -89,6 +89,9 @@ export async function getAffiliateAccountForProcessing(userId) {
 }
 
 export async function upsertAffiliateAccount(userId, payload = {}) {
+  const mercadoLivreFieldsRequested =
+    Object.prototype.hasOwnProperty.call(payload, 'mercadoLivreEnabled') ||
+    Object.prototype.hasOwnProperty.call(payload, 'mercadoLivreAutoEnabled');
   const body = {
     user_id: userId,
     amazon_tag: cleanText(payload.amazonTag),
@@ -100,13 +103,41 @@ export async function upsertAffiliateAccount(userId, payload = {}) {
     shopee_enabled: Boolean(payload.shopeeEnabled),
     updated_at: new Date().toISOString()
   };
+
+  if (mercadoLivreFieldsRequested) {
+    body.mercadolivre_enabled = Boolean(payload.mercadoLivreEnabled);
+    body.mercadolivre_auto_enabled = Boolean(payload.mercadoLivreEnabled) && Boolean(payload.mercadoLivreAutoEnabled);
+  }
+
   const shopeeSecret = cleanText(payload.shopeeSecret);
 
   if (shopeeSecret) {
     body.shopee_secret = shopeeSecret;
   }
 
-  const rows = await supabaseRequest('/rest/v1/affiliate_accounts', {
+  let rows;
+
+  try {
+    rows = await upsertAffiliateAccountBody(body);
+  } catch (error) {
+    if (!isAffiliateAccountMercadoLivreSchemaMissing(error)) {
+      throw error;
+    }
+
+    if (Boolean(payload.mercadoLivreEnabled) || Boolean(payload.mercadoLivreAutoEnabled)) {
+      throw new Error('O banco de afiliados precisa da migracao Mercado Livre. Rode scripts/supabase-affiliate-automation.sql no Supabase e tente novamente.');
+    }
+
+    delete body.mercadolivre_enabled;
+    delete body.mercadolivre_auto_enabled;
+    rows = await upsertAffiliateAccountBody(body);
+  }
+
+  return mapAffiliateAccount(rows[0]);
+}
+
+async function upsertAffiliateAccountBody(body) {
+  return await supabaseRequest('/rest/v1/affiliate_accounts', {
     method: 'POST',
     body,
     headers: {
@@ -116,8 +147,6 @@ export async function upsertAffiliateAccount(userId, payload = {}) {
       on_conflict: 'user_id'
     }
   });
-
-  return mapAffiliateAccount(rows[0]);
 }
 
 export async function getAffiliateAutomationById(userId, automationId) {
@@ -347,6 +376,68 @@ export async function createAffiliateConversionLog(payload = {}) {
   });
 }
 
+export async function getAffiliateLinkCache(payload = {}) {
+  if (!cloudEnabled) {
+    return null;
+  }
+
+  const userId = cleanText(payload.userId);
+  const marketplace = normalizeMarketplace(payload.marketplace);
+  const productKey = cleanText(payload.productKey).toUpperCase();
+  const label = cleanText(payload.label);
+
+  if (!userId || !marketplace || !productKey) {
+    return null;
+  }
+
+  const rows = await supabaseRequest('/rest/v1/affiliate_link_cache', {
+    searchParams: {
+      select: '*',
+      user_id: `eq.${userId}`,
+      marketplace: `eq.${marketplace}`,
+      product_key: `eq.${productKey}`,
+      label: `eq.${label}`,
+      limit: '1'
+    }
+  });
+
+  return mapAffiliateLinkCache(rows[0]);
+}
+
+export async function upsertAffiliateLinkCache(payload = {}) {
+  if (!cloudEnabled) {
+    return null;
+  }
+
+  const body = {
+    user_id: cleanText(payload.userId),
+    marketplace: normalizeMarketplace(payload.marketplace),
+    product_key: cleanText(payload.productKey).toUpperCase(),
+    label: cleanText(payload.label),
+    original_url: cleanText(payload.originalUrl),
+    affiliate_url: cleanText(payload.affiliateUrl),
+    source: normalizeAffiliateLinkCacheSource(payload.source),
+    updated_at: new Date().toISOString()
+  };
+
+  if (!body.user_id || !body.marketplace || !body.product_key || !body.affiliate_url) {
+    return null;
+  }
+
+  const rows = await supabaseRequest('/rest/v1/affiliate_link_cache', {
+    method: 'POST',
+    body,
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation'
+    },
+    searchParams: {
+      on_conflict: 'user_id,marketplace,product_key,label'
+    }
+  });
+
+  return mapAffiliateLinkCache(rows[0]);
+}
+
 async function replaceAffiliateDestinations(automationId, destinations) {
   await supabaseRequest('/rest/v1/affiliate_automation_destinations', {
     method: 'DELETE',
@@ -473,6 +564,11 @@ function isAffiliateAutomationRulesSchemaMissing(error) {
   ].some((columnName) => message.includes(columnName));
 }
 
+function isAffiliateAccountMercadoLivreSchemaMissing(error) {
+  const message = String(error?.message ?? '').toLowerCase();
+  return ['mercadolivre_enabled', 'mercadolivre_auto_enabled'].some((columnName) => message.includes(columnName));
+}
+
 function emptyAffiliateState() {
   return {
     account: null,
@@ -499,6 +595,8 @@ function mapAffiliateAccount(row, options = {}) {
     defaultSubId: String(row.default_sub_id ?? ''),
     amazonEnabled: Boolean(row.amazon_enabled),
     shopeeEnabled: Boolean(row.shopee_enabled),
+    mercadoLivreEnabled: Boolean(row.mercadolivre_enabled),
+    mercadoLivreAutoEnabled: Boolean(row.mercadolivre_auto_enabled),
     createdAt: String(row.created_at ?? ''),
     updatedAt: String(row.updated_at ?? '')
   };
@@ -621,9 +719,38 @@ function normalizeBeautifierStyle(value) {
   return ['clean', 'sales', 'urgent', 'plain'].includes(style) ? style : 'clean';
 }
 
+function normalizeMarketplace(value) {
+  const marketplace = String(value ?? '').trim().toLowerCase();
+  return ['amazon', 'shopee', 'mercadolivre', 'unknown'].includes(marketplace) ? marketplace : 'unknown';
+}
+
+function normalizeAffiliateLinkCacheSource(value) {
+  const source = String(value ?? '').trim().toLowerCase();
+  return ['manual', 'browser_automation', 'api', 'cache'].includes(source) ? source : 'browser_automation';
+}
+
 function normalizeMediaSourceMode(value) {
   const mode = String(value ?? '').trim().toLowerCase();
   return ['telegram_media', 'product_image', 'system_layout'].includes(mode) ? mode : 'telegram_media';
+}
+
+function mapAffiliateLinkCache(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: String(row.id ?? ''),
+    userId: String(row.user_id ?? ''),
+    marketplace: normalizeMarketplace(row.marketplace),
+    productKey: String(row.product_key ?? ''),
+    label: String(row.label ?? ''),
+    originalUrl: String(row.original_url ?? ''),
+    affiliateUrl: String(row.affiliate_url ?? ''),
+    source: normalizeAffiliateLinkCacheSource(row.source),
+    createdAt: String(row.created_at ?? ''),
+    updatedAt: String(row.updated_at ?? '')
+  };
 }
 
 function mapAutomationRulesColumns(payload = {}) {

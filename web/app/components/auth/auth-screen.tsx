@@ -75,7 +75,7 @@ export function AuthScreen({
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
             <FeatureItem icon={MessageSquare} title="Origem Telegram" text="Monitore canais ou grupos com precisão cirúrgica." />
             <FeatureItem icon={Smartphone} title="Destinos WhatsApp" text="Entregas limpas, controladas e no formato certo." />
-            <FeatureItem icon={CreditCard} title="Links Automáticos" text="Integração nativa com Amazon e Shopee." />
+            <FeatureItem icon={CreditCard} title="Links Automáticos" text="Integração nativa com Amazon, Shopee e Mercado Livre." />
             <FeatureItem icon={ShieldCheck} title="Painel de Controle" text="Sessões, histórico e testes em um só lugar." />
           </div>
         </div>

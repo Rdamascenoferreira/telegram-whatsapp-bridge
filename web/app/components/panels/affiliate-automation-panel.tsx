@@ -98,7 +98,9 @@ export function AffiliateAutomationPanel({
         shopeeAffiliateId: form.get('shopeeAffiliateId'),
         defaultSubId: form.get('defaultSubId'),
         shopeeAppId: form.get('shopeeAppId'),
-        shopeeSecret: form.get('shopeeSecret')
+        shopeeSecret: form.get('shopeeSecret'),
+        mercadoLivreEnabled: form.get('mercadoLivreEnabled') === 'on',
+        mercadoLivreAutoEnabled: form.get('mercadoLivreAutoEnabled') === 'on'
       }, { timeoutMs: HTTP_TIMEOUT_MS.MEDIUM });
 
       await refresh();
@@ -224,6 +226,8 @@ export function AffiliateAutomationPanel({
   const affiliateAccountLocked = Boolean(affiliate.account?.id) && !affiliateAccountEditing;
   const affiliateAccountFieldsDisabled = readOnlyAccount || !affiliateModuleAllowed || !affiliateTermsAccepted || affiliateAccountLocked || busy === 'affiliate-account';
   const amazonShortenerGloballyEnabled = Boolean(state.affiliate?.shortener?.amazonEnabled);
+  const mercadoLivreBrowserEnabled = Boolean(state.affiliate?.mercadoLivre?.browserAutomationEnabled);
+  const mercadoLivreSessionConfigured = Boolean(state.affiliate?.mercadoLivre?.sessionConfigured);
   
   const testLinks = testResult?.convertedUrls || [];
   const testConvertedLinks = testLinks.filter((url) => url.status === 'converted' && url.affiliateUrl);
@@ -303,7 +307,7 @@ export function AffiliateAutomationPanel({
             </div>
             <h2 className="mt-4 text-3xl font-bold tracking-tight text-white">Automação de Afiliados</h2>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-              Transforme automaticamente links de produtos em links comissionados da Amazon e Shopee antes de enviar para seus grupos de WhatsApp.
+              Transforme automaticamente links de produtos em links comissionados da Amazon, Shopee e Mercado Livre antes de enviar para seus grupos de WhatsApp.
             </p>
           </div>
           <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-300">
@@ -454,6 +458,46 @@ export function AffiliateAutomationPanel({
                 </div>
               </div>
 
+              {/* MERCADO LIVRE CARD */}
+              <div className="rounded-3xl border border-[#FFE600]/20 bg-[#FFE600]/5 p-6 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <ShoppingBag size={24} className="text-[#FFE600]" />
+                  <h4 className="text-lg font-semibold text-white">Mercado Livre Afiliados</h4>
+                </div>
+
+                <div className="mt-6 grid gap-4">
+                  <label className="inline-flex items-center gap-3 text-sm font-medium text-zinc-300 cursor-pointer">
+                    <input
+                      type="checkbox" name="mercadoLivreEnabled" defaultChecked={Boolean(affiliate.account?.mercadoLivreEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.mercadoLivreAffiliate}
+                      className="h-4 w-4 rounded border-white/20 bg-black/20 text-[#FFE600] focus:ring-[#FFE600]"
+                    />
+                    Ativar conversao Mercado Livre
+                  </label>
+
+                  <label className="inline-flex items-center gap-3 text-sm font-medium text-zinc-400 cursor-pointer bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+                    <input
+                      type="checkbox" name="mercadoLivreAutoEnabled" defaultChecked={Boolean(affiliate.account?.mercadoLivreAutoEnabled)} disabled={affiliateAccountFieldsDisabled || !planLimits?.mercadoLivreAffiliate}
+                      className="h-4 w-4 rounded border-white/20 bg-black/20 text-[#FFE600] focus:ring-[#FFE600]"
+                    />
+                    Usar gerador automatico por navegador
+                  </label>
+
+                  <div className="grid gap-2 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-[11px] leading-relaxed text-zinc-400">
+                    <p className="flex items-center gap-2 font-semibold text-zinc-300">
+                      <CheckCircle2 size={14} className={mercadoLivreBrowserEnabled ? 'text-[#25D366]' : 'text-amber-400'} />
+                      Worker Python: {mercadoLivreBrowserEnabled ? 'ligado no servidor' : 'desligado por env'}
+                    </p>
+                    <p className="flex items-center gap-2 font-semibold text-zinc-300">
+                      <CheckCircle2 size={14} className={mercadoLivreSessionConfigured ? 'text-[#25D366]' : 'text-amber-400'} />
+                      Sessao ML deste usuario: {mercadoLivreSessionConfigured ? 'configurada' : 'pendente'}
+                    </p>
+                    <p>
+                      Se algo falhar, a conversao e ignorada de forma segura sem derrubar o app. Links gerados sao salvos em cache por produto e SUBID.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* SAVE CREDENTIALS BUTTON */}
               {affiliateAccountLocked ? (
                 <button
@@ -524,7 +568,7 @@ export function AffiliateAutomationPanel({
                     className={premiumInputClass}
                   >
                     <option value="telegram_media">Usar imagem original do Telegram</option>
-                    <option value="product_image">Buscar imagem direto da Amazon/Shopee</option>
+                    <option value="product_image">Buscar imagem direto da Amazon/Shopee/Mercado Livre</option>
                     <option value="system_layout">Usar layout proprio do sistema</option>
                   </select>
                 </label>

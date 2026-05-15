@@ -239,7 +239,7 @@ export async function prepareAffiliateCleanPostLayoutPayload(
           !imageBuffer &&
           sourceFallbackImageBuffer &&
           converted.length === 1 &&
-          String(item?.marketplace || '').toLowerCase() !== 'shopee'
+          !['shopee', 'mercadolivre'].includes(String(item?.marketplace || '').toLowerCase())
         ) {
           imageBuffer = sourceFallbackImageBuffer;
         }
@@ -534,7 +534,7 @@ function cleanPostLayoutTitle(value) {
     .replace(/\b[a-z0-9-]+\.[a-z]{2,}\/\S+/gi, '')
     .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '')
     .replace(/[*_~`[\](){}]/g, '')
-    .replace(/\s*[-\u2013\u2014]?\s*(?:amazon|shopee)\s*$/i, '')
+    .replace(/\s*[-\u2013\u2014]?\s*(?:amazon|shopee|mercado\s*livre|mercadolivre)\s*$/i, '')
     .replace(/^[\s:;,\-.>]+/g, '')
     .replace(/[\s:;,\-.>]+$/g, '')
     .replace(/\s{2,}/g, ' ')

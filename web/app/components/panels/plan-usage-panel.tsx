@@ -44,7 +44,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
       name: 'Pro',
       tone: 'border-cyan-400/20 bg-cyan-400/[0.06]',
       description: 'Para escalar ofertas com afiliados e Histórico.',
-      highlights: ['3 origens Telegram', '30 destinos WhatsApp', 'Amazon + Shopee', '2.000 mensagens/dia']
+      highlights: ['3 origens Telegram', '30 destinos WhatsApp', 'Amazon + Shopee + ML', '2.000 mensagens/dia']
     },
     {
       key: 'business',
@@ -114,6 +114,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
             featureBadges={[
               { label: 'Amazon afiliado', enabled: Boolean(limits?.amazonAffiliate) },
               { label: 'Shopee afiliado', enabled: Boolean(limits?.shopeeAffiliate) },
+              { label: 'Mercado Livre', enabled: Boolean(limits?.mercadoLivreAffiliate) },
               { label: 'Histórico', enabled: Boolean((limits?.historyDays || 0) > 1), value: `${limits?.historyDays || 0} dias` },
               { label: 'Mensagens/dia', enabled: true, value: formatNumber(limits?.dailyMessages || 0) }
             ]}
@@ -189,7 +190,7 @@ export function PlanUsagePanel({ state, setView }: { state: AppState; setView: (
               className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <p className="font-semibold">Configurar Afiliados</p>
-              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee e regras de conversão.</p>
+              <p className="mt-2 text-sm leading-5 text-[var(--muted)]">Ative Amazon, Shopee, Mercado Livre e regras de conversão.</p>
             </button>
           </section>
         </div>
